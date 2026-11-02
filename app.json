@@ -1,14 +1,15 @@
 {
   "expo": {
-    "name": "Coinroot-Expense-Tracker",
-    "slug": "Coinroot-Expense-Tracker",
+    "name": "Coinroot",
+    "slug": "coinroot",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "coinrootexpensetracker",
+    "scheme": "coinroot",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/expo.icon",
+      "bundleIdentifier": "com.coinroot"
     },
     "android": {
       "adaptiveIcon": {
@@ -17,7 +18,8 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.coinroot"
     },
     "web": {
       "output": "server",
