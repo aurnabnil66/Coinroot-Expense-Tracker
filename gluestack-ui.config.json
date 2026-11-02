@@ -1,0 +1,5 @@
+{
+  "app": {
+    "components": "src/lib/gluestack-ui"
+  }
+}
