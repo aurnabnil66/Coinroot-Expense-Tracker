@@ -9,11 +9,11 @@ import {
 import { SymbolView } from 'expo-symbols';
 import { Pressable, useColorScheme, View, StyleSheet } from 'react-native';
 
-import { Colors, MaxContentWidth, Spacing } from '@/constants/theme';
+import { Colors, MaxContentWidth, Spacing } from '@/lib/constants';
 
-import { ExternalLink } from './external-link';
-import { ThemedText } from './themed-text';
-import { ThemedView } from './themed-view';
+import { ExternalLink } from './external-link.ui';
+import { ThemedText } from './themed-text.ui';
+import { ThemedView } from './themed-view.ui';
 
 export default function AppTabs() {
   return (
