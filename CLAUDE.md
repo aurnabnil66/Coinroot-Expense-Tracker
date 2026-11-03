@@ -56,8 +56,10 @@ transactions   id, date, type (income | expense | transfer), from_id, to_id, amo
 
 Default seed data:
 - Accounts: generic, editable placeholders, one per type: e.g. "Bank Account", "Cash", "Mobile Wallet", "Savings (DPS)". The user renames or adds their own.
-- Expense categories: Food, Groceries, Transport, Rent, Bills, Mobile & Internet, Shopping, Bank Charges, Health, Education, Family, Entertainment, Gifts, Other
+- Expense categories: Food, Groceries, Transport, Rent, Bills, Mobile & Internet, Shopping, Fitness, Bank Charges, Health, Education, Family, Entertainment, Gifts, Other
 - Income sources: Salary, Bonus, Office Payment, Interest/Profit, Freelance, Gift Received, Other Income
+
+Accounts, categories and income sources are **user data in the database**, never hard-coded constants. The lists above are only first-launch seed rows. Every from/to field is a picker (dropdown) over those tables, with a "+ New category / account" option that creates the item inline and selects it. Shop or place names go in `note`, not in categories.
 
 ## Architecture: local-first
 
