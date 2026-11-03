@@ -1,10 +1,10 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { router, useLocalSearchParams } from 'expo-router';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { Alert, View } from 'react-native';
 
-import { transactionTitle } from '@/lib/components';
+import { LedgerPending, transactionTitle } from '@/lib/components';
 import {
   ACCOUNT_TYPE_COLORS,
   CATEGORY_COLORS,
@@ -26,6 +26,7 @@ import {
 import { TRANSACTION_TYPES, type CategoryKind, type TransactionType } from '@/lib/types';
 import {
   AmountField,
+  ButtonLoader,
   DateField,
   FormTextField,
   InitialBadge,
@@ -82,6 +83,19 @@ function initialValues(ledger: LedgerSnapshot, id?: string, parentId?: string): 
 }
 
 export function TransactionFormScreen() {
+  const { id } = useLocalSearchParams<{ id?: string }>();
+  const { status, error } = useLedger();
+  if (status === 'ready') return <TransactionForm />;
+  return (
+    <View className="flex-1 bg-background">
+      <ModalHeader title={id ? 'Edit transaction' : 'New transaction'} onClose={() => router.back()} />
+      <LedgerPending status={status} error={error} />
+    </View>
+  );
+}
+
+/** Mounted once the ledger is loaded, so the default values come from real data. */
+function TransactionForm() {
   const { id, parentId } = useLocalSearchParams<{ id?: string; parentId?: string }>();
   const ledger = useLedger();
   const { accounts, categories, transactions } = ledger;
@@ -98,6 +112,8 @@ export function TransactionFormScreen() {
     defaultValues: initialValues(ledger, id, parentId),
     mode: 'onTouched',
   });
+  const [creatingCategory, setCreatingCategory] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [type, fromId, toId, linkedId] = useWatch({ control, name: ['type', 'fromId', 'toId', 'parentId'] });
 
   const nameOf = useMemo(() => nameLookup(accounts, categories), [accounts, categories]);
@@ -127,7 +143,7 @@ export function TransactionFormScreen() {
       }));
   };
 
-  const createFor = (side: Side) => (name: string) => {
+  const createFor = (side: Side) => async (name: string) => {
     const source = SOURCES[type][side];
     const field = side === 'from' ? 'fromId' : 'toId';
     if (source === 'account') {
@@ -141,8 +157,15 @@ export function TransactionFormScreen() {
     }
     const used = new Set(categories.map((c) => c.color));
     const color = Object.keys(CATEGORY_COLORS).find((key) => !used.has(key)) ?? DEFAULT_CATEGORY_COLOR;
-    const created = ledgerStore.addCategory({ name, kind: source, color, icon: null, archived: false });
-    setValue(field, created.id, { shouldValidate: true });
+    setCreatingCategory(true);
+    try {
+      const created = await ledgerStore.addCategory({ name, kind: source, color, icon: null, archived: false });
+      setValue(field, created.id, { shouldValidate: true });
+    } catch {
+      setError('root', { message: `Could not create “${name}”. Please try again.` });
+    } finally {
+      setCreatingCategory(false);
+    }
   };
 
   // "Linked to": money that went into the account this entry spends from (Design B: ATM → Cash → expenses).
@@ -164,11 +187,11 @@ export function TransactionFormScreen() {
     setValue('parentId', null);
   };
 
-  const onSubmit = (values: TransactionFormValues) => {
+  const onSubmit = async (values: TransactionFormValues) => {
     try {
       const input = { ...values, parentId: values.type === 'income' ? null : values.parentId };
-      if (id) ledgerStore.updateTransaction(id, input);
-      else ledgerStore.addTransaction(input);
+      if (id) await ledgerStore.updateTransaction(id, input);
+      else await ledgerStore.addTransaction(input);
       router.back();
     } catch {
       setError('root', { message: 'Could not save. Please try again.' });
@@ -182,9 +205,15 @@ export function TransactionFormScreen() {
       {
         text: 'Delete',
         style: 'destructive',
-        onPress: () => {
-          ledgerStore.deleteTransaction(id);
-          router.dismissAll();
+        onPress: async () => {
+          setDeleting(true);
+          try {
+            await ledgerStore.deleteTransaction(id);
+            router.dismissAll();
+          } catch {
+            setDeleting(false);
+            setError('root', { message: 'Could not delete. Please try again.' });
+          }
         },
       },
     ]);
@@ -302,12 +331,19 @@ export function TransactionFormScreen() {
 
           {errors.root ? <Text className="text-sm text-destructive">{errors.root.message}</Text> : null}
 
-          <Button size="lg" className="h-12 rounded-xl" onPress={() => void handleSubmit(onSubmit)()} isDisabled={isSubmitting}>
+          <Button size="lg" className="h-12 rounded-xl" onPress={() => void handleSubmit(onSubmit)()} isDisabled={isSubmitting || creatingCategory || deleting}>
+            {isSubmitting ? <ButtonLoader /> : null}
             <ButtonText className="text-base font-semibold">{isEdit ? 'Save changes' : 'Add transaction'}</ButtonText>
           </Button>
 
           {isEdit ? (
-            <Button variant="ghost" size="lg" className="h-12 rounded-xl" onPress={confirmDelete}>
+            <Button
+              variant="ghost"
+              size="lg"
+              className="h-12 rounded-xl"
+              onPress={confirmDelete}
+              isDisabled={deleting || isSubmitting}>
+              {deleting ? <ButtonLoader tone="destructive" /> : null}
               <ButtonText className="text-base font-semibold text-destructive">Delete transaction</ButtonText>
             </Button>
           ) : null}

@@ -6,11 +6,12 @@ import { View } from 'react-native';
 import { Button, ButtonText } from '@/lib/gluestack-ui/button';
 import { Text } from '@/lib/gluestack-ui/text';
 import { VStack } from '@/lib/gluestack-ui/vstack';
+import { LedgerPending } from '@/lib/components';
 import { useLedger } from '@/lib/hooks';
 import { ledgerStore } from '@/lib/mocks';
 import { type AccountFormInput, type AccountFormValues, accountFormDefaults, accountFormSchema } from '@/lib/schemas';
 import type { AccountType } from '@/lib/types';
-import { DateField, FieldShell, FormTextField, ModalHeader, ScreenContainer, SegmentedControl, SwitchRow } from '@/lib/ui';
+import { ButtonLoader, DateField, FieldShell, FormTextField, ModalHeader, ScreenContainer, SegmentedControl, SwitchRow } from '@/lib/ui';
 import { formatTakaInput } from '@/lib/utils';
 
 const TYPE_OPTIONS: { value: AccountType; label: string }[] = [
@@ -21,6 +22,19 @@ const TYPE_OPTIONS: { value: AccountType; label: string }[] = [
 ];
 
 export function AccountFormScreen() {
+  const { id } = useLocalSearchParams<{ id?: string }>();
+  const { status, error } = useLedger();
+  if (status === 'ready') return <AccountForm />;
+  return (
+    <View className="flex-1 bg-background">
+      <ModalHeader title={id ? 'Edit account' : 'New account'} onClose={() => router.back()} />
+      <LedgerPending status={status} error={error} />
+    </View>
+  );
+}
+
+/** Mounted once the ledger is loaded, so the default values come from real data. */
+function AccountForm() {
   const { id, name } = useLocalSearchParams<{ id?: string; name?: string }>();
   const { accounts } = useLedger();
   const existing = id ? accounts.find((a) => a.id === id) : undefined;
@@ -44,11 +58,11 @@ export function AccountFormScreen() {
     mode: 'onTouched',
   });
 
-  const onSubmit = (values: AccountFormValues) => {
+  const onSubmit = async (values: AccountFormValues) => {
     try {
       const input = { ...values, savings: existing?.savings ?? null };
-      if (existing) ledgerStore.updateAccount(existing.id, input);
-      else ledgerStore.addAccount(input);
+      if (existing) await ledgerStore.updateAccount(existing.id, input);
+      else await ledgerStore.addAccount(input);
       router.back();
     } catch {
       setError('root', { message: 'Could not save. Please try again.' });
@@ -130,6 +144,7 @@ export function AccountFormScreen() {
           {errors.root ? <Text className="text-sm text-destructive">{errors.root.message}</Text> : null}
 
           <Button size="lg" className="h-12 rounded-xl" onPress={() => void handleSubmit(onSubmit)()} isDisabled={isSubmitting}>
+            {isSubmitting ? <ButtonLoader /> : null}
             <ButtonText className="text-base font-semibold">{existing ? 'Save changes' : 'Add account'}</ButtonText>
           </Button>
         </VStack>

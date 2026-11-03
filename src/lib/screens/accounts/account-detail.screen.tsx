@@ -1,7 +1,7 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useMemo } from 'react';
 
-import { TransactionRow } from '@/lib/components';
+import { LedgerPending, TransactionRow } from '@/lib/components';
 import { ACCOUNT_TYPE_LABELS } from '@/lib/constants';
 import { Box } from '@/lib/gluestack-ui/box';
 import { HStack } from '@/lib/gluestack-ui/hstack';
@@ -14,7 +14,7 @@ import { accountBalance, compareNewestFirst, formatFullDate, nameLookup, todayKe
 
 export function AccountDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { accounts, categories, transactions } = useLedger();
+  const { status, error, accounts, categories, transactions } = useLedger();
   const nameOf = useMemo(() => nameLookup(accounts, categories), [accounts, categories]);
   const account = accounts.find((a) => a.id === id);
 
@@ -22,6 +22,15 @@ export function AccountDetailScreen() {
     () => transactions.filter((tx) => tx.fromId === id || tx.toId === id).sort(compareNewestFirst),
     [transactions, id]
   );
+
+  if (status !== 'ready') {
+    return (
+      <ScreenContainer>
+        <Stack.Screen options={{ title: 'Account' }} />
+        <LedgerPending status={status} error={error} />
+      </ScreenContainer>
+    );
+  }
 
   if (!account) {
     return (

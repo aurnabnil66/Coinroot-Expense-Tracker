@@ -4,7 +4,7 @@ import { router } from 'expo-router';
 import { CATEGORY_KIND_LABELS } from '@/lib/constants';
 import { Text } from '@/lib/gluestack-ui/text';
 import { setThemePreference, type ThemePreference, useLedger, useThemePreference } from '@/lib/hooks';
-import { Card, ListRow, ScreenContainer, ScreenHeader, SectionHeader, SegmentedControl } from '@/lib/ui';
+import { Card, ListRow, ScreenContainer, ScreenHeader, SectionHeader, SegmentedControl, Skeleton } from '@/lib/ui';
 
 const THEME_OPTIONS: { value: ThemePreference; label: string }[] = [
   { value: 'light', label: 'Light' },
@@ -13,10 +13,14 @@ const THEME_OPTIONS: { value: ThemePreference; label: string }[] = [
 ];
 
 export function SettingsScreen() {
-  const { categories } = useLedger();
+  const { status, categories } = useLedger();
   const themePreference = useThemePreference();
   const count = (kind: 'expense' | 'income_source') =>
-    String(categories.filter((c) => c.kind === kind && !c.archived).length);
+    status === 'ready' ? (
+      String(categories.filter((c) => c.kind === kind && !c.archived).length)
+    ) : (
+      <Skeleton className="h-4 w-6 rounded-full" />
+    );
 
   return (
     <ScreenContainer safeTop tabBar>

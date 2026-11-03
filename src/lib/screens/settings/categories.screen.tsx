@@ -1,16 +1,17 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 
+import { LedgerPending } from '@/lib/components';
 import { CATEGORY_COLORS, CATEGORY_KIND_LABELS, DEFAULT_CATEGORY_COLOR } from '@/lib/constants';
 import { AddIcon } from '@/lib/gluestack-ui/icon';
 import { Text } from '@/lib/gluestack-ui/text';
 import { useLedger } from '@/lib/hooks';
 import type { Category, CategoryKind } from '@/lib/types';
-import { Card, IconButton, InitialBadge, ListRow, ScreenContainer, SectionHeader } from '@/lib/ui';
+import { Card, IconButton, InitialBadge, ListRow, ScreenContainer, SectionHeader, SkeletonCard } from '@/lib/ui';
 
 export function CategoriesScreen() {
   const params = useLocalSearchParams<{ kind?: string }>();
   const kind: CategoryKind = params.kind === 'income_source' ? 'income_source' : 'expense';
-  const { categories } = useLedger();
+  const { status, error, categories } = useLedger();
   const list = categories.filter((c) => c.kind === kind);
   const active = list.filter((c) => !c.archived);
   const archived = list.filter((c) => c.archived);
@@ -51,14 +52,23 @@ export function CategoriesScreen() {
           ? 'What you spend on. Shop and place names go in the note, not here.'
           : 'Where money comes in from.'}
       </Text>
-      <SectionHeader title="Active" right={String(active.length)} />
-      {renderList(active)}
-      {archived.length > 0 ? (
+      {status === 'ready' ? (
         <>
-          <SectionHeader title="Archived" />
-          {renderList(archived)}
+          <SectionHeader title="Active" right={String(active.length)} />
+          {renderList(active)}
+          {archived.length > 0 ? (
+            <>
+              <SectionHeader title="Archived" />
+              {renderList(archived)}
+            </>
+          ) : null}
         </>
-      ) : null}
+      ) : (
+        <>
+          <SectionHeader title="Active" />
+          <LedgerPending status={status} error={error} loading={<SkeletonCard rows={8} />} />
+        </>
+      )}
     </ScreenContainer>
   );
 }

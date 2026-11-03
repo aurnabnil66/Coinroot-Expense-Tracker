@@ -1,16 +1,28 @@
 import { router } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useTransition } from 'react';
 import { SectionList } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { TransactionRow } from '@/lib/components';
+import { LedgerPending, TransactionRow } from '@/lib/components';
 import { BottomTabInset } from '@/lib/constants';
 import { Box } from '@/lib/gluestack-ui/box';
 import { Button, ButtonText } from '@/lib/gluestack-ui/button';
 import { HStack } from '@/lib/gluestack-ui/hstack';
 import { Text } from '@/lib/gluestack-ui/text';
 import { useLedger } from '@/lib/hooks';
-import { AmountText, EmptyState, Fab, FAB_SIZE, GradientCard, GradientStat, ScreenContainer, ScreenHeader } from '@/lib/ui';
+import {
+  AmountText,
+  ButtonLoader,
+  EmptyState,
+  Fab,
+  FAB_SIZE,
+  GradientCard,
+  GradientStat,
+  ScreenContainer,
+  ScreenHeader,
+  Skeleton,
+  SkeletonCard,
+} from '@/lib/ui';
 import {
   formatDayLabel,
   formatMonthLabel,
@@ -29,16 +41,39 @@ const PAGE_SIZE = 30;
 
 export function TransactionsScreen() {
   const insets = useSafeAreaInsets();
-  const { accounts, categories, transactions } = useLedger();
+  const { status, error, accounts, categories, transactions } = useLedger();
   const nameOf = useMemo(() => nameLookup(accounts, categories), [accounts, categories]);
   const allSections = useMemo(() => groupByDay(transactions), [transactions]);
   const [limit, setLimit] = useState(PAGE_SIZE);
   const sections = useMemo(() => takeDays(allSections, limit), [allSections, limit]);
   const shown = sections.reduce((count, section) => count + section.data.length, 0);
   const hasMore = sections.length < allSections.length;
+  // Rendering the next page runs as a transition, so the button can show a spinner meanwhile.
+  const [loadingMore, startLoadingMore] = useTransition();
   const parentIds = useMemo(() => new Set(transactions.map((tx) => tx.parentId)), [transactions]);
   const month = toMonthKey(todayKey());
   const summary = useMemo(() => monthlySummary(month, transactions, accounts), [month, transactions, accounts]);
+
+  if (status !== 'ready') {
+    return (
+      <ScreenContainer safeTop tabBar>
+        <ScreenHeader title="Transactions" subtitle={formatMonthLabel(month)} />
+        <LedgerPending
+          status={status}
+          error={error}
+          loading={
+            <>
+              <Skeleton className="h-44 rounded-3xl" />
+              <Skeleton className="mb-3 mt-6 h-3.5 w-20 rounded-full" />
+              <SkeletonCard rows={4} />
+              <Skeleton className="mb-3 mt-6 h-3.5 w-24 rounded-full" />
+              <SkeletonCard rows={3} />
+            </>
+          }
+        />
+      </ScreenContainer>
+    );
+  }
 
   return (
     <ScreenContainer safeTop scroll={false}>
@@ -104,8 +139,10 @@ export function TransactionsScreen() {
                 variant="outline"
                 size="lg"
                 className="h-12 w-full rounded-2xl"
-                onPress={() => setLimit((current) => current + PAGE_SIZE)}>
-                <ButtonText className="text-base font-semibold">Load more</ButtonText>
+                isDisabled={loadingMore}
+                onPress={() => startLoadingMore(() => setLimit((current) => current + PAGE_SIZE))}>
+                {loadingMore ? <ButtonLoader tone="primary" /> : null}
+                <ButtonText className="text-base font-semibold">{loadingMore ? 'Loading…' : 'Load more'}</ButtonText>
               </Button>
               <Text className="text-xs text-muted-foreground">
                 Showing {shown} of {transactions.length}

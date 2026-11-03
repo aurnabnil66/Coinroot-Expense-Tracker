@@ -3,6 +3,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { Controller, useForm } from 'react-hook-form';
 import { View } from 'react-native';
 
+import { LedgerPending } from '@/lib/components';
 import { CATEGORY_COLORS, CATEGORY_KIND_LABELS, DEFAULT_CATEGORY_COLOR } from '@/lib/constants';
 import { Button, ButtonText } from '@/lib/gluestack-ui/button';
 import { HStack } from '@/lib/gluestack-ui/hstack';
@@ -13,9 +14,23 @@ import { VStack } from '@/lib/gluestack-ui/vstack';
 import { useLedger } from '@/lib/hooks';
 import { ledgerStore } from '@/lib/mocks';
 import { type CategoryFormInput, type CategoryFormValues, categoryFormDefaults, categoryFormSchema } from '@/lib/schemas';
-import { FieldShell, FormTextField, ModalHeader, ScreenContainer, SwitchRow } from '@/lib/ui';
+import { ButtonLoader, FieldShell, FormTextField, ModalHeader, ScreenContainer, SwitchRow } from '@/lib/ui';
 
 export function CategoryFormScreen() {
+  const params = useLocalSearchParams<{ id?: string; kind?: string }>();
+  const { status, error } = useLedger();
+  if (status === 'ready') return <CategoryForm />;
+  const label = CATEGORY_KIND_LABELS[params.kind === 'income_source' ? 'income_source' : 'expense'].singular;
+  return (
+    <View className="flex-1 bg-background">
+      <ModalHeader title={params.id ? 'Edit' : `New ${label.toLowerCase()}`} onClose={() => router.back()} />
+      <LedgerPending status={status} error={error} />
+    </View>
+  );
+}
+
+/** Mounted once the ledger is loaded, so the default values come from real data. */
+function CategoryForm() {
   const params = useLocalSearchParams<{ id?: string; kind?: string }>();
   const { categories } = useLedger();
   const existing = params.id ? categories.find((c) => c.id === params.id) : undefined;
@@ -35,11 +50,11 @@ export function CategoryFormScreen() {
     mode: 'onTouched',
   });
 
-  const onSubmit = (values: CategoryFormValues) => {
+  const onSubmit = async (values: CategoryFormValues) => {
     try {
       const input = { ...values, icon: existing?.icon ?? null };
-      if (existing) ledgerStore.updateCategory(existing.id, input);
-      else ledgerStore.addCategory(input);
+      if (existing) await ledgerStore.updateCategory(existing.id, input);
+      else await ledgerStore.addCategory(input);
       router.back();
     } catch {
       setError('root', { message: 'Could not save. Please try again.' });
@@ -112,6 +127,7 @@ export function CategoryFormScreen() {
           {errors.root ? <Text className="text-sm text-destructive">{errors.root.message}</Text> : null}
 
           <Button size="lg" className="h-12 rounded-xl" onPress={() => void handleSubmit(onSubmit)()} isDisabled={isSubmitting}>
+            {isSubmitting ? <ButtonLoader /> : null}
             <ButtonText className="text-base font-semibold">{existing ? 'Save changes' : `Add ${label.toLowerCase()}`}</ButtonText>
           </Button>
         </VStack>

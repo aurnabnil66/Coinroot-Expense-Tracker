@@ -1,8 +1,8 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Alert } from 'react-native';
 
-import { TransactionRow, TransactionTypeIcon, transactionTitle } from '@/lib/components';
+import { LedgerPending, TransactionRow, TransactionTypeIcon, transactionTitle } from '@/lib/components';
 import { TRANSACTION_FIELD_LABELS, TRANSACTION_TYPE_LABELS } from '@/lib/constants';
 import { Button, ButtonIcon, ButtonText } from '@/lib/gluestack-ui/button';
 import { HStack } from '@/lib/gluestack-ui/hstack';
@@ -11,14 +11,24 @@ import { Pressable } from '@/lib/gluestack-ui/pressable';
 import { Text } from '@/lib/gluestack-ui/text';
 import { useLedger } from '@/lib/hooks';
 import { ledgerStore } from '@/lib/mocks';
-import { AmountText, Card, EmptyState, ListRow, ScreenContainer, SectionHeader } from '@/lib/ui';
+import { AmountText, ButtonLoader, Card, EmptyState, ListRow, ScreenContainer, SectionHeader } from '@/lib/ui';
 import { childrenOf, formatFullDate, nameLookup, remainingOf } from '@/lib/utils';
 
 export function TransactionDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { accounts, categories, transactions } = useLedger();
+  const { status, error, accounts, categories, transactions } = useLedger();
   const nameOf = useMemo(() => nameLookup(accounts, categories), [accounts, categories]);
+  const [deleting, setDeleting] = useState(false);
   const tx = transactions.find((t) => t.id === id);
+
+  if (status !== 'ready') {
+    return (
+      <ScreenContainer>
+        <Stack.Screen options={{ title: 'Transaction' }} />
+        <LedgerPending status={status} error={error} />
+      </ScreenContainer>
+    );
+  }
 
   if (!tx) {
     return (
@@ -42,9 +52,15 @@ export function TransactionDetailScreen() {
       {
         text: 'Delete',
         style: 'destructive',
-        onPress: () => {
-          ledgerStore.deleteTransaction(tx.id);
-          router.back();
+        onPress: async () => {
+          setDeleting(true);
+          try {
+            await ledgerStore.deleteTransaction(tx.id);
+            router.back();
+          } catch {
+            setDeleting(false);
+            Alert.alert('Could not delete', 'Please try again.');
+          }
         },
       },
     ]);
@@ -134,7 +150,8 @@ export function TransactionDetailScreen() {
         </>
       ) : null}
 
-      <Button variant="ghost" size="lg" className="mt-6 h-12 rounded-xl" onPress={confirmDelete}>
+      <Button variant="ghost" size="lg" className="mt-6 h-12 rounded-xl" onPress={confirmDelete} isDisabled={deleting}>
+        {deleting ? <ButtonLoader tone="destructive" /> : null}
         <ButtonText className="text-base font-semibold text-destructive">Delete transaction</ButtonText>
       </Button>
     </ScreenContainer>
