@@ -30,6 +30,7 @@ export const colors = {
     '--income': '16 185 129',
     '--expense': '244 63 94',
     '--transfer': '14 165 233',
+    '--warning': '217 119 6',
   },
   dark: {
     '--primary': '157 135 255',
@@ -55,6 +56,7 @@ export const colors = {
     '--income': '52 211 153',
     '--expense': '251 113 133',
     '--transfer': '125 211 252',
+    '--warning': '251 191 36',
   },
 };
 

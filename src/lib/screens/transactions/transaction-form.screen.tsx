@@ -2,7 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
-import { Alert, View } from 'react-native';
+import { View } from 'react-native';
 
 import { LedgerPending, transactionTitle } from '@/lib/components';
 import {
@@ -13,6 +13,7 @@ import {
   TRANSACTION_TYPE_LABELS,
 } from '@/lib/constants';
 import { Button, ButtonText } from '@/lib/gluestack-ui/button';
+import { TrashIcon } from '@/lib/gluestack-ui/icon';
 import { Text } from '@/lib/gluestack-ui/text';
 import { VStack } from '@/lib/gluestack-ui/vstack';
 import { useLedger } from '@/lib/hooks';
@@ -35,9 +36,12 @@ import {
   SegmentedControl,
   type SelectOption,
   SelectField,
+  useDialog,
 } from '@/lib/ui';
 import {
   accountBalances,
+  childrenOf,
+  deleteTransactionMessage,
   formatDayLabel,
   formatTaka,
   formatTakaInput,
@@ -113,7 +117,7 @@ function TransactionForm() {
     mode: 'onTouched',
   });
   const [creatingCategory, setCreatingCategory] = useState(false);
-  const [deleting, setDeleting] = useState(false);
+  const dialog = useDialog();
   const [type, fromId, toId, linkedId] = useWatch({ control, name: ['type', 'fromId', 'toId', 'parentId'] });
 
   const nameOf = useMemo(() => nameLookup(accounts, categories), [accounts, categories]);
@@ -198,25 +202,17 @@ function TransactionForm() {
     }
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (!id) return;
-    Alert.alert('Delete transaction?', 'Entries linked to it stay, but lose the link.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          setDeleting(true);
-          try {
-            await ledgerStore.deleteTransaction(id);
-            router.dismissAll();
-          } catch {
-            setDeleting(false);
-            setError('root', { message: 'Could not delete. Please try again.' });
-          }
-        },
-      },
-    ]);
+    const deleted = await dialog.confirm({
+      title: 'Delete transaction?',
+      message: deleteTransactionMessage(childrenOf(id, transactions).length),
+      tone: 'danger',
+      icon: TrashIcon,
+      confirmLabel: 'Delete',
+      onConfirm: () => ledgerStore.deleteTransaction(id),
+    });
+    if (deleted) router.dismissAll();
   };
 
   const labels = TRANSACTION_FIELD_LABELS[type];
@@ -331,7 +327,7 @@ function TransactionForm() {
 
           {errors.root ? <Text className="text-sm text-destructive">{errors.root.message}</Text> : null}
 
-          <Button size="lg" className="h-12 rounded-xl" onPress={() => void handleSubmit(onSubmit)()} isDisabled={isSubmitting || creatingCategory || deleting}>
+          <Button size="lg" className="h-12 rounded-xl" onPress={() => void handleSubmit(onSubmit)()} isDisabled={isSubmitting || creatingCategory}>
             {isSubmitting ? <ButtonLoader /> : null}
             <ButtonText className="text-base font-semibold">{isEdit ? 'Save changes' : 'Add transaction'}</ButtonText>
           </Button>
@@ -341,9 +337,8 @@ function TransactionForm() {
               variant="ghost"
               size="lg"
               className="h-12 rounded-xl"
-              onPress={confirmDelete}
-              isDisabled={deleting || isSubmitting}>
-              {deleting ? <ButtonLoader tone="destructive" /> : null}
+              onPress={() => void confirmDelete()}
+              isDisabled={isSubmitting}>
               <ButtonText className="text-base font-semibold text-destructive">Delete transaction</ButtonText>
             </Button>
           ) : null}

@@ -5,6 +5,7 @@ export * from './bar-chart.ui';
 export * from './button-loader.ui';
 export * from './card.ui';
 export * from './date-field.ui';
+export * from './dialog.ui';
 export * from './empty-state.ui';
 export * from './error-state.ui';
 export * from './fab.ui';

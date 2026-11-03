@@ -29,6 +29,14 @@ export function childrenOf(parentId: string, transactions: readonly Transaction[
   return transactions.filter((tx) => tx.parentId === parentId);
 }
 
+/** Body of the "Delete transaction?" confirmation: linked entries are kept but unlinked. */
+export function deleteTransactionMessage(linkedCount: number): string {
+  if (linkedCount === 0) return "This can't be undone.";
+  const linked =
+    linkedCount === 1 ? 'The 1 linked entry stays but loses its link' : `The ${linkedCount} linked entries stay but lose their link`;
+  return `${linked}. This can't be undone.`;
+}
+
 /** What's left of a transaction's money after the transactions linked to it: amount − children. */
 export function remainingOf(parent: Transaction, transactions: readonly Transaction[]): number {
   return childrenOf(parent.id, transactions).reduce((left, child) => left - child.amount, parent.amount);

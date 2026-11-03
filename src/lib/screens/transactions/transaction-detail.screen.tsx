@@ -1,24 +1,23 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useMemo, useState } from 'react';
-import { Alert } from 'react-native';
+import { useMemo } from 'react';
 
 import { LedgerPending, TransactionRow, TransactionTypeIcon, transactionTitle } from '@/lib/components';
 import { TRANSACTION_FIELD_LABELS, TRANSACTION_TYPE_LABELS } from '@/lib/constants';
 import { Button, ButtonIcon, ButtonText } from '@/lib/gluestack-ui/button';
 import { HStack } from '@/lib/gluestack-ui/hstack';
-import { AddIcon } from '@/lib/gluestack-ui/icon';
+import { AddIcon, TrashIcon } from '@/lib/gluestack-ui/icon';
 import { Pressable } from '@/lib/gluestack-ui/pressable';
 import { Text } from '@/lib/gluestack-ui/text';
 import { useLedger } from '@/lib/hooks';
 import { ledgerStore } from '@/lib/mocks';
-import { AmountText, ButtonLoader, Card, EmptyState, ListRow, ScreenContainer, SectionHeader } from '@/lib/ui';
-import { childrenOf, formatFullDate, nameLookup, remainingOf } from '@/lib/utils';
+import { AmountText, Card, EmptyState, ListRow, ScreenContainer, SectionHeader, useDialog } from '@/lib/ui';
+import { childrenOf, deleteTransactionMessage, formatFullDate, nameLookup, remainingOf } from '@/lib/utils';
 
 export function TransactionDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { status, error, accounts, categories, transactions } = useLedger();
   const nameOf = useMemo(() => nameLookup(accounts, categories), [accounts, categories]);
-  const [deleting, setDeleting] = useState(false);
+  const dialog = useDialog();
   const tx = transactions.find((t) => t.id === id);
 
   if (status !== 'ready') {
@@ -46,24 +45,17 @@ export function TransactionDetailScreen() {
   const labels = TRANSACTION_FIELD_LABELS[tx.type];
   const open = (target: string) => router.push({ pathname: '/transaction/[id]', params: { id: target } });
 
-  const confirmDelete = () =>
-    Alert.alert('Delete transaction?', 'Entries linked to it stay, but lose the link.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          setDeleting(true);
-          try {
-            await ledgerStore.deleteTransaction(tx.id);
-            router.back();
-          } catch {
-            setDeleting(false);
-            Alert.alert('Could not delete', 'Please try again.');
-          }
-        },
-      },
-    ]);
+  const confirmDelete = async () => {
+    const deleted = await dialog.confirm({
+      title: 'Delete transaction?',
+      message: deleteTransactionMessage(children.length),
+      tone: 'danger',
+      icon: TrashIcon,
+      confirmLabel: 'Delete',
+      onConfirm: () => ledgerStore.deleteTransaction(tx.id),
+    });
+    if (deleted) router.back();
+  };
 
   return (
     <ScreenContainer>
@@ -151,8 +143,7 @@ export function TransactionDetailScreen() {
         </>
       ) : null}
 
-      <Button variant="ghost" size="lg" className="mt-6 h-12 rounded-xl" onPress={confirmDelete} isDisabled={deleting}>
-        {deleting ? <ButtonLoader tone="destructive" /> : null}
+      <Button variant="ghost" size="lg" className="mt-6 h-12 rounded-xl" onPress={() => void confirmDelete()}>
         <ButtonText className="text-base font-semibold text-destructive">Delete transaction</ButtonText>
       </Button>
     </ScreenContainer>

@@ -6,6 +6,7 @@ import { StatusBar } from 'expo-status-bar';
 import { FontFamily } from '@/lib/constants';
 import { GluestackUIProvider, useGluestackColors } from '@/lib/gluestack-ui/gluestack-ui-provider';
 import { useColorScheme, useThemePreference } from '@/lib/hooks';
+import { DialogProvider } from '@/lib/ui';
 
 export default function RootLayout() {
   const themePreference = useThemePreference();
@@ -45,15 +46,17 @@ export default function RootLayout() {
     <GluestackUIProvider mode={themePreference}>
       <ThemeProvider value={navigationTheme}>
         <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="(tabs)" />
-          <Stack.Screen name="transaction/[id]" options={pushed} />
-          <Stack.Screen name="account/[id]" options={pushed} />
-          <Stack.Screen name="categories" options={pushed} />
-          <Stack.Screen name="transaction-form" options={modal} />
-          <Stack.Screen name="account-form" options={modal} />
-          <Stack.Screen name="category-form" options={modal} />
-        </Stack>
+        <DialogProvider>
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="transaction/[id]" options={pushed} />
+            <Stack.Screen name="account/[id]" options={pushed} />
+            <Stack.Screen name="categories" options={pushed} />
+            <Stack.Screen name="transaction-form" options={modal} />
+            <Stack.Screen name="account-form" options={modal} />
+            <Stack.Screen name="category-form" options={modal} />
+          </Stack>
+        </DialogProvider>
       </ThemeProvider>
     </GluestackUIProvider>
   );

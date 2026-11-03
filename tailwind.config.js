@@ -52,6 +52,7 @@ module.exports = {
         income: 'rgb(var(--income) / <alpha-value>)',
         expense: 'rgb(var(--expense) / <alpha-value>)',
         transfer: 'rgb(var(--transfer) / <alpha-value>)',
+        warning: 'rgb(var(--warning) / <alpha-value>)',
       },
     },
   },

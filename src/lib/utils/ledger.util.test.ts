@@ -5,6 +5,7 @@ import type { Account, Transaction } from '@/lib/types';
 import {
   accountBalance,
   dailySpending,
+  deleteTransactionMessage,
   groupByDay,
   linkableParents,
   monthlySpending,
@@ -143,5 +144,13 @@ describe('takeDays', () => {
 
   it('returns every day when the limit is larger than the list', () => {
     expect(takeDays(groups, 100)).toHaveLength(2);
+  });
+});
+
+describe('deleteTransactionMessage', () => {
+  it('mentions linked entries only when there are some', () => {
+    expect(deleteTransactionMessage(0)).toBe("This can't be undone.");
+    expect(deleteTransactionMessage(1)).toBe("The 1 linked entry stays but loses its link. This can't be undone.");
+    expect(deleteTransactionMessage(3)).toBe("The 3 linked entries stay but lose their link. This can't be undone.");
   });
 });
