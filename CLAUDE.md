@@ -77,6 +77,8 @@ Installed: Expo SDK 58, Expo Router (routes in `src/app/`), TypeScript (strict),
 | Forms / validation | `react-hook-form` + `zod` v4 + `@hookform/resolvers` (zod also validates CSV rows on import) |
 | Database | `expo-sqlite` + `drizzle-orm`, `drizzle-kit` (dev) for migrations. Installed but not wired up yet: add the schema in `src/lib/db`, then the `useMigrations` gate in the root layout. |
 | Lint | ESLint 9 + `eslint-config-expo` (`eslint.config.js`) |
+| Tests | Jest via `jest-expo` (`bun run test`) |
+| Bottom sheets | `@legendapp/motion` (needed by gluestack `actionsheet`) |
 
 Planned (add with `bunx expo install` when the feature needs it, then move it to the table above):
 
@@ -88,7 +90,6 @@ Planned (add with `bunx expo install` when the feature needs it, then move it to
 | Dates | `date-fns` |
 | App lock | `expo-local-authentication` |
 | Small app state (only if needed) | Zustand. Prefer DB live queries as the source of truth. |
-| Tests (for the money module) | Jest via `jest-expo` |
 
 Do not upgrade to Tailwind v4 / NativeWind v5 until they are stable.
 
@@ -101,32 +102,39 @@ Expo Router treats **every** `.ts`/`.tsx` file under `src/app/` as a route (no n
 | Dir | Purpose |
 |---|---|
 | `src/app/` | Expo Router routes and layouts only |
-| `src/lib/screens/<name>/` | Full-page screens, one per route. `<name>` is the route group (e.g. `transactions/`) or the route itself (`home/`). Nothing sits directly in `src/lib/screens/`. |
-| `src/lib/ui/` | Reusable, feature-agnostic UI components, built from gluestack-ui + `className` |
-| `src/lib/hooks/` | Shared hooks |
-| `src/lib/constants/` | Static values (`theme.constants.ts`: `Colors`, `Fonts`, `Spacing`, `BottomTabInset`, `MaxContentWidth`) |
+| `src/lib/screens/<name>/` | Full-page screens, grouped by feature: `transactions/`, `accounts/`, `summary/`, `settings/`. Nothing sits directly in `src/lib/screens/`. |
+| `src/lib/components/` | Reusable, feature-aware pieces that aren't screens (`TransactionRow`, `TransactionTypeIcon`) |
+| `src/lib/ui/` | Reusable, feature-agnostic UI components, built from gluestack-ui + `className` (layout, cards, rows, form fields, `SelectField` bottom-sheet picker) |
+| `src/lib/hooks/` | Shared hooks (`useLedger`, `useColorScheme`, `useThemePreference`) |
+| `src/lib/constants/` | Static values (`ledger.constants.ts`: labels, account/category colours; `theme.constants.ts`: `BottomTabInset`, `MaxContentWidth`) |
 | `src/lib/schemas/` | Zod schemas, their inferred types and form defaults |
+| `src/lib/types/` | Domain types (`Account`, `Category`, `Transaction`), matching the data model above |
+| `src/lib/utils/` | Pure logic with unit tests: `money.util.ts` (parse/format taka ↔ poisha), `date.util.ts` (`YYYY-MM-DD` day keys), `ledger.util.ts` (balances, remaining, monthly summary, day grouping) |
+| `src/lib/mocks/` | **Temporary** in-memory sample data + store (`ledgerStore`) used until the database exists. Generic names, invented amounts. |
 | `src/lib/gluestack-ui/` | Vendored gluestack-ui components, one folder each. Owned, editable code. |
 | `src/global.css` | The only global stylesheet and the NativeWind entry (`@tailwind` directives + font variables) |
 | `assets/` | Images and icons (repo root) |
 
-New layers follow the same `src/lib/<layer>/*.<suffix>.ts(x)` shape with their own barrel. Expected ones for Coinroot: `src/lib/db/` (`*.db.ts`: Drizzle schema, client, queries), `src/lib/utils/` (`*.util.ts`: money math, date helpers). Add a `src/lib/components/` layer only when something feature-aware and reusable (but not a screen) appears.
+New layers follow the same `src/lib/<layer>/*.<suffix>.ts(x)` shape with their own barrel. Next one: `src/lib/db/` (`*.db.ts`: Drizzle schema, client, queries).
+
+**Data access today:** screens read everything through `useLedger()` (accounts, categories, transactions) and write through `ledgerStore.*` (`src/lib/mocks`). Balances and totals are computed with `src/lib/utils/ledger.util.ts`, never stored. When the DB lands, replace `useLedger` with Drizzle live queries and `ledgerStore` with DB writes; screens and utils should not need to change.
 
 ## File naming
 
-- All filenames are kebab-case, with a suffix naming their layer: `*.screen.tsx`, `*.ui.tsx`, `*.hook.ts`, `*.constants.ts`, `*.schema.ts` (and `*.db.ts`, `*.util.ts` for new layers).
+- All filenames are kebab-case, with a suffix naming their layer: `*.screen.tsx`, `*.component.tsx`, `*.ui.tsx`, `*.hook.ts`, `*.constants.ts`, `*.schema.ts`, `*.types.ts`, `*.util.ts`, `*.mock.ts` (and `*.db.ts` next).
+- Unit tests sit next to the file as `*.test.ts` (not in barrels) and import `describe`/`it`/`expect` from `@jest/globals` (TypeScript 6 doesn't load `@types/jest` globals).
 - Platform variants keep the suffix before the platform extension: `use-color-scheme.hook.web.ts`, `app-tabs.ui.web.tsx`.
 - Exceptions: `index.ts` barrels, `_layout.tsx` and route files in `src/app/`, and everything in `src/lib/gluestack-ui/` (the CLI's own `index.tsx` per component; don't rename).
-- Export names: screens are `PascalCase` with a `Screen` suffix (`home.screen.tsx` → `HomeScreen`), hooks are `useX` (`use-theme.hook.ts` → `useTheme`), UI components are `PascalCase` named exports, constants are `PascalCase` or `UPPER_SNAKE_CASE`.
+- Export names: screens are `PascalCase` with a `Screen` suffix (`transactions.screen.tsx` → `TransactionsScreen`), hooks are `useX` (`use-ledger.hook.ts` → `useLedger`), UI components are `PascalCase` named exports, constants are `PascalCase` or `UPPER_SNAKE_CASE`.
 
 ## Barrels (`index.ts`)
 
 - Every `src/lib/` layer has an `index.ts` with `export * from './x.<suffix>'` lines in alphabetical order. Consumers import from the layer: `import { Spacing } from '@/lib/constants'`. When adding a file, add its line to the barrel.
-- Inside a layer, import siblings by relative path (`./themed-text.ui`), not through the layer's own barrel.
+- Inside a layer, import siblings by relative path (`./field-shell.ui`), not through the layer's own barrel.
 - `AppTabs` is the only default export: `export { default as AppTabs } from './app-tabs.ui'`.
 - Never re-export `.web` files; Metro picks them automatically.
 - No barrels in `src/lib/screens/<name>/` or `src/lib/gluestack-ui/`. Import those by full path:
-  `import { HomeScreen } from '@/lib/screens/home/home.screen'`, `import { Button, ButtonText } from '@/lib/gluestack-ui/button'`.
+  `import { TransactionsScreen } from '@/lib/screens/transactions/transactions.screen'`, `import { Button, ButtonText } from '@/lib/gluestack-ui/button'`.
 
 ## Routes (`src/app/`)
 
@@ -134,20 +142,27 @@ New layers follow the same `src/lib/<layer>/*.<suffix>.ts(x)` shape with their o
 - Route files only re-export the screen. No logic, hooks or styling:
   ```tsx
   // src/app/(tabs)/index.tsx
-  export { HomeScreen as default } from '@/lib/screens/home/home.screen';
+  export { TransactionsScreen as default } from '@/lib/screens/transactions/transactions.screen';
   ```
-- The root `src/app/_layout.tsx` imports `@/global.css` and owns `GluestackUIProvider` (outermost, `mode="system"`), the react-navigation `ThemeProvider`, `AnimatedSplashOverlay` and the root `Stack`. When the DB lands, the Drizzle `useMigrations` gate (spinner → error → app) goes here too.
+- Current routes:
+  - Tabs: `(tabs)/index` (Transactions), `(tabs)/accounts`, `(tabs)/summary`, `(tabs)/settings`.
+  - Pushed with the native header: `transaction/[id]`, `account/[id]`, `categories?kind=`. Screens set their title / Edit button with `<Stack.Screen options>`.
+  - Modals (own `ModalHeader`): `transaction-form?id=|parentId=`, `account-form?id=|name=`, `category-form?id=|kind=`.
+- The root `src/app/_layout.tsx` imports `@/global.css` and owns `GluestackUIProvider` (outermost, `mode="system"`), the react-navigation `ThemeProvider` (coloured from the gluestack theme), the `StatusBar` and the root `Stack`. When the DB lands, the Drizzle `useMigrations` gate (spinner → error → app) goes here too.
 
 ## Styling
 
 - Use gluestack-ui components (`Box`, `VStack`, `HStack`, `Text`, `Heading`, `Button`, `Input`, `Pressable`, `Icon`, `Divider`) with Tailwind `className`, not `StyleSheet.create`. Dynamic numeric values with no Tailwind token (e.g. `MaxContentWidth`, `BottomTabInset`) go in `style` next to `className`.
-- Theme colours are CSS variables in `src/lib/gluestack-ui/gluestack-ui-provider/config.ts` (`--primary`, `--background`, `--muted`, `--destructive`, …), mapped to Tailwind colours in `tailwind.config.js`. Use `bg-background`, `text-foreground`, `text-muted-foreground`, `bg-primary`, never raw hex. Dark mode follows the system through the provider. Coinroot's brand colours go into `config.ts`.
+- Theme colours are CSS variables in `src/lib/gluestack-ui/gluestack-ui-provider/config.ts` (`--primary`, `--background`, `--muted`, `--destructive`, …), mapped to Tailwind colours in `tailwind.config.js`. Use `bg-background`, `text-foreground`, `text-muted-foreground`, `bg-primary`, never raw hex.
+- **Theme setting:** Settings → Theme offers Light / Dark / Device default (the default). `useThemePreference()` / `setThemePreference()` (`src/lib/hooks`) save it with `expo-sqlite/kv-store`, and the root layout passes it to `GluestackUIProvider mode`. NativeWind then sets the native appearance too, so the tab bar, alerts and keyboard follow.
+- **Design:** minimal. Neutral zinc greys, one deep-green accent (`primary`), cards (`bg-card rounded-2xl border-border`) on a `bg-background` page, large left-aligned titles. Money colours are only for meaning: `text-income` (green), `text-expense` (rose), `text-transfer` (blue). Expense amounts show as `-৳…` in the normal text colour; income as `+৳…` in green.
+- Props that can't take `className` (native tab bar, navigation header, `placeholderTextColor`, `Switch`) get hex values from `useGluestackColors()`. Per-item colours (category swatches) are keys into `CATEGORY_COLORS`, applied via `style`.
 - Add components with `bunx gluestack-ui@latest add <component> --use-bun`. The output lands in `src/lib/gluestack-ui/<component>/`. The CLI is alpha. After adding:
-  - check `bunx tsc --noEmit`. `button` and `input` needed `as any` casts on the `cssInterop` `nativeStyleToProp` object.
+  - install any dependency it skipped (it skipped `@legendapp/motion` for `actionsheet`).
+  - check `bunx tsc --noEmit`. `button`, `input` and `actionsheet` needed `as any` casts on the `cssInterop` `nativeStyleToProp` object.
   - delete any stray root `globals.css` it creates.
   - make sure it didn't change `tailwind.config.js`, `babel.config.js` or `metro.config.js`.
-- Config files: `tailwind.config.js`, `postcss.config.js`, `babel.config.js` (`jsxImportSource: 'nativewind'` + `nativewind/babel`), `metro.config.js` (`withNativeWind`, input `./src/global.css`), `nativewind-env.d.ts`, `gluestack-ui.config.json`.
-- **Legacy (from the Expo template):** `ThemedText`, `ThemedView`, `useTheme()` and `Colors`/`Spacing`/`Fonts` still back `AppTabs` (the native tab bar can't take `className`), `AnimatedIcon` and the placeholder home/explore screens. Don't use them in new code.
+- Config files: `tailwind.config.js`, `postcss.config.js`, `babel.config.js` (`jsxImportSource: 'nativewind'` + `nativewind/babel`), `metro.config.js` (`withNativeWind`, input `./src/global.css`; `wasm` added to `assetExts` for expo-sqlite on web), `nativewind-env.d.ts`, `gluestack-ui.config.json`.
 
 ## Forms
 
@@ -175,6 +190,8 @@ ID, Date, Type, From, To/Category, Amount, Note, Linked to, Left from this (auto
 
 ## Roadmap
 
+Done: design and all screens below running on sample data (`src/lib/mocks`). Next: the database, then replace the mocks.
+
 1. Add / edit / delete transactions; list grouped by day
 2. Accounts with derived balances; total money; monthly summary (income, expenses, saved, moved to savings, by category)
 3. CSV import from the spreadsheet
@@ -186,6 +203,8 @@ ID, Date, Type, From, To/Category, Amount, Note, Linked to, Left from this (auto
 
 - Keep money math in one module (parse, format, add) with unit tests. Format with the taka sign and Bangladeshi digit grouping (lakh/crore: first group of three, then groups of two), consistent across the app.
 - Package manager is **bun**. `bun.lock` is committed (never gitignore it), and there must be no `package-lock.json`, `yarn.lock` or `pnpm-lock.yaml`. Use `bun install`, `bunx expo install <pkg>` for dependencies and `bunx` instead of `npx`.
-- Run `bunx expo lint` and `bunx tsc --noEmit` before calling a task done. Lint warnings inside `src/lib/gluestack-ui` (`import/no-duplicates`) come from the generated code and can be ignored.
-- The home/explore screens (`src/lib/screens/home`, `src/lib/screens/explore`) and their template-only UI pieces (`AnimatedIcon`, `HintRow`, `WebBadge`, `Collapsible`) are Expo placeholders. Replace them with Coinroot screens.
+- Run `bunx expo lint`, `bunx tsc --noEmit` and `bun run test` before calling a task done. Lint warnings inside `src/lib/gluestack-ui` (`import/no-duplicates`) come from the generated code and can be ignored.
+- ATM withdrawals use the tree (design B, may change): a transfer bank → Cash, with the cash spending added as linked expenses ("Add linked expense" on the withdrawal). The withdrawal shows what's left.
+- Dates in forms use `DateField` (day stepper + Today/Yesterday), so no native date-picker module is needed yet.
+- App icon and splash (`app.json`, `assets/images`) are still Expo's defaults.
 - Before open-sourcing: replace the template LICENSE (currently copyright Expo) and README.
