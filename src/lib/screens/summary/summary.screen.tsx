@@ -46,10 +46,10 @@ export function SummaryScreen() {
             error={error}
             loading={
               <>
-                <Skeleton className="h-48 rounded-3xl" />
-                <Skeleton className="mt-3 h-20 rounded-3xl" />
+                <Skeleton className="h-48 rounded-xl" />
+                <Skeleton className="mt-3 h-20 rounded-xl" />
                 <Skeleton className="mb-3 mt-6 h-3.5 w-36 rounded-full" />
-                <Skeleton className="h-72 rounded-3xl" />
+                <Skeleton className="h-72 rounded-xl" />
                 <Skeleton className="mb-3 mt-6 h-3.5 w-40 rounded-full" />
                 <SkeletonCard rows={4} />
               </>

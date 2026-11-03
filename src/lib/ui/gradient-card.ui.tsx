@@ -14,7 +14,7 @@ export function GradientCard({ className = '', style, ...props }: GradientCardPr
   const colors = useGluestackColors();
   return (
     <Box
-      className={`overflow-hidden rounded-3xl p-5 ${className}`}
+      className={`overflow-hidden rounded-xl p-5 ${className}`}
       style={[
         {
           experimental_backgroundImage: `linear-gradient(135deg, ${colors.heroStart} 0%, ${colors.heroEnd} 100%)`,
@@ -36,7 +36,7 @@ type GradientStatProps = {
 /** Translucent tile for a secondary number inside a GradientCard. */
 export function GradientStat({ label, children }: GradientStatProps) {
   return (
-    <Box className="flex-1 gap-0.5 rounded-2xl bg-white/15 px-3 py-2.5">
+    <Box className="flex-1 gap-0.5 rounded-lg bg-white/15 px-3 py-2.5">
       <Text className="text-xs font-medium text-white/75">{label}</Text>
       {children}
     </Box>

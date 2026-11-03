@@ -4,7 +4,7 @@ import { SectionList } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { LedgerPending, TransactionRow } from '@/lib/components';
-import { BottomTabInset } from '@/lib/constants';
+import { BottomTabInset, MaxContentWidth } from '@/lib/constants';
 import { Box } from '@/lib/gluestack-ui/box';
 import { Button, ButtonText } from '@/lib/gluestack-ui/button';
 import { HStack } from '@/lib/gluestack-ui/hstack';
@@ -63,7 +63,7 @@ export function TransactionsScreen() {
           error={error}
           loading={
             <>
-              <Skeleton className="h-44 rounded-3xl" />
+              <Skeleton className="h-44 rounded-xl" />
               <Skeleton className="mb-3 mt-6 h-3.5 w-20 rounded-full" />
               <SkeletonCard rows={4} />
               <Skeleton className="mb-3 mt-6 h-3.5 w-24 rounded-full" />
@@ -77,7 +77,27 @@ export function TransactionsScreen() {
 
   return (
     <ScreenContainer safeTop scroll={false}>
+      {/* Header and month card stay put; only the list below scrolls. */}
+      <Box className="w-full self-center px-5 pb-1" style={{ maxWidth: MaxContentWidth }}>
+        <ScreenHeader title="Transactions" subtitle={formatMonthLabel(month)} />
+        <GradientCard className="gap-4">
+          <Box className="gap-1">
+            <Text className="text-sm font-medium text-white/75">Spent this month</Text>
+            <AmountText amount={summary.expenses} tone="onHero" weight="semibold" className="text-4xl" />
+          </Box>
+          <HStack className="gap-3">
+            <GradientStat label="Income">
+              <AmountText amount={summary.income} tone="onHero" className="text-lg" />
+            </GradientStat>
+            <GradientStat label="Saved">
+              <AmountText amount={summary.saved} tone="onHero" className="text-lg" />
+            </GradientStat>
+          </HStack>
+        </GradientCard>
+      </Box>
       <SectionList
+        className="flex-1"
+        style={{ width: '100%', maxWidth: MaxContentWidth, alignSelf: 'center' }}
         sections={sections}
         keyExtractor={(tx) => tx.id}
         stickySectionHeadersEnabled={false}
@@ -85,25 +105,6 @@ export function TransactionsScreen() {
           paddingHorizontal: 20,
           paddingBottom: insets.bottom + BottomTabInset + FAB_SIZE + 40,
         }}
-        ListHeaderComponent={
-          <>
-            <ScreenHeader title="Transactions" subtitle={formatMonthLabel(month)} />
-            <GradientCard className="gap-4">
-              <Box className="gap-1">
-                <Text className="text-sm font-medium text-white/75">Spent this month</Text>
-                <AmountText amount={summary.expenses} tone="onHero" className="text-4xl" />
-              </Box>
-              <HStack className="gap-3">
-                <GradientStat label="Income">
-                  <AmountText amount={summary.income} tone="onHero" className="text-lg" />
-                </GradientStat>
-                <GradientStat label="Saved">
-                  <AmountText amount={summary.saved} tone="onHero" className="text-lg" />
-                </GradientStat>
-              </HStack>
-            </GradientCard>
-          </>
-        }
         renderSectionHeader={({ section }) => (
           <HStack className="items-center justify-between pb-2 pt-6">
             <Text className="text-sm font-bold text-foreground">{formatDayLabel(section.date)}</Text>
@@ -119,8 +120,8 @@ export function TransactionsScreen() {
           const last = index === section.data.length - 1;
           return (
             <Box
-              className={`overflow-hidden border-x border-border/70 bg-card ${first ? 'rounded-t-3xl border-t' : ''} ${
-                last ? 'rounded-b-3xl border-b' : ''
+              className={`overflow-hidden border-x border-border/70 bg-card ${first ? 'rounded-t-xl border-t' : ''} ${
+                last ? 'rounded-b-xl border-b' : ''
               }`}>
               <TransactionRow
                 transaction={item}
@@ -157,7 +158,7 @@ export function TransactionsScreen() {
           />
         }
       />
-      <Fab onPress={() => router.push('/transaction-form')} label="Add" />
+      <Fab onPress={() => router.push('/transaction-form')} label="Add transaction" />
     </ScreenContainer>
   );
 }

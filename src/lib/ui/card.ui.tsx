@@ -13,7 +13,7 @@ export function Card({ className = '', style, ...props }: CardProps) {
   const { colorScheme } = useColorScheme();
   return (
     <Box
-      className={`overflow-hidden rounded-3xl border border-border/70 bg-card ${className}`}
+      className={`overflow-hidden rounded-xl border border-border/70 bg-card ${className}`}
       style={[colorScheme === 'dark' ? null : { boxShadow: LIGHT_SHADOW }, style]}
       {...props}
     />

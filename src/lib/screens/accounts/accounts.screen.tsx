@@ -57,20 +57,22 @@ export function AccountsScreen() {
     </Card>
   );
 
-  return (
-    <ScreenContainer safeTop tabBar>
-      <ScreenHeader
-        title="Accounts"
-        right={<IconButton icon={AddIcon} variant="primary" onPress={() => router.push('/account-form')} accessibilityLabel="Add account" />}
-      />
+  const header = (
+    <ScreenHeader
+      title="Accounts"
+      right={<IconButton icon={AddIcon} variant="primary" onPress={() => router.push('/account-form')} accessibilityLabel="Add account" />}
+    />
+  );
 
-      {status !== 'ready' ? (
+  if (status !== 'ready') {
+    return (
+      <ScreenContainer safeTop tabBar header={header}>
         <LedgerPending
           status={status}
           error={error}
           loading={
             <>
-              <Skeleton className="h-44 rounded-3xl" />
+              <Skeleton className="h-44 rounded-xl" />
               <Skeleton className="mb-3 mt-6 h-3.5 w-28 rounded-full" />
               <SkeletonCard rows={3} />
               <Skeleton className="mb-3 mt-6 h-3.5 w-20 rounded-full" />
@@ -78,8 +80,18 @@ export function AccountsScreen() {
             </>
           }
         />
-      ) : (
+      </ScreenContainer>
+    );
+  }
+
+  return (
+    <ScreenContainer
+      safeTop
+      tabBar
+      header={
         <>
+          {header}
+          {/* Header and total stay put; only the account list scrolls. */}
           <GradientCard className="gap-4">
             <VStack className="gap-1">
               <Text className="text-sm font-medium text-white/75">Total money</Text>
@@ -99,33 +111,32 @@ export function AccountsScreen() {
               </HStack>
             ) : null}
           </GradientCard>
-
-          {active.length === 0 ? (
-            <EmptyState title="No accounts yet" message="Add your bank accounts, cash and mobile wallets." />
-          ) : null}
-
-          <VStack>
-            {ACCOUNT_TYPE_SECTIONS.map(({ type, title }) => {
-              const list = active.filter((a) => a.type === type);
-              if (list.length === 0) return null;
-              const subtotal = list.reduce((sum, a) => sum + (balances.get(a.id) ?? 0), 0);
-              return (
-                <VStack key={type}>
-                  <SectionHeader title={title} right={list.length > 1 ? <AmountText amount={subtotal} className="text-xs text-muted-foreground" /> : undefined} />
-                  {renderAccounts(list)}
-                </VStack>
-              );
-            })}
-
-            {archived.length > 0 ? (
-              <VStack>
-                <SectionHeader title="Archived" />
-                {renderAccounts(archived)}
-              </VStack>
-            ) : null}
-          </VStack>
         </>
-      )}
+      }>
+      {active.length === 0 ? (
+        <EmptyState title="No accounts yet" message="Add your bank accounts, cash and mobile wallets." />
+      ) : null}
+
+      <VStack>
+        {ACCOUNT_TYPE_SECTIONS.map(({ type, title }) => {
+          const list = active.filter((a) => a.type === type);
+          if (list.length === 0) return null;
+          const subtotal = list.reduce((sum, a) => sum + (balances.get(a.id) ?? 0), 0);
+          return (
+            <VStack key={type}>
+              <SectionHeader title={title} right={list.length > 1 ? <AmountText amount={subtotal} className="text-xs text-muted-foreground" /> : undefined} />
+              {renderAccounts(list)}
+            </VStack>
+          );
+        })}
+
+        {archived.length > 0 ? (
+          <VStack>
+            <SectionHeader title="Archived" />
+            {renderAccounts(archived)}
+          </VStack>
+        ) : null}
+      </VStack>
     </ScreenContainer>
   );
 }
