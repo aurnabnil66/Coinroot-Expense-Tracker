@@ -10,6 +10,7 @@ import {
   monthlySpending,
   monthlySummary,
   remainingOf,
+  takeDays,
 } from './ledger.util';
 
 const account = (id: string, overrides: Partial<Account> = {}): Account => ({
@@ -129,5 +130,18 @@ describe('monthlySpending', () => {
     const months = monthlySpending('2026-11', 3, all);
     expect(months.map((m) => m.key)).toEqual(['2026-09', '2026-10', '2026-11']);
     expect(months.map((m) => m.amount)).toEqual([0, 99900, 102000]);
+  });
+});
+
+describe('takeDays', () => {
+  const groups = groupByDay(all); // 2026-11-02 (7 entries), 2026-10-31 (1 entry)
+
+  it('keeps whole days until the limit is reached', () => {
+    expect(takeDays(groups, 3).map((g) => g.date)).toEqual(['2026-11-02']);
+    expect(takeDays(groups, 8).map((g) => g.date)).toEqual(['2026-11-02', '2026-10-31']);
+  });
+
+  it('returns every day when the limit is larger than the list', () => {
+    expect(takeDays(groups, 100)).toHaveLength(2);
   });
 });

@@ -1,11 +1,12 @@
 import { router } from 'expo-router';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { SectionList } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { TransactionRow } from '@/lib/components';
 import { BottomTabInset } from '@/lib/constants';
 import { Box } from '@/lib/gluestack-ui/box';
+import { Button, ButtonText } from '@/lib/gluestack-ui/button';
 import { HStack } from '@/lib/gluestack-ui/hstack';
 import { Text } from '@/lib/gluestack-ui/text';
 import { useLedger } from '@/lib/hooks';
@@ -18,15 +19,23 @@ import {
   monthlySummary,
   nameLookup,
   remainingOf,
+  takeDays,
   todayKey,
   toMonthKey,
 } from '@/lib/utils';
+
+/** Transactions shown per page; "Load more" adds another page (always whole days). */
+const PAGE_SIZE = 30;
 
 export function TransactionsScreen() {
   const insets = useSafeAreaInsets();
   const { accounts, categories, transactions } = useLedger();
   const nameOf = useMemo(() => nameLookup(accounts, categories), [accounts, categories]);
-  const sections = useMemo(() => groupByDay(transactions), [transactions]);
+  const allSections = useMemo(() => groupByDay(transactions), [transactions]);
+  const [limit, setLimit] = useState(PAGE_SIZE);
+  const sections = useMemo(() => takeDays(allSections, limit), [allSections, limit]);
+  const shown = sections.reduce((count, section) => count + section.data.length, 0);
+  const hasMore = sections.length < allSections.length;
   const parentIds = useMemo(() => new Set(transactions.map((tx) => tx.parentId)), [transactions]);
   const month = toMonthKey(todayKey());
   const summary = useMemo(() => monthlySummary(month, transactions, accounts), [month, transactions, accounts]);
@@ -88,6 +97,22 @@ export function TransactionsScreen() {
             </Box>
           );
         }}
+        ListFooterComponent={
+          hasMore ? (
+            <Box className="items-center gap-2 pt-6">
+              <Button
+                variant="outline"
+                size="lg"
+                className="h-12 w-full rounded-2xl"
+                onPress={() => setLimit((current) => current + PAGE_SIZE)}>
+                <ButtonText className="text-base font-semibold">Load more</ButtonText>
+              </Button>
+              <Text className="text-xs text-muted-foreground">
+                Showing {shown} of {transactions.length}
+              </Text>
+            </Box>
+          ) : undefined
+        }
         ListEmptyComponent={
           <EmptyState
             title="No transactions yet"

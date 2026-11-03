@@ -168,6 +168,20 @@ export function groupByDay(transactions: readonly Transaction[]): DayGroup[] {
   return [...groups.values()];
 }
 
+/**
+ * The newest days that together hold at least `limit` transactions (or all days).
+ * Whole days only, so a day's list and "spent" total are never cut in half.
+ */
+export function takeDays(groups: readonly DayGroup[], limit: number): DayGroup[] {
+  let count = 0;
+  let end = 0;
+  while (end < groups.length && count < limit) {
+    count += groups[end].data.length;
+    end += 1;
+  }
+  return groups.slice(0, end);
+}
+
 /** Looks up account / category / income-source names for a transaction's from and to. */
 export function nameLookup(
   accounts: readonly Account[],
