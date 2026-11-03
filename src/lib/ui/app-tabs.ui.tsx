@@ -1,31 +1,35 @@
 import { NativeTabs } from 'expo-router/native-tabs';
-import { useColorScheme } from 'react-native';
 
-import { Colors } from '@/lib/constants';
+import { useGluestackColors } from '@/lib/gluestack-ui/gluestack-ui-provider';
 
 export default function AppTabs() {
-  const scheme = useColorScheme();
-  const colors = Colors[scheme === 'dark' ? 'dark' : 'light'];
+  // The native tab bar takes colour props, not className.
+  const colors = useGluestackColors();
 
   return (
     <NativeTabs
       backgroundColor={colors.background}
-      indicatorColor={colors.backgroundElement}
-      labelStyle={{ selected: { color: colors.text } }}>
+      indicatorColor={colors.secondary}
+      iconColor={{ default: colors.mutedForeground, selected: colors.primary }}
+      labelStyle={{ default: { color: colors.mutedForeground }, selected: { color: colors.primary } }}>
       <NativeTabs.Trigger name="index">
-        <NativeTabs.Trigger.Label>Home</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon
-          src={require('@/assets/images/tabIcons/home.png')}
-          renderingMode="template"
-        />
+        <NativeTabs.Trigger.Label>Transactions</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon sf="list.bullet.rectangle" md="receipt_long" />
       </NativeTabs.Trigger>
 
-      <NativeTabs.Trigger name="explore">
-        <NativeTabs.Trigger.Label>Explore</NativeTabs.Trigger.Label>
-        <NativeTabs.Trigger.Icon
-          src={require('@/assets/images/tabIcons/explore.png')}
-          renderingMode="template"
-        />
+      <NativeTabs.Trigger name="accounts">
+        <NativeTabs.Trigger.Label>Accounts</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon sf="building.columns" md="account_balance" />
+      </NativeTabs.Trigger>
+
+      <NativeTabs.Trigger name="summary">
+        <NativeTabs.Trigger.Label>Summary</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon sf="chart.pie" md="pie_chart" />
+      </NativeTabs.Trigger>
+
+      <NativeTabs.Trigger name="settings">
+        <NativeTabs.Trigger.Label>Settings</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon sf="gearshape" md="settings" />
       </NativeTabs.Trigger>
     </NativeTabs>
   );

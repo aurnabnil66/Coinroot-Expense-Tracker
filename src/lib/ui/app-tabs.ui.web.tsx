@@ -1,19 +1,17 @@
-import {
-  Tabs,
-  TabList,
-  TabTrigger,
-  TabSlot,
-  TabTriggerSlotProps,
-  TabListProps,
-} from 'expo-router/ui';
-import { SymbolView } from 'expo-symbols';
-import { Pressable, type PressableProps, useColorScheme, View, StyleSheet } from 'react-native';
+import { Tabs, TabList, TabTrigger, TabSlot, TabTriggerSlotProps, TabListProps } from 'expo-router/ui';
+import { type PressableProps, View } from 'react-native';
 
-import { Colors, MaxContentWidth, Spacing } from '@/lib/constants';
+import { MaxContentWidth } from '@/lib/constants';
+import { HStack } from '@/lib/gluestack-ui/hstack';
+import { Pressable } from '@/lib/gluestack-ui/pressable';
+import { Text } from '@/lib/gluestack-ui/text';
 
-import { ExternalLink } from './external-link.ui';
-import { ThemedText } from './themed-text.ui';
-import { ThemedView } from './themed-view.ui';
+const TABS = [
+  { name: 'index', href: '/', label: 'Transactions' },
+  { name: 'accounts', href: '/accounts', label: 'Accounts' },
+  { name: 'summary', href: '/summary', label: 'Summary' },
+  { name: 'settings', href: '/settings', label: 'Settings' },
+] as const;
 
 export default function AppTabs() {
   return (
@@ -21,12 +19,11 @@ export default function AppTabs() {
       <TabSlot style={{ height: '100%' }} />
       <TabList asChild>
         <CustomTabList>
-          <TabTrigger name="home" href="/" asChild>
-            <TabButton>Home</TabButton>
-          </TabTrigger>
-          <TabTrigger name="explore" href="/explore" asChild>
-            <TabButton>Explore</TabButton>
-          </TabTrigger>
+          {TABS.map((tab) => (
+            <TabTrigger key={tab.name} name={tab.name} href={tab.href} asChild>
+              <TabButton>{tab.label}</TabButton>
+            </TabTrigger>
+          ))}
         </CustomTabList>
       </TabList>
     </Tabs>
@@ -36,81 +33,25 @@ export default function AppTabs() {
 export function TabButton({ children, isFocused, ...props }: TabTriggerSlotProps) {
   return (
     // TabTriggerSlotProps types `ref` for a function component, not the Pressable it lands on.
-    <Pressable {...(props as PressableProps)} style={({ pressed }) => pressed && styles.pressed}>
-      <ThemedView
-        type={isFocused ? 'backgroundSelected' : 'backgroundElement'}
-        style={styles.tabButtonView}>
-        <ThemedText type="small" themeColor={isFocused ? 'text' : 'textSecondary'}>
-          {children}
-        </ThemedText>
-      </ThemedView>
+    <Pressable
+      {...(props as PressableProps)}
+      className={`rounded-full px-4 py-1.5 data-[active=true]:opacity-70 ${isFocused ? 'bg-primary' : ''}`}>
+      <Text className={`text-sm font-medium ${isFocused ? 'text-primary-foreground' : 'text-muted-foreground'}`}>
+        {children}
+      </Text>
     </Pressable>
   );
 }
 
 export function CustomTabList(props: TabListProps) {
-  const scheme = useColorScheme();
-  const colors = Colors[scheme === 'dark' ? 'dark' : 'light'];
-
   return (
-    <View {...props} style={styles.tabListContainer}>
-      <ThemedView type="backgroundElement" style={styles.innerContainer}>
-        <ThemedText type="smallBold" style={styles.brandText}>
-          Expo Starter
-        </ThemedText>
-
+    <View {...props} className="absolute bottom-0 w-full flex-row justify-center p-4">
+      <HStack
+        className="flex-1 items-center gap-1 rounded-full border border-border bg-card p-1.5"
+        style={{ maxWidth: MaxContentWidth }}>
+        <Text className="mr-auto px-3 text-sm font-bold text-foreground">Coinroot</Text>
         {props.children}
-
-        <ExternalLink href="https://docs.expo.dev" asChild>
-          <Pressable style={styles.externalPressable}>
-            <ThemedText type="link">Docs</ThemedText>
-            <SymbolView
-              tintColor={colors.text}
-              name={{ ios: 'arrow.up.right.square', web: 'link' }}
-              size={12}
-            />
-          </Pressable>
-        </ExternalLink>
-      </ThemedView>
+      </HStack>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  tabListContainer: {
-    position: 'absolute',
-    width: '100%',
-    padding: Spacing.three,
-    justifyContent: 'center',
-    alignItems: 'center',
-    flexDirection: 'row',
-  },
-  innerContainer: {
-    paddingVertical: Spacing.two,
-    paddingHorizontal: Spacing.five,
-    borderRadius: Spacing.five,
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexGrow: 1,
-    gap: Spacing.two,
-    maxWidth: MaxContentWidth,
-  },
-  brandText: {
-    marginRight: 'auto',
-  },
-  pressed: {
-    opacity: 0.7,
-  },
-  tabButtonView: {
-    paddingVertical: Spacing.one,
-    paddingHorizontal: Spacing.three,
-    borderRadius: Spacing.three,
-  },
-  externalPressable: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: Spacing.one,
-    marginLeft: Spacing.three,
-  },
-});
