@@ -5,6 +5,7 @@ import { vars } from 'nativewind';
 // Light mode: soft lavender-white page, white cards, purple primary.
 // Dark mode: deep navy page, navy cards, lighter purple primary.
 // income / expense / transfer colours are used only for money meaning.
+// tab-bar / tab-item / tab-icon: the floating tab bar and its round inactive buttons (white in light, navy in dark).
 export const colors = {
   light: {
     '--primary': '108 76 241',
@@ -31,6 +32,9 @@ export const colors = {
     '--expense': '244 63 94',
     '--transfer': '14 165 233',
     '--warning': '217 119 6',
+    '--tab-bar': '255 255 255',
+    '--tab-item': '238 240 250',
+    '--tab-icon': '102 110 145',
   },
   dark: {
     '--primary': '157 135 255',
@@ -57,6 +61,9 @@ export const colors = {
     '--expense': '251 113 133',
     '--transfer': '125 211 252',
     '--warning': '251 191 36',
+    '--tab-bar': '30 38 76',
+    '--tab-item': '45 55 102',
+    '--tab-icon': '170 178 215',
   },
 };
 

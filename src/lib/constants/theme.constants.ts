@@ -1,6 +1,6 @@
-import { Platform } from 'react-native';
-
-/** Height of the native tab bar that screen content scrolls under. */
+/** Space the floating tab bar takes above the safe-area bottom (bar + its margin); content scrolls under it. */
+export const BottomTabInset = 84;
+export const MaxContentWidth = 720;
 
 /**
  * App font, embedded by the expo-font plugin (app.json) with 400/500/600/700 faces.
@@ -8,5 +8,3 @@ import { Platform } from 'react-native';
  * that can't take className (navigation header, native tab labels).
  */
 export const FontFamily = 'Poppins';
-export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
-export const MaxContentWidth = 720;

@@ -53,6 +53,8 @@ module.exports = {
         expense: 'rgb(var(--expense) / <alpha-value>)',
         transfer: 'rgb(var(--transfer) / <alpha-value>)',
         warning: 'rgb(var(--warning) / <alpha-value>)',
+        'tab-bar': 'rgb(var(--tab-bar) / <alpha-value>)',
+        'tab-item': 'rgb(var(--tab-item) / <alpha-value>)',
       },
     },
   },
