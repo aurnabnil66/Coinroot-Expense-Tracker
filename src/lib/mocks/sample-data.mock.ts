@@ -2,9 +2,11 @@
  * Made-up sample data so the screens can be designed before the database exists.
  * Generic names and invented amounts only — never real personal data.
  * Dates are relative to today so the list always shows "Today" / "Yesterday".
+ * Earlier months get a generated history (before the accounts' opening date, so balances are
+ * unaffected) to fill the 6-month chart and the paged transaction list.
  */
 import type { Account, Category, Transaction } from '@/lib/types';
-import { addDays, todayKey, toMonthKey } from '@/lib/utils';
+import { addDays, addMonths, daysInMonth, todayKey, toMonthKey } from '@/lib/utils';
 
 const today = todayKey();
 const monthStart = `${toMonthKey(today)}-01`;
@@ -71,4 +73,67 @@ const recharge = entry(0, { type: 'expense', fromId: 'acc-wallet', toId: 'cat-mo
 const groceries = entry(0, { type: 'expense', fromId: 'acc-main', toId: 'cat-groceries', amount: 87550, note: 'Card payment, supermarket' });
 const lunch = entry(0, { type: 'expense', fromId: 'acc-cash', toId: 'cat-food', amount: 22000, note: 'Lunch', parentId: atm.id });
 
-export const sampleTransactions: Transaction[] = [salary, toMain, dps, fee, atm, ride, tea, topUp, recharge, groceries, lunch];
+const HISTORY_MONTHS = 5;
+
+/** A typical month: salary in, moved to the main bank, DPS, cash, wallet and everyday spending. */
+const historyMonth = (monthsAgo: number): Transaction[] => {
+  const month = addMonths(toMonthKey(today), -monthsAgo);
+  const lastDay = daysInMonth(month);
+  // Vary amounts a little from month to month so the chart has some shape.
+  const vary = (amount: number, i: number) => Math.round((amount * (85 + ((monthsAgo * 7 + i * 13) % 35))) / 100);
+  const on = (day: number, fields: Pick<Transaction, 'type' | 'fromId' | 'toId' | 'amount'> & Partial<Transaction>) => {
+    seq += 1;
+    const date = `${month}-${String(Math.min(day, lastDay)).padStart(2, '0')}`;
+    const createdAt = `${date}T09:00:${String(seq % 60).padStart(2, '0')}.000Z`;
+    return { id: `tx-${seq}`, date, note: '', parentId: null, createdAt, updatedAt: createdAt, ...fields };
+  };
+
+  const atm = on(5, { type: 'transfer', fromId: 'acc-main', toId: 'acc-cash', amount: 300000, note: 'ATM withdrawal' });
+  const spends: [number, string, number, string][] = [
+    [2, 'cat-rent', 1800000, 'Monthly rent'],
+    [3, 'cat-bills', 250000, 'Electricity and gas'],
+    [4, 'cat-mobile-internet', 99900, 'Internet bill'],
+    [7, 'cat-groceries', 420000, 'Monthly groceries'],
+    [9, 'cat-food', 65000, 'Dinner out'],
+    [12, 'cat-transport', 120000, 'Rides this week'],
+    [15, 'cat-shopping', 230000, 'Clothes'],
+    [18, 'cat-health', 80000, 'Pharmacy'],
+    [21, 'cat-groceries', 180000, 'Groceries top-up'],
+    [24, 'cat-entertainment', 50000, 'Movie'],
+    [27, 'cat-food', 45000, 'Lunch with friends'],
+    [28, 'cat-bank-charges', 2300, 'SMS charge'],
+  ];
+  return [
+    on(1, { type: 'income', fromId: 'src-salary', toId: 'acc-salary', amount: 5000000, note: 'Monthly salary' }),
+    on(1, { type: 'transfer', fromId: 'acc-salary', toId: 'acc-main', amount: 4000000, note: 'Salary transfer' }),
+    on(3, { type: 'transfer', fromId: 'acc-main', toId: 'acc-dps', amount: 500000, note: 'DPS installment' }),
+    atm,
+    ...spends.map(([day, toId, amount, note], i) =>
+      on(day, {
+        type: 'expense',
+        fromId: toId === 'cat-transport' || toId === 'cat-food' ? 'acc-cash' : 'acc-main',
+        toId,
+        amount: vary(amount, i),
+        note,
+        parentId: toId === 'cat-transport' || toId === 'cat-food' ? atm.id : null,
+      })
+    ),
+  ];
+};
+
+const history = Array.from({ length: HISTORY_MONTHS }, (_, i) => historyMonth(i + 1)).flat();
+
+export const sampleTransactions: Transaction[] = [
+  ...history,
+  salary,
+  toMain,
+  dps,
+  fee,
+  atm,
+  ride,
+  tea,
+  topUp,
+  recharge,
+  groceries,
+  lunch,
+];
