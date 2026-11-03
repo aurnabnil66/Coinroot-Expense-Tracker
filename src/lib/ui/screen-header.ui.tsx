@@ -16,7 +16,7 @@ export function ScreenHeader({ title, subtitle, right }: ScreenHeaderProps) {
     <HStack className="items-center justify-between gap-3 pb-5 pt-3">
       <Box className="flex-1">
         {subtitle ? <Text className="text-sm font-medium text-primary">{subtitle}</Text> : null}
-        <Text className="text-[28px] font-bold leading-9 text-foreground">{title}</Text>
+        <Text className="text-[28px] font-semibold leading-9 text-foreground">{title}</Text>
       </Box>
       {right}
     </HStack>

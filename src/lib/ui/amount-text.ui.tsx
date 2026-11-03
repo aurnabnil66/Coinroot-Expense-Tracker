@@ -22,12 +22,24 @@ type AmountTextProps = Omit<ComponentProps<typeof Text>, 'children'> & {
   signed?: boolean;
   /** Show as money going out ("-৳350") even though the amount is positive. */
   outflow?: boolean;
+  /** Semibold for large headline amounts, where Poppins Bold looks too heavy. */
+  weight?: 'semibold' | 'bold';
 };
 
-export function AmountText({ amount, tone = 'default', signed, outflow, className = '', ...props }: AmountTextProps) {
+export function AmountText({
+  amount,
+  tone = 'default',
+  signed,
+  outflow,
+  weight = 'bold',
+  className = '',
+  ...props
+}: AmountTextProps) {
   const value = outflow ? -Math.abs(amount) : amount;
   return (
-    <Text className={`font-bold tabular-nums ${toneClass[tone]} ${className}`} {...props}>
+    <Text
+      className={`${weight === 'semibold' ? 'font-semibold' : 'font-bold'} tabular-nums ${toneClass[tone]} ${className}`}
+      {...props}>
       {formatTaka(value, { signed })}
     </Text>
   );

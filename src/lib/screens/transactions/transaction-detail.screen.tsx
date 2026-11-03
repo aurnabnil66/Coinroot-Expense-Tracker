@@ -88,7 +88,8 @@ export function TransactionDetailScreen() {
           outflow={tx.type === 'expense'}
           signed={tx.type === 'income'}
           tone={tx.type === 'income' ? 'income' : 'default'}
-          className="text-4xl font-bold"
+          weight="semibold"
+          className="text-4xl"
         />
         <Text className="text-center text-base text-muted-foreground">{transactionTitle(tx, nameOf)}</Text>
       </Card>

@@ -83,7 +83,7 @@ export function AccountsScreen() {
           <GradientCard className="gap-4">
             <VStack className="gap-1">
               <Text className="text-sm font-medium text-white/75">Total money</Text>
-              <AmountText amount={total} tone="onHero" className="text-4xl" />
+              <AmountText amount={total} tone="onHero" weight="semibold" className="text-4xl" />
               <Text className="text-sm text-white/75">
                 Across {active.length} {active.length === 1 ? 'account' : 'accounts'}
               </Text>

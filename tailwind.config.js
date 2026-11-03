@@ -8,6 +8,18 @@ module.exports = {
   // (src/lib/gluestack-ui/gluestack-ui-provider/config.ts).
   theme: {
     extend: {
+      // Poppins is embedded by the expo-font plugin (app.json) as one family with
+      // 400/500/600/700 faces, so font-normal … font-bold pick the matching face.
+      fontFamily: {
+        sans: ['Poppins'],
+        body: ['Poppins'],
+        heading: ['Poppins'],
+      },
+      // Bold (700) is the heaviest weight in the app; heavier classes render as bold.
+      fontWeight: {
+        extrabold: '700',
+        black: '700',
+      },
       colors: {
         background: 'rgb(var(--background) / <alpha-value>)',
         foreground: 'rgb(var(--foreground) / <alpha-value>)',

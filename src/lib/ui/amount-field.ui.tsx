@@ -33,7 +33,7 @@ export function AmountField({ value, onChangeText, onBlur, error, toneClass = 't
           keyboardType="decimal-pad"
           inputMode="decimal"
           accessibilityLabel="Amount in taka"
-          className={`min-w-16 text-5xl font-bold tabular-nums ${toneClass}`}
+          className={`min-w-16 font-sans text-5xl font-semibold ${toneClass}`}
         />
       </HStack>
       {error ? <Text className="text-xs text-destructive">{error}</Text> : null}

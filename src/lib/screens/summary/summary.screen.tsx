@@ -61,7 +61,7 @@ export function SummaryScreen() {
           <GradientCard className="mt-4 gap-4">
             <VStack className="gap-1">
               <Text className="text-sm font-medium text-white/75">Saved this month</Text>
-              <AmountText amount={summary.saved} tone="onHero" className="text-4xl" />
+              <AmountText amount={summary.saved} tone="onHero" weight="semibold" className="text-4xl" />
               <Text className="text-xs text-white/75">Income − expenses. Transfers never count.</Text>
             </VStack>
             <HStack className="gap-3">

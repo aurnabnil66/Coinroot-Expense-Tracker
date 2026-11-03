@@ -71,7 +71,7 @@ export function AccountDetailScreen() {
           {ACCOUNT_TYPE_LABELS[account.type]}
           {account.archived ? ' · Archived' : ''}
         </Text>
-        <AmountText amount={balance} tone={balance < 0 ? 'expense' : 'default'} className="text-4xl font-bold" />
+        <AmountText amount={balance} tone={balance < 0 ? 'expense' : 'default'} weight="semibold" className="text-4xl" />
         <Text className="text-sm text-muted-foreground">
           Opening <AmountText amount={account.openingBalance} className="text-sm font-normal text-muted-foreground" /> on{' '}
           {formatFullDate(account.openingDate)}
