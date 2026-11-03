@@ -4,8 +4,10 @@ import type { Account, Transaction } from '@/lib/types';
 
 import {
   accountBalance,
+  dailySpending,
   groupByDay,
   linkableParents,
+  monthlySpending,
   monthlySummary,
   remainingOf,
 } from './ledger.util';
@@ -110,5 +112,22 @@ describe('groupByDay', () => {
     expect(groups.map((g) => g.date)).toEqual(['2026-11-02', '2026-10-31']);
     expect(groups[0].spent).toBe(102000);
     expect(groups[0].data[0].id).toBe(installment.id);
+  });
+});
+
+describe('dailySpending', () => {
+  it('has one entry per day and counts only expenses', () => {
+    const days = dailySpending('2026-11', all);
+    expect(days).toHaveLength(30);
+    expect(days[0]).toEqual({ key: '2026-11-01', amount: 0 });
+    expect(days[1]).toEqual({ key: '2026-11-02', amount: 40000 + 5000 + 57000 });
+  });
+});
+
+describe('monthlySpending', () => {
+  it('returns months oldest first, ending with the given month', () => {
+    const months = monthlySpending('2026-11', 3, all);
+    expect(months.map((m) => m.key)).toEqual(['2026-09', '2026-10', '2026-11']);
+    expect(months.map((m) => m.amount)).toEqual([0, 99900, 102000]);
   });
 });

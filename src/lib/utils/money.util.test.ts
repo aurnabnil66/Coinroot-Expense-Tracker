@@ -1,6 +1,14 @@
 import { describe, expect, it } from '@jest/globals';
 
-import { formatTaka, formatTakaInput, groupDigits, parseTaka, sumPoisha } from './money.util';
+import {
+  formatTaka,
+  formatTakaCompact,
+  formatTakaInput,
+  groupDigits,
+  niceTakaCeiling,
+  parseTaka,
+  sumPoisha,
+} from './money.util';
 
 describe('parseTaka', () => {
   it.each([
@@ -73,5 +81,25 @@ describe('sumPoisha', () => {
   it('adds amounts', () => {
     expect(sumPoisha([35000, 5000, 15])).toBe(40015);
     expect(sumPoisha([])).toBe(0);
+  });
+});
+
+describe('formatTakaCompact', () => {
+  it('uses k, L and Cr with one decimal', () => {
+    expect(formatTakaCompact(85000)).toBe('৳850');
+    expect(formatTakaCompact(1250000)).toBe('৳12.5k');
+    expect(formatTakaCompact(200000)).toBe('৳2k');
+    expect(formatTakaCompact(15000000)).toBe('৳1.5L');
+    expect(formatTakaCompact(2_30_00_000_00)).toBe('৳2.3Cr');
+  });
+});
+
+describe('niceTakaCeiling', () => {
+  it('rounds up to 1, 2, 2.5 or 5 × a power of ten taka', () => {
+    expect(niceTakaCeiling(0)).toBe(0);
+    expect(niceTakaCeiling(70000)).toBe(100000);
+    expect(niceTakaCeiling(180000)).toBe(200000);
+    expect(niceTakaCeiling(230000)).toBe(250000);
+    expect(niceTakaCeiling(1200000)).toBe(2000000);
   });
 });

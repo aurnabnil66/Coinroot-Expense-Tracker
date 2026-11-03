@@ -1,6 +1,7 @@
 export * from './amount-field.ui';
 export * from './amount-text.ui';
 export { default as AppTabs } from './app-tabs.ui';
+export * from './bar-chart.ui';
 export * from './card.ui';
 export * from './date-field.ui';
 export * from './empty-state.ui';

@@ -68,3 +68,13 @@ export function formatMonthLabel(monthKey: string): string {
     year: 'numeric',
   });
 }
+
+export function daysInMonth(monthKey: string): number {
+  const [year, month] = monthKey.split('-').map(Number);
+  return new Date(year, month, 0).getDate();
+}
+
+/** e.g. "Nov" */
+export function formatShortMonth(monthKey: string): string {
+  return fromDateKey(`${monthKey}-01`).toLocaleDateString('en-GB', { month: 'short' });
+}

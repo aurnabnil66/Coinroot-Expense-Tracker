@@ -63,3 +63,28 @@ export function formatTakaInput(poisha: number): string {
 export function sumPoisha(amounts: readonly number[]): number {
   return amounts.reduce((total, amount) => total + amount, 0);
 }
+
+const COMPACT_UNITS = [
+  { size: 1_00_00_000, suffix: 'Cr' },
+  { size: 1_00_000, suffix: 'L' },
+  { size: 1_000, suffix: 'k' },
+] as const;
+
+/** Short taka for chart axes, rounded to one decimal: 1250000 → "৳12.5k", 15000000 → "৳1.5L". */
+export function formatTakaCompact(poisha: number): string {
+  const taka = Math.round(Math.abs(poisha) / POISHA_PER_TAKA);
+  const sign = poisha < 0 ? '-' : '';
+  const unit = COMPACT_UNITS.find((u) => taka >= u.size);
+  if (!unit) return `${sign}${TAKA_SIGN}${taka}`;
+  const value = Math.round((taka / unit.size) * 10) / 10;
+  return `${sign}${TAKA_SIGN}${String(value)}${unit.suffix}`;
+}
+
+/** Rounds poisha up to a tidy chart maximum (1, 2, 2.5 or 5 × a power of ten taka). */
+export function niceTakaCeiling(poisha: number): number {
+  const taka = Math.ceil(poisha / POISHA_PER_TAKA);
+  if (taka <= 0) return 0;
+  const magnitude = 10 ** Math.floor(Math.log10(taka));
+  const step = [1, 2, 2.5, 5, 10].find((m) => m * magnitude >= taka) ?? 10;
+  return Math.round(step * magnitude * POISHA_PER_TAKA);
+}

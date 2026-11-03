@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 
+import { SpendingChart } from '@/lib/components';
 import { CATEGORY_COLORS, DEFAULT_CATEGORY_COLOR } from '@/lib/constants';
 import { Box } from '@/lib/gluestack-ui/box';
 import { HStack } from '@/lib/gluestack-ui/hstack';
@@ -62,6 +63,9 @@ export function SummaryScreen() {
         </VStack>
         <AmountText amount={summary.movedToSavings} className="text-lg" />
       </Card>
+
+      <SectionHeader title="Spending over time" />
+      <SpendingChart month={month} transactions={transactions} />
 
       <SectionHeader title="Spending by category" />
       {summary.byCategory.length === 0 ? (

@@ -1,6 +1,6 @@
 import type { Account, Category, Transaction } from '@/lib/types';
 
-import { toMonthKey } from './date.util';
+import { addMonths, daysInMonth, toMonthKey } from './date.util';
 
 /**
  * Account balance = opening balance + money in − money out,
@@ -101,6 +101,44 @@ export function monthlySummary(
       }))
       .sort((a, b) => b.amount - a.amount),
   };
+}
+
+/** Money spent in one period: a day ("YYYY-MM-DD") or a month ("YYYY-MM"). */
+export type PeriodSpending = {
+  key: string;
+  amount: number;
+};
+
+/** Expenses per day of a month, including days with nothing spent. */
+export function dailySpending(monthKey: string, transactions: readonly Transaction[]): PeriodSpending[] {
+  const days = Array.from({ length: daysInMonth(monthKey) }, (_, i) => ({
+    key: `${monthKey}-${String(i + 1).padStart(2, '0')}`,
+    amount: 0,
+  }));
+  for (const tx of transactions) {
+    if (tx.type !== 'expense' || toMonthKey(tx.date) !== monthKey) continue;
+    days[Number(tx.date.slice(8)) - 1].amount += tx.amount;
+  }
+  return days;
+}
+
+/** Expenses per month for `count` months ending with `endMonthKey`, oldest first. */
+export function monthlySpending(
+  endMonthKey: string,
+  count: number,
+  transactions: readonly Transaction[]
+): PeriodSpending[] {
+  const months = Array.from({ length: count }, (_, i) => ({
+    key: addMonths(endMonthKey, i - count + 1),
+    amount: 0,
+  }));
+  const byKey = new Map(months.map((m) => [m.key, m]));
+  for (const tx of transactions) {
+    if (tx.type !== 'expense') continue;
+    const month = byKey.get(toMonthKey(tx.date));
+    if (month) month.amount += tx.amount;
+  }
+  return months;
 }
 
 export function compareNewestFirst(a: Transaction, b: Transaction): number {
