@@ -84,7 +84,6 @@ Planned (add with `bunx expo install` when the feature needs it, then move it to
 
 | Need | Library |
 |---|---|
-| Charts | `victory-native` or `react-native-gifted-charts` |
 | CSV import | `expo-document-picker` + `papaparse` |
 | Export / backup | `expo-file-system` + `expo-sharing` |
 | Dates | `date-fns` |
@@ -103,7 +102,7 @@ Expo Router treats **every** `.ts`/`.tsx` file under `src/app/` as a route (no n
 |---|---|
 | `src/app/` | Expo Router routes and layouts only |
 | `src/lib/screens/<name>/` | Full-page screens, grouped by feature: `transactions/`, `accounts/`, `summary/`, `settings/`. Nothing sits directly in `src/lib/screens/`. |
-| `src/lib/components/` | Reusable, feature-aware pieces that aren't screens (`TransactionRow`, `TransactionTypeIcon`) |
+| `src/lib/components/` | Reusable, feature-aware pieces that aren't screens (`TransactionRow`, `TransactionTypeIcon`, `SpendingChart`) |
 | `src/lib/ui/` | Reusable, feature-agnostic UI components, built from gluestack-ui + `className` (layout, cards, rows, form fields, `SelectField` bottom-sheet picker) |
 | `src/lib/hooks/` | Shared hooks (`useLedger`, `useColorScheme`, `useThemePreference`) |
 | `src/lib/constants/` | Static values (`ledger.constants.ts`: labels, account/category colours; `theme.constants.ts`: `BottomTabInset`, `MaxContentWidth`) |
@@ -117,7 +116,7 @@ Expo Router treats **every** `.ts`/`.tsx` file under `src/app/` as a route (no n
 
 New layers follow the same `src/lib/<layer>/*.<suffix>.ts(x)` shape with their own barrel. Next one: `src/lib/db/` (`*.db.ts`: Drizzle schema, client, queries).
 
-**Data access today:** screens read everything through `useLedger()` (accounts, categories, transactions) and write through `ledgerStore.*` (`src/lib/mocks`). Balances and totals are computed with `src/lib/utils/ledger.util.ts`, never stored. When the DB lands, replace `useLedger` with Drizzle live queries and `ledgerStore` with DB writes; screens and utils should not need to change.
+**Data access today:** screens read everything through `useLedger()` (`status`, `error`, accounts, categories, transactions) and write through `ledgerStore.*` (`src/lib/mocks`). The mock loads and writes asynchronously with a short simulated delay, like the DB will, so loading states are always exercised. Balances and totals are computed with `src/lib/utils/ledger.util.ts`, never stored. When the DB lands, replace `useLedger` with Drizzle live queries and `ledgerStore` with DB writes; screens and utils should not need to change.
 
 ## File naming
 
@@ -155,7 +154,12 @@ New layers follow the same `src/lib/<layer>/*.<suffix>.ts(x)` shape with their o
 - Use gluestack-ui components (`Box`, `VStack`, `HStack`, `Text`, `Heading`, `Button`, `Input`, `Pressable`, `Icon`, `Divider`) with Tailwind `className`, not `StyleSheet.create`. Dynamic numeric values with no Tailwind token (e.g. `MaxContentWidth`, `BottomTabInset`) go in `style` next to `className`.
 - Theme colours are CSS variables in `src/lib/gluestack-ui/gluestack-ui-provider/config.ts` (`--primary`, `--background`, `--muted`, `--destructive`, …), mapped to Tailwind colours in `tailwind.config.js`. Use `bg-background`, `text-foreground`, `text-muted-foreground`, `bg-primary`, never raw hex.
 - **Theme setting:** Settings → Theme offers Light / Dark / Device default (the default). `useThemePreference()` / `setThemePreference()` (`src/lib/hooks`) save it with `expo-sqlite/kv-store`, and the root layout passes it to `GluestackUIProvider mode`. NativeWind then sets the native appearance too, so the tab bar, alerts and keyboard follow.
-- **Design:** minimal. Neutral zinc greys, one deep-green accent (`primary`), cards (`bg-card rounded-2xl border-border`) on a `bg-background` page, large left-aligned titles. Money colours are only for meaning: `text-income` (green), `text-expense` (rose), `text-transfer` (blue). Expense amounts show as `-৳…` in the normal text colour; income as `+৳…` in green.
+- **Design (Android-first, modern):** navy + purple brand with a light-blue accent (`sky`). Light mode: lavender-white page (`bg-background`), white cards, purple `primary`. Dark mode: deep-navy page, navy cards, lighter purple `primary`.
+  - Headline numbers sit on a `GradientCard` (navy → purple, `--hero-start` → `--hero-end`) with white text (`AmountText tone="onHero"`) and `GradientStat` tiles.
+  - Cards are `rounded-3xl` with a soft navy shadow in light mode (`Card`). Inputs and pickers are `h-14 rounded-2xl`. Icon badges are rounded squares.
+  - Pressables get a Material ripple via `android_ripple={useRipple()}`. The add button is an extended FAB ("+ Add"). Segmented controls use filled pills (`selectedClass`, e.g. `bg-expense` / `bg-income` / `bg-transfer` for the type switch).
+  - Money colours are only for meaning: `text-income` (green), `text-expense` (rose), `text-transfer` (light blue). Expense amounts show as `-৳…` in the normal text colour; income as `+৳…` in green.
+  - Gradients and shadows use React Native's built-in `experimental_backgroundImage: linear-gradient(...)` and `boxShadow` styles (no gradient library).
 - Props that can't take `className` (native tab bar, navigation header, `placeholderTextColor`, `Switch`) get hex values from `useGluestackColors()`. Per-item colours (category swatches) are keys into `CATEGORY_COLORS`, applied via `style`.
 - Add components with `bunx gluestack-ui@latest add <component> --use-bun`. The output lands in `src/lib/gluestack-ui/<component>/`. The CLI is alpha. After adding:
   - install any dependency it skipped (it skipped `@legendapp/motion` for `actionsheet`).
@@ -205,6 +209,13 @@ Done: design and all screens below running on sample data (`src/lib/mocks`). Nex
 - Package manager is **bun**. `bun.lock` is committed (never gitignore it), and there must be no `package-lock.json`, `yarn.lock` or `pnpm-lock.yaml`. Use `bun install`, `bunx expo install <pkg>` for dependencies and `bunx` instead of `npx`.
 - Run `bunx expo lint`, `bunx tsc --noEmit` and `bun run test` before calling a task done. Lint warnings inside `src/lib/gluestack-ui` (`import/no-duplicates`) come from the generated code and can be ignored.
 - ATM withdrawals use the tree (design B, may change): a transfer bank → Cash, with the cash spending added as linked expenses ("Add linked expense" on the withdrawal). The withdrawal shows what's left.
+- Charts are drawn with plain themed views (`BarChart` in `src/lib/ui`), not a chart library: `react-native-gifted-charts` needs `expo-linear-gradient` (a native rebuild) and `victory-native` needs Skia. Revisit only for chart types views can't do.
+- The Transactions list shows whole days in pages of 30 (`takeDays`) with a "Load more" button. With the DB, the page size becomes the query `LIMIT`.
+- **Loading states everywhere.** Nothing renders ledger data until `status === 'ready'`:
+  - Tab screens show a skeleton of their layout (`Skeleton`, `SkeletonCard`). Detail screens and forms show a spinner (`LoadingState`). Both go through `LedgerPending`, which shows `ErrorState` with "Try again" if loading failed.
+  - Forms take their defaults from the ledger, so the exported screen waits for `ready` and then mounts the inner form.
+  - Every write is awaited. The button shows `ButtonLoader` and is disabled meanwhile (submit, delete, inline create). Failures go to `setError('root', …)` or an alert.
+  - "Load more" renders the next page in a `useTransition` and shows a spinner while pending.
 - Dates in forms use `DateField` (day stepper + Today/Yesterday), so no native date-picker module is needed yet.
-- App icon and splash (`app.json`, `assets/images`) are still Expo's defaults.
+- App icon and splash images (`assets/images`) are still Expo's; their background colours are navy `#1E2A5E` (takes effect after a native rebuild).
 - Before open-sourcing: replace the template LICENSE (currently copyright Expo) and README.
