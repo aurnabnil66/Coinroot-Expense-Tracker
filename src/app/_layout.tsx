@@ -1,12 +1,15 @@
 import '@/global.css';
 
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 
 import { GluestackUIProvider, useGluestackColors } from '@/lib/gluestack-ui/gluestack-ui-provider';
-import { useColorScheme } from '@/lib/hooks';
+import { useColorScheme, useThemePreference } from '@/lib/hooks';
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
+  const themePreference = useThemePreference();
+  const deviceScheme = useColorScheme();
+  const colorScheme = themePreference === 'system' ? deviceScheme : themePreference;
   const colors = useGluestackColors();
   const base = colorScheme === 'dark' ? DarkTheme : DefaultTheme;
   const navigationTheme = {
@@ -32,8 +35,9 @@ export default function RootLayout() {
   const modal = { presentation: 'modal', headerShown: false } as const;
 
   return (
-    <GluestackUIProvider mode="system">
+    <GluestackUIProvider mode={themePreference}>
       <ThemeProvider value={navigationTheme}>
+        <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="transaction/[id]" options={pushed} />

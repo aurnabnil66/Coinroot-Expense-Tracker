@@ -3,11 +3,18 @@ import { router } from 'expo-router';
 
 import { CATEGORY_KIND_LABELS } from '@/lib/constants';
 import { Text } from '@/lib/gluestack-ui/text';
-import { useLedger } from '@/lib/hooks';
-import { Card, ListRow, ScreenContainer, ScreenHeader, SectionHeader } from '@/lib/ui';
+import { setThemePreference, type ThemePreference, useLedger, useThemePreference } from '@/lib/hooks';
+import { Card, ListRow, ScreenContainer, ScreenHeader, SectionHeader, SegmentedControl } from '@/lib/ui';
+
+const THEME_OPTIONS: { value: ThemePreference; label: string }[] = [
+  { value: 'light', label: 'Light' },
+  { value: 'dark', label: 'Dark' },
+  { value: 'system', label: 'Device default' },
+];
 
 export function SettingsScreen() {
   const { categories } = useLedger();
+  const themePreference = useThemePreference();
   const count = (kind: 'expense' | 'income_source') =>
     String(categories.filter((c) => c.kind === kind && !c.archived).length);
 
@@ -30,10 +37,11 @@ export function SettingsScreen() {
         />
       </Card>
 
-      <SectionHeader title="Appearance" />
-      <Card>
-        <ListRow title="Theme" trailing="Device default" />
-      </Card>
+      <SectionHeader title="Theme" />
+      <SegmentedControl options={THEME_OPTIONS} value={themePreference} onChange={setThemePreference} />
+      <Text className="px-1 pt-2 text-xs text-muted-foreground">
+        Device default follows your phone&apos;s light or dark setting.
+      </Text>
 
       <SectionHeader title="Data" />
       <Card>
