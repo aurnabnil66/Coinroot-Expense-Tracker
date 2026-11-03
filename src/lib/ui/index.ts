@@ -7,6 +7,7 @@ export * from './empty-state.ui';
 export * from './fab.ui';
 export * from './field-shell.ui';
 export * from './form-text-field.ui';
+export * from './gradient-card.ui';
 export * from './icon-button.ui';
 export * from './initial-badge.ui';
 export * from './list-row.ui';

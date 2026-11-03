@@ -202,7 +202,7 @@ export function TransactionFormScreen() {
             options={TYPE_OPTIONS}
             value={type}
             onChange={changeType}
-            selectedTextClass={{ income: 'text-income', expense: 'text-expense', transfer: 'text-transfer' }}
+            selectedClass={{ income: 'bg-income', expense: 'bg-expense', transfer: 'bg-transfer' }}
           />
 
           <Controller

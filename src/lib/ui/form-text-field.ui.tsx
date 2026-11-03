@@ -23,7 +23,7 @@ export function FormTextField({ label, error, hint, multiline, ...inputProps }: 
     <FieldShell label={label} error={error} hint={hint}>
       <Input
         isInvalid={Boolean(error)}
-        className={`rounded-xl bg-card ${multiline ? 'h-24 items-start py-2' : 'h-12'}`}>
+        className={`rounded-2xl bg-card px-4 ${multiline ? 'h-24 items-start py-2' : 'h-14'}`}>
         <InputField
           {...inputProps}
           multiline={multiline}

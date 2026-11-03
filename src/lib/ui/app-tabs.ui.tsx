@@ -8,8 +8,9 @@ export default function AppTabs() {
 
   return (
     <NativeTabs
-      backgroundColor={colors.background}
+      backgroundColor={colors.card}
       indicatorColor={colors.secondary}
+      rippleColor={`${colors.primary}29`}
       iconColor={{ default: colors.mutedForeground, selected: colors.primary }}
       labelStyle={{ default: { color: colors.mutedForeground }, selected: { color: colors.primary } }}>
       <NativeTabs.Trigger name="index">

@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 
 import { ACCOUNT_TYPE_COLORS, ACCOUNT_TYPE_SECTIONS, CATEGORY_COLORS } from '@/lib/constants';
 import { AddIcon } from '@/lib/gluestack-ui/icon';
+import { HStack } from '@/lib/gluestack-ui/hstack';
 import { Text } from '@/lib/gluestack-ui/text';
 import { VStack } from '@/lib/gluestack-ui/vstack';
 import { useLedger } from '@/lib/hooks';
@@ -11,6 +12,8 @@ import {
   AmountText,
   Card,
   EmptyState,
+  GradientCard,
+  GradientStat,
   IconButton,
   InitialBadge,
   ListRow,
@@ -18,7 +21,7 @@ import {
   ScreenHeader,
   SectionHeader,
 } from '@/lib/ui';
-import { accountBalances, formatFullDate, formatTaka } from '@/lib/utils';
+import { accountBalances, formatFullDate } from '@/lib/utils';
 
 export function AccountsScreen() {
   const { accounts, transactions } = useLedger();
@@ -55,17 +58,28 @@ export function AccountsScreen() {
     <ScreenContainer safeTop tabBar>
       <ScreenHeader
         title="Accounts"
-        right={<IconButton icon={AddIcon} onPress={() => router.push('/account-form')} accessibilityLabel="Add account" />}
+        right={<IconButton icon={AddIcon} variant="primary" onPress={() => router.push('/account-form')} accessibilityLabel="Add account" />}
       />
 
-      <Card className="gap-1 p-5">
-        <Text className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Total money</Text>
-        <AmountText amount={total} className="text-4xl font-bold" />
-        <Text className="text-sm text-muted-foreground">
-          Across {active.length} {active.length === 1 ? 'account' : 'accounts'}
-          {inSavings > 0 ? ` · ${formatTaka(inSavings)} in savings` : ''}
-        </Text>
-      </Card>
+      <GradientCard className="gap-4">
+        <VStack className="gap-1">
+          <Text className="text-sm font-medium text-white/75">Total money</Text>
+          <AmountText amount={total} tone="onHero" className="text-4xl" />
+          <Text className="text-sm text-white/75">
+            Across {active.length} {active.length === 1 ? 'account' : 'accounts'}
+          </Text>
+        </VStack>
+        {inSavings > 0 ? (
+          <HStack className="gap-3">
+            <GradientStat label="Available">
+              <AmountText amount={total - inSavings} tone="onHero" className="text-lg" />
+            </GradientStat>
+            <GradientStat label="In savings">
+              <AmountText amount={inSavings} tone="onHero" className="text-lg" />
+            </GradientStat>
+          </HStack>
+        ) : null}
+      </GradientCard>
 
       {active.length === 0 ? (
         <EmptyState title="No accounts yet" message="Add your bank accounts, cash and mobile wallets." />

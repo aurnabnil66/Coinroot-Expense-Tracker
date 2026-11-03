@@ -36,6 +36,7 @@ module.exports = {
         border: 'rgb(var(--border) / <alpha-value>)',
         input: 'rgb(var(--input) / <alpha-value>)',
         ring: 'rgb(var(--ring) / <alpha-value>)',
+        sky: 'rgb(var(--sky) / <alpha-value>)',
         income: 'rgb(var(--income) / <alpha-value>)',
         expense: 'rgb(var(--expense) / <alpha-value>)',
         transfer: 'rgb(var(--transfer) / <alpha-value>)',

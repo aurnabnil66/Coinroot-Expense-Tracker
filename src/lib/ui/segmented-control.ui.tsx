@@ -6,18 +6,14 @@ type SegmentedControlProps<T extends string> = {
   options: readonly { value: T; label: string }[];
   value: T;
   onChange: (value: T) => void;
-  /** Text colour class per option when selected (e.g. income in green). */
-  selectedTextClass?: Partial<Record<T, string>>;
+  /** Background class per option when selected (defaults to `bg-primary`). */
+  selectedClass?: Partial<Record<T, string>>;
 };
 
-export function SegmentedControl<T extends string>({
-  options,
-  value,
-  onChange,
-  selectedTextClass,
-}: SegmentedControlProps<T>) {
+/** Pill switch: the selected option is a filled pill with white text. */
+export function SegmentedControl<T extends string>({ options, value, onChange, selectedClass }: SegmentedControlProps<T>) {
   return (
-    <HStack className="rounded-xl bg-muted p-1">
+    <HStack className="gap-1 rounded-2xl border border-border/70 bg-card p-1">
       {options.map((option) => {
         const selected = option.value === value;
         return (
@@ -26,11 +22,10 @@ export function SegmentedControl<T extends string>({
             onPress={() => onChange(option.value)}
             accessibilityRole="tab"
             accessibilityState={{ selected }}
-            className={`flex-1 items-center rounded-lg py-2 ${selected ? 'bg-card shadow-sm' : ''}`}>
-            <Text
-              className={`text-sm font-semibold ${
-                selected ? (selectedTextClass?.[option.value] ?? 'text-foreground') : 'text-muted-foreground'
-              }`}>
+            className={`flex-1 items-center rounded-xl py-2.5 ${
+              selected ? (selectedClass?.[option.value] ?? 'bg-primary') : 'data-[active=true]:bg-accent'
+            }`}>
+            <Text className={`text-sm font-semibold ${selected ? 'text-white' : 'text-muted-foreground'}`}>
               {option.label}
             </Text>
           </Pressable>

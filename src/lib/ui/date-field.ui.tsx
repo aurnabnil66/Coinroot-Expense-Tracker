@@ -30,7 +30,7 @@ export function DateField({ label, value, onChange, error }: DateFieldProps) {
 
   return (
     <FieldShell label={label} error={error}>
-      <HStack className="items-center gap-2 rounded-xl border border-border bg-card p-1">
+      <HStack className="h-14 items-center gap-2 rounded-2xl border border-border bg-card px-2">
         <IconButton icon={ChevronLeftIcon} onPress={() => onChange(addDays(value, -1))} accessibilityLabel="Previous day" variant="ghost" />
         <Text className="flex-1 text-center text-base font-medium text-foreground">
           {isRelative ? `${dayLabel}, ${formatFullDate(value)}` : formatFullDate(value)}
@@ -44,8 +44,8 @@ export function DateField({ label, value, onChange, error }: DateFieldProps) {
             <Pressable
               key={shortcut.label}
               onPress={() => onChange(shortcut.value)}
-              className={`rounded-full border px-3 py-1.5 ${selected ? 'border-primary bg-primary/10' : 'border-border bg-card'}`}>
-              <Text className={`text-xs font-semibold ${selected ? 'text-primary' : 'text-muted-foreground'}`}>
+              className={`rounded-full border px-4 py-1.5 ${selected ? 'border-primary bg-primary' : 'border-border bg-card'}`}>
+              <Text className={`text-xs font-semibold ${selected ? 'text-primary-foreground' : 'text-muted-foreground'}`}>
                 {shortcut.label}
               </Text>
             </Pressable>

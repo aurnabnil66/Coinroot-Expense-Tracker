@@ -9,7 +9,6 @@ import { HStack } from '@/lib/gluestack-ui/hstack';
 import { AddIcon } from '@/lib/gluestack-ui/icon';
 import { Pressable } from '@/lib/gluestack-ui/pressable';
 import { Text } from '@/lib/gluestack-ui/text';
-import { VStack } from '@/lib/gluestack-ui/vstack';
 import { useLedger } from '@/lib/hooks';
 import { ledgerStore } from '@/lib/mocks';
 import { AmountText, Card, EmptyState, ListRow, ScreenContainer, SectionHeader } from '@/lib/ui';
@@ -66,7 +65,7 @@ export function TransactionDetailScreen() {
         }}
       />
 
-      <VStack className="items-center gap-2 py-6">
+      <Card className="mb-4 mt-4 items-center gap-2 px-5 py-7">
         <TransactionTypeIcon type={tx.type} />
         <AmountText
           amount={tx.amount}
@@ -76,7 +75,7 @@ export function TransactionDetailScreen() {
           className="text-4xl font-bold"
         />
         <Text className="text-center text-base text-muted-foreground">{transactionTitle(tx, nameOf)}</Text>
-      </VStack>
+      </Card>
 
       <Card>
         <ListRow title={labels.from} trailing={nameOf(tx.fromId)} />

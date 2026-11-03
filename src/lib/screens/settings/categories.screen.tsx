@@ -39,7 +39,7 @@ export function CategoriesScreen() {
           headerRight: () => (
             <IconButton
               icon={AddIcon}
-              variant="ghost"
+              variant="primary"
               accessibilityLabel={`Add ${labels.singular.toLowerCase()}`}
               onPress={() => router.push({ pathname: '/category-form', params: { kind } })}
             />

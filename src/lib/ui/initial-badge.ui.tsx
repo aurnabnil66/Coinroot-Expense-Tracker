@@ -10,9 +10,9 @@ type InitialBadgeProps = {
 
 /** Round badge with the first letter of a name, tinted with the item's colour. */
 export function InitialBadge({ label, color, size = 'md' }: InitialBadgeProps) {
-  const box = size === 'sm' ? 'h-7 w-7' : 'h-10 w-10';
+  const box = size === 'sm' ? 'h-8 w-8 rounded-xl' : 'h-11 w-11 rounded-2xl';
   return (
-    <Box className={`${box} items-center justify-center rounded-full`} style={{ backgroundColor: `${color}26` }}>
+    <Box className={`${box} items-center justify-center`} style={{ backgroundColor: `${color}26` }}>
       <Text className={`${size === 'sm' ? 'text-xs' : 'text-base'} font-semibold`} style={{ color }}>
         {label.trim().charAt(0).toUpperCase() || '?'}
       </Text>

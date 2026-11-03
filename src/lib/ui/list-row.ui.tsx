@@ -5,6 +5,7 @@ import { HStack } from '@/lib/gluestack-ui/hstack';
 import { ChevronRightIcon, Icon } from '@/lib/gluestack-ui/icon';
 import { Pressable } from '@/lib/gluestack-ui/pressable';
 import { Text } from '@/lib/gluestack-ui/text';
+import { useRipple } from '@/lib/hooks';
 
 type ListRowProps = {
   title: string;
@@ -22,13 +23,15 @@ type ListRowProps = {
 /** A tappable row inside a Card: leading badge, title + subtitle, trailing value. */
 export function ListRow({ title, subtitle, leading, trailing, onPress, chevron, divider, muted }: ListRowProps) {
   const showChevron = chevron ?? Boolean(onPress);
+  const ripple = useRipple();
   return (
     <Pressable
       onPress={onPress}
       disabled={!onPress}
+      android_ripple={onPress ? ripple : undefined}
       className="data-[active=true]:bg-accent"
       accessibilityRole={onPress ? 'button' : undefined}>
-      <HStack className={`min-h-14 items-center gap-3 px-4 py-3 ${divider ? 'border-t border-border' : ''}`}>
+      <HStack className={`min-h-14 items-center gap-3 px-4 py-3 ${divider ? 'border-t border-border/70' : ''}`}>
         {leading}
         <Box className="flex-1">
           <Text numberOfLines={1} className={`text-base font-medium ${muted ? 'text-muted-foreground' : 'text-foreground'}`}>

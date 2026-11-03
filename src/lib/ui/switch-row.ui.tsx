@@ -15,7 +15,7 @@ type SwitchRowProps = {
 export function SwitchRow({ label, description, value, onValueChange }: SwitchRowProps) {
   const colors = useGluestackColors();
   return (
-    <HStack className="items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
+    <HStack className="items-center gap-3 rounded-2xl border border-border bg-card px-4 py-3.5">
       <Box className="flex-1">
         <Text className="text-base font-medium text-foreground">{label}</Text>
         {description ? <Text className="text-sm text-muted-foreground">{description}</Text> : null}

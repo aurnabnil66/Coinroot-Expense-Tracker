@@ -15,6 +15,7 @@ import { AddIcon, CheckIcon, ChevronDownIcon, Icon, SearchIcon } from '@/lib/glu
 import { Input, InputField, InputIcon, InputSlot } from '@/lib/gluestack-ui/input';
 import { Pressable } from '@/lib/gluestack-ui/pressable';
 import { Text } from '@/lib/gluestack-ui/text';
+import { useRipple } from '@/lib/hooks';
 
 import { FieldShell } from './field-shell.ui';
 
@@ -63,6 +64,7 @@ export function SelectField({
   createLabel = 'New',
 }: SelectFieldProps) {
   const [open, setOpen] = useState(false);
+  const ripple = useRipple();
   const [query, setQuery] = useState('');
   const selected = options.find((option) => option.value === value);
 
@@ -86,9 +88,10 @@ export function SelectField({
     <FieldShell label={label} error={error} hint={hint}>
       <Pressable
         onPress={() => setOpen(true)}
+        android_ripple={ripple}
         accessibilityRole="button"
         accessibilityLabel={`${label}: ${selected?.label ?? placeholder}`}
-        className={`h-12 flex-row items-center gap-3 rounded-xl border bg-card px-3 data-[active=true]:bg-accent ${
+        className={`h-14 flex-row items-center gap-3 overflow-hidden rounded-2xl border bg-card px-4 data-[active=true]:bg-accent ${
           error ? 'border-destructive/60' : 'border-border'
         }`}>
         {selected?.leading}
@@ -100,14 +103,14 @@ export function SelectField({
 
       <Actionsheet isOpen={open} onClose={close} snapPoints={[70]}>
         <ActionsheetBackdrop />
-        <ActionsheetContent className="bg-card">
+        <ActionsheetContent className="rounded-t-3xl bg-card">
           <ActionsheetDragIndicatorWrapper>
             <ActionsheetDragIndicator />
           </ActionsheetDragIndicatorWrapper>
           <Text className="w-full px-1 pb-3 pt-1 text-lg font-semibold text-foreground">{sheetTitle ?? label}</Text>
 
           {options.length >= SEARCH_THRESHOLD || onCreate ? (
-            <Input className="mb-2 h-11 rounded-xl bg-background">
+            <Input className="mb-2 h-12 rounded-2xl bg-background">
               <InputSlot className="pl-1">
                 <InputIcon as={SearchIcon} />
               </InputSlot>
@@ -123,8 +126,8 @@ export function SelectField({
 
           <ActionsheetScrollView keyboardShouldPersistTaps="handled" className="w-full">
             {onCreate && trimmed && !exactMatch ? (
-              <ActionsheetItem onPress={() => { onCreate(trimmed); close(); }} className="rounded-xl">
-                <Box className="h-8 w-8 items-center justify-center rounded-full bg-primary/10">
+              <ActionsheetItem onPress={() => { onCreate(trimmed); close(); }} className="rounded-2xl">
+                <Box className="h-8 w-8 items-center justify-center rounded-xl bg-primary/10">
                   <Icon as={AddIcon} size="sm" className="text-primary" />
                 </Box>
                 <Text className="flex-1 text-base font-medium text-primary">
@@ -151,8 +154,8 @@ export function SelectField({
             ) : null}
 
             {onCreate && !trimmed ? (
-              <ActionsheetItem onPress={() => { onCreate(''); close(); }} className="rounded-xl">
-                <Box className="h-8 w-8 items-center justify-center rounded-full bg-primary/10">
+              <ActionsheetItem onPress={() => { onCreate(''); close(); }} className="rounded-2xl">
+                <Box className="h-8 w-8 items-center justify-center rounded-xl bg-primary/10">
                   <Icon as={AddIcon} size="sm" className="text-primary" />
                 </Box>
                 <Text className="flex-1 text-base font-medium text-primary">{createLabel}</Text>
@@ -172,7 +175,7 @@ type OptionItemProps = Omit<SelectOption, 'value'> & {
 
 function OptionItem({ label, description, leading, trailing, selected, onPress }: OptionItemProps) {
   return (
-    <ActionsheetItem onPress={onPress} className={`rounded-xl ${selected ? 'bg-accent' : ''}`}>
+    <ActionsheetItem onPress={onPress} className={`rounded-2xl ${selected ? 'bg-secondary' : ''}`}>
       {leading}
       <Box className="flex-1">
         <Text numberOfLines={1} className="text-base text-foreground">

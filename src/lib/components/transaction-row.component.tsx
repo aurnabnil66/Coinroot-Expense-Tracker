@@ -3,6 +3,7 @@ import { HStack } from '@/lib/gluestack-ui/hstack';
 import { Icon, LinkIcon } from '@/lib/gluestack-ui/icon';
 import { Pressable } from '@/lib/gluestack-ui/pressable';
 import { Text } from '@/lib/gluestack-ui/text';
+import { useRipple } from '@/lib/hooks';
 import { VStack } from '@/lib/gluestack-ui/vstack';
 import type { Transaction } from '@/lib/types';
 import { AmountText } from '@/lib/ui';
@@ -33,9 +34,15 @@ function subtitle(tx: Transaction, nameOf: (id: string) => string, showDate?: bo
 
 export function TransactionRow({ transaction: tx, nameOf, remaining, onPress, showDate, divider }: TransactionRowProps) {
   const detail = subtitle(tx, nameOf, showDate);
+  const ripple = useRipple();
   return (
-    <Pressable onPress={onPress} disabled={!onPress} className="data-[active=true]:bg-accent" accessibilityRole="button">
-      <HStack className={`items-center gap-3 px-4 py-3 ${divider ? 'border-t border-border' : ''}`}>
+    <Pressable
+      onPress={onPress}
+      disabled={!onPress}
+      android_ripple={onPress ? ripple : undefined}
+      className="data-[active=true]:bg-accent"
+      accessibilityRole="button">
+      <HStack className={`items-center gap-3 px-4 py-3 ${divider ? 'border-t border-border/70' : ''}`}>
         <TransactionTypeIcon type={tx.type} />
         <Box className="flex-1">
           <HStack className="items-center gap-1">

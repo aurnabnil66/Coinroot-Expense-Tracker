@@ -8,9 +8,10 @@ import { VStack } from '@/lib/gluestack-ui/vstack';
 import { useLedger } from '@/lib/hooks';
 import {
   AmountText,
-  type AmountTone,
   Card,
   EmptyState,
+  GradientCard,
+  GradientStat,
   InitialBadge,
   MonthSwitcher,
   ProgressBar,
@@ -19,16 +20,6 @@ import {
   SectionHeader,
 } from '@/lib/ui';
 import { addMonths, formatMonthLabel, monthlySummary, todayKey, toMonthKey } from '@/lib/utils';
-
-function Stat({ label, amount, tone, hint }: { label: string; amount: number; tone?: AmountTone; hint?: string }) {
-  return (
-    <Box className="flex-1 gap-1 p-4">
-      <Text className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{label}</Text>
-      <AmountText amount={amount} tone={tone} className="text-xl" />
-      {hint ? <Text className="text-xs text-muted-foreground">{hint}</Text> : null}
-    </Box>
-  );
-}
 
 export function SummaryScreen() {
   const { accounts, categories, transactions } = useLedger();
@@ -45,23 +36,31 @@ export function SummaryScreen() {
         onNext={() => setMonth((m) => addMonths(m, 1))}
       />
 
-      <Card className="mt-4">
-        <HStack>
-          <Stat label="Income" amount={summary.income} tone="income" />
-          <Box className="w-px bg-border" />
-          <Stat label="Expenses" amount={summary.expenses} />
+      <GradientCard className="mt-4 gap-4">
+        <VStack className="gap-1">
+          <Text className="text-sm font-medium text-white/75">Saved this month</Text>
+          <AmountText amount={summary.saved} tone="onHero" className="text-4xl" />
+          <Text className="text-xs text-white/75">Income − expenses. Transfers never count.</Text>
+        </VStack>
+        <HStack className="gap-3">
+          <GradientStat label="Income">
+            <AmountText amount={summary.income} tone="onHero" className="text-lg" />
+          </GradientStat>
+          <GradientStat label="Expenses">
+            <AmountText amount={summary.expenses} tone="onHero" className="text-lg" />
+          </GradientStat>
         </HStack>
-        <Box className="h-px bg-border" />
-        <HStack>
-          <Stat
-            label="Saved"
-            amount={summary.saved}
-            tone={summary.saved < 0 ? 'expense' : 'default'}
-            hint="Income − expenses"
-          />
-          <Box className="w-px bg-border" />
-          <Stat label="To savings" amount={summary.movedToSavings} hint="DPS and savings deposits" />
-        </HStack>
+      </GradientCard>
+
+      <Card className="mt-3 flex-row items-center gap-3 p-4">
+        <Box className="h-11 w-11 items-center justify-center rounded-2xl bg-sky/15">
+          <Text className="text-lg font-bold text-sky">৳</Text>
+        </Box>
+        <VStack className="flex-1">
+          <Text className="text-sm font-medium text-muted-foreground">Moved to savings</Text>
+          <Text className="text-xs text-muted-foreground">DPS and savings deposits</Text>
+        </VStack>
+        <AmountText amount={summary.movedToSavings} className="text-lg" />
       </Card>
 
       <SectionHeader title="Spending by category" />

@@ -9,7 +9,7 @@ import { Box } from '@/lib/gluestack-ui/box';
 import { HStack } from '@/lib/gluestack-ui/hstack';
 import { Text } from '@/lib/gluestack-ui/text';
 import { useLedger } from '@/lib/hooks';
-import { AmountText, Card, EmptyState, Fab, FAB_SIZE, ScreenContainer, ScreenHeader } from '@/lib/ui';
+import { AmountText, EmptyState, Fab, FAB_SIZE, GradientCard, GradientStat, ScreenContainer, ScreenHeader } from '@/lib/ui';
 import {
   formatDayLabel,
   formatMonthLabel,
@@ -44,22 +44,25 @@ export function TransactionsScreen() {
         ListHeaderComponent={
           <>
             <ScreenHeader title="Transactions" subtitle={formatMonthLabel(month)} />
-            <Card className="flex-row">
-              <Box className="flex-1 gap-1 p-4">
-                <Text className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Spent</Text>
-                <AmountText amount={summary.expenses} className="text-xl" />
+            <GradientCard className="gap-4">
+              <Box className="gap-1">
+                <Text className="text-sm font-medium text-white/75">Spent this month</Text>
+                <AmountText amount={summary.expenses} tone="onHero" className="text-4xl" />
               </Box>
-              <Box className="w-px bg-border" />
-              <Box className="flex-1 gap-1 p-4">
-                <Text className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Income</Text>
-                <AmountText amount={summary.income} tone="income" className="text-xl" />
-              </Box>
-            </Card>
+              <HStack className="gap-3">
+                <GradientStat label="Income">
+                  <AmountText amount={summary.income} tone="onHero" className="text-lg" />
+                </GradientStat>
+                <GradientStat label="Saved">
+                  <AmountText amount={summary.saved} tone="onHero" className="text-lg" />
+                </GradientStat>
+              </HStack>
+            </GradientCard>
           </>
         }
         renderSectionHeader={({ section }) => (
           <HStack className="items-center justify-between pb-2 pt-6">
-            <Text className="text-sm font-semibold text-foreground">{formatDayLabel(section.date)}</Text>
+            <Text className="text-sm font-bold text-foreground">{formatDayLabel(section.date)}</Text>
             {section.spent > 0 ? (
               <Text className="text-xs font-medium tabular-nums text-muted-foreground">
                 Spent {formatTaka(section.spent)}
@@ -72,8 +75,8 @@ export function TransactionsScreen() {
           const last = index === section.data.length - 1;
           return (
             <Box
-              className={`overflow-hidden border-x border-border bg-card ${first ? 'rounded-t-2xl border-t' : ''} ${
-                last ? 'rounded-b-2xl border-b' : ''
+              className={`overflow-hidden border-x border-border/70 bg-card ${first ? 'rounded-t-3xl border-t' : ''} ${
+                last ? 'rounded-b-3xl border-b' : ''
               }`}>
               <TransactionRow
                 transaction={item}
@@ -92,7 +95,7 @@ export function TransactionsScreen() {
           />
         }
       />
-      <Fab onPress={() => router.push('/transaction-form')} accessibilityLabel="Add transaction" />
+      <Fab onPress={() => router.push('/transaction-form')} label="Add" />
     </ScreenContainer>
   );
 }
