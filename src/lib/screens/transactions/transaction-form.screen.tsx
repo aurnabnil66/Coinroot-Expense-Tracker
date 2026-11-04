@@ -51,10 +51,11 @@ import {
 } from '@/lib/utils';
 
 const TYPE_OPTIONS = TRANSACTION_TYPES.map((value) => ({ value, label: TRANSACTION_TYPE_LABELS[value] }));
-const AMOUNT_TONE: Record<TransactionType, string> = {
-  expense: 'text-foreground',
+/** The ৳ sign takes the type's colour (as in the type switch); the number stays neutral. */
+const SIGN_TONE: Record<TransactionType, string> = {
+  expense: 'text-expense',
   income: 'text-income',
-  transfer: 'text-foreground',
+  transfer: 'text-transfer',
 };
 
 type Side = 'from' | 'to';
@@ -239,7 +240,7 @@ function TransactionForm() {
                 onChangeText={field.onChange}
                 onBlur={field.onBlur}
                 error={fieldState.error?.message}
-                toneClass={AMOUNT_TONE[type]}
+                signClass={SIGN_TONE[type]}
                 autoFocus={!isEdit}
               />
             )}

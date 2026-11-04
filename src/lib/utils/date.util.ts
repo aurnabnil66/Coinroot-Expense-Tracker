@@ -78,3 +78,23 @@ export function daysInMonth(monthKey: string): number {
 export function formatShortMonth(monthKey: string): string {
   return fromDateKey(`${monthKey}-01`).toLocaleDateString('en-GB', { month: 'short' });
 }
+
+/**
+ * A month as calendar rows of 7 day keys, starting on `weekStartsOn` (0 = Sunday).
+ * Cells before the 1st and after the last day are null.
+ */
+export function calendarWeeks(monthKey: string, weekStartsOn = 0): (string | null)[][] {
+  const lead = (fromDateKey(`${monthKey}-01`).getDay() - weekStartsOn + 7) % 7;
+  const cells: (string | null)[] = Array.from({ length: lead }, () => null);
+  for (let day = 1; day <= daysInMonth(monthKey); day += 1) cells.push(`${monthKey}-${pad(day)}`);
+  while (cells.length % 7 !== 0) cells.push(null);
+  return Array.from({ length: cells.length / 7 }, (_, week) => cells.slice(week * 7, week * 7 + 7));
+}
+
+/** Short weekday names in calendar order, e.g. ["Sun", "Mon", …]. */
+export function weekdayLabels(weekStartsOn = 0): string[] {
+  // 2026-11-01 is a Sunday.
+  return Array.from({ length: 7 }, (_, i) =>
+    fromDateKey(`2026-11-0${1 + ((weekStartsOn + i) % 7)}`).toLocaleDateString('en-GB', { weekday: 'short' })
+  );
+}
