@@ -190,6 +190,28 @@ export function takeDays(groups: readonly DayGroup[], limit: number): DayGroup[]
   return groups.slice(0, end);
 }
 
+/** Finds a category of `kind` by name, ignoring case (e.g. the user's "Bank Charges"). */
+export function findCategoryByName(
+  categories: readonly Category[],
+  kind: Category['kind'],
+  name: string
+): Category | undefined {
+  const wanted = name.trim().toLowerCase();
+  return categories.find((c) => c.kind === kind && !c.archived && c.name.trim().toLowerCase() === wanted);
+}
+
+/**
+ * What to record when the counted balance differs from the app's: less money is spending
+ * that wasn't recorded (an expense), more is unrecorded income. Null when they match.
+ */
+export function balanceAdjustment(
+  recorded: number,
+  actual: number
+): { type: 'expense' | 'income'; amount: number } | null {
+  if (actual === recorded) return null;
+  return actual < recorded ? { type: 'expense', amount: recorded - actual } : { type: 'income', amount: actual - recorded };
+}
+
 /** Looks up account / category / income-source names for a transaction's from and to. */
 export function nameLookup(
   accounts: readonly Account[],

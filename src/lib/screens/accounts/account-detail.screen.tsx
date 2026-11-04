@@ -4,7 +4,9 @@ import { useMemo } from 'react';
 import { LedgerPending, TransactionRow } from '@/lib/components';
 import { ACCOUNT_TYPE_LABELS } from '@/lib/constants';
 import { Box } from '@/lib/gluestack-ui/box';
+import { Button, ButtonIcon, ButtonText } from '@/lib/gluestack-ui/button';
 import { HStack } from '@/lib/gluestack-ui/hstack';
+import { CheckCircleIcon } from '@/lib/gluestack-ui/icon';
 import { Pressable } from '@/lib/gluestack-ui/pressable';
 import { Text } from '@/lib/gluestack-ui/text';
 import { VStack } from '@/lib/gluestack-ui/vstack';
@@ -76,6 +78,14 @@ export function AccountDetailScreen() {
           Opening <AmountText amount={account.openingBalance} className="text-sm font-normal text-muted-foreground" /> on{' '}
           {formatFullDate(account.openingDate)}
         </Text>
+        <Button
+          variant="outline"
+          size="lg"
+          className="mt-4 h-11 rounded-full px-5"
+          onPress={() => router.push({ pathname: '/balance-check', params: { accountId: account.id } })}>
+          <ButtonIcon as={CheckCircleIcon} />
+          <ButtonText className="text-sm font-semibold">{account.type === 'cash' ? 'Count cash' : 'Check balance'}</ButtonText>
+        </Button>
       </VStack>
 
       <Card className="flex-row">

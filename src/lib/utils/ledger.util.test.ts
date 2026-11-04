@@ -4,8 +4,10 @@ import type { Account, Transaction } from '@/lib/types';
 
 import {
   accountBalance,
+  balanceAdjustment,
   dailySpending,
   deleteTransactionMessage,
+  findCategoryByName,
   groupByDay,
   linkableParents,
   monthlySpending,
@@ -152,5 +154,24 @@ describe('deleteTransactionMessage', () => {
     expect(deleteTransactionMessage(0)).toBe("This can't be undone.");
     expect(deleteTransactionMessage(1)).toBe("The 1 linked entry stays but loses its link. This can't be undone.");
     expect(deleteTransactionMessage(3)).toBe("The 3 linked entries stay but lose their link. This can't be undone.");
+  });
+});
+
+describe('findCategoryByName', () => {
+  it('matches by kind and name, ignoring case', () => {
+    const categories = [
+      { id: 'c1', name: 'Bank Charges', kind: 'expense' as const, icon: null, color: null, archived: false },
+      { id: 'c2', name: 'Bank charges', kind: 'income_source' as const, icon: null, color: null, archived: false },
+    ];
+    expect(findCategoryByName(categories, 'expense', 'bank charges')?.id).toBe('c1');
+    expect(findCategoryByName(categories, 'expense', 'Rent')).toBeUndefined();
+  });
+});
+
+describe('balanceAdjustment', () => {
+  it('records missing money as an expense and extra money as income', () => {
+    expect(balanceAdjustment(50000, 50000)).toBeNull();
+    expect(balanceAdjustment(50000, 38000)).toEqual({ type: 'expense', amount: 12000 });
+    expect(balanceAdjustment(50000, 52000)).toEqual({ type: 'income', amount: 2000 });
   });
 });
