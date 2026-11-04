@@ -4,6 +4,9 @@
  * (`ledgerStore.*`) the SQLite layer will provide later. Changes reset on reload.
  * Loading and writes are async with a small simulated delay, like the database,
  * so the screens' loading states and button spinners are exercised.
+ *
+ * Each launch starts with first-time setup (`setupDone: false`) and only the seed
+ * categories; setup either creates the user's accounts or loads the sample data.
  */
 import type { Account, Category, Transaction } from '@/lib/types';
 
@@ -15,6 +18,8 @@ export type LedgerSnapshot = {
   status: LedgerStatus;
   /** Why the last load failed (status "error"). */
   error: string | null;
+  /** False until first-time setup creates accounts (or the sample data is loaded). */
+  setupDone: boolean;
   accounts: Account[];
   categories: Category[];
   transactions: Transaction[];
@@ -23,6 +28,7 @@ export type LedgerSnapshot = {
 let snapshot: LedgerSnapshot = {
   status: 'idle',
   error: null,
+  setupDone: false,
   accounts: [],
   categories: [],
   transactions: [],
@@ -60,12 +66,8 @@ export const ledgerStore = {
     commit({ status: 'loading', error: null });
     try {
       await delay(LOAD_DELAY_MS);
-      commit({
-        status: 'ready',
-        accounts: sampleAccounts,
-        categories: sampleCategories,
-        transactions: sampleTransactions,
-      });
+      // A fresh install: seed categories only; accounts come from setup.
+      commit({ status: 'ready', categories: sampleCategories });
     } catch (e) {
       commit({ status: 'error', error: e instanceof Error ? e.message : String(e) });
     }
@@ -73,6 +75,28 @@ export const ledgerStore = {
 
   getSnapshot(): LedgerSnapshot {
     return snapshot;
+  },
+
+  /** Skips setup and fills the app with the invented sample accounts and history. */
+  async loadSampleData() {
+    await delay(WRITE_DELAY_MS);
+    commit({ setupDone: true, accounts: sampleAccounts, categories: sampleCategories, transactions: sampleTransactions });
+  },
+
+  /** Finishes first-time setup with the accounts the user chose. */
+  async completeSetup(accounts: AccountInput[]) {
+    await delay(WRITE_DELAY_MS);
+    commit({
+      setupDone: true,
+      accounts: accounts.map((input, sortOrder) => ({ ...input, id: newId('acc'), sortOrder })),
+      transactions: [],
+    });
+  },
+
+  /** Removes all accounts and transactions and goes back to first-time setup. */
+  async resetSetup() {
+    await delay(WRITE_DELAY_MS);
+    commit({ setupDone: false, accounts: [], categories: sampleCategories, transactions: [] });
   },
 
   async addTransaction(input: TransactionInput): Promise<Transaction> {

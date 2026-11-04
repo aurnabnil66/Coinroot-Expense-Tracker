@@ -5,11 +5,12 @@ import { StatusBar } from 'expo-status-bar';
 
 import { FontFamily } from '@/lib/constants';
 import { GluestackUIProvider, useGluestackColors } from '@/lib/gluestack-ui/gluestack-ui-provider';
-import { useColorScheme, useThemePreference } from '@/lib/hooks';
+import { useColorScheme, useLedger, useThemePreference } from '@/lib/hooks';
 import { DialogProvider } from '@/lib/ui';
 
 export default function RootLayout() {
   const themePreference = useThemePreference();
+  const { setupDone } = useLedger();
   const deviceScheme = useColorScheme();
   const colorScheme = themePreference === 'system' ? deviceScheme : themePreference;
   const colors = useGluestackColors();
@@ -48,13 +49,19 @@ export default function RootLayout() {
         <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
         <DialogProvider>
           <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="transaction/[id]" options={pushed} />
-            <Stack.Screen name="account/[id]" options={pushed} />
-            <Stack.Screen name="categories" options={pushed} />
-            <Stack.Screen name="transaction-form" options={modal} />
-            <Stack.Screen name="account-form" options={modal} />
-            <Stack.Screen name="category-form" options={modal} />
+            {/* First launch shows only setup; finishing it switches to the app. */}
+            <Stack.Protected guard={setupDone}>
+              <Stack.Screen name="(tabs)" />
+              <Stack.Screen name="transaction/[id]" options={pushed} />
+              <Stack.Screen name="account/[id]" options={pushed} />
+              <Stack.Screen name="categories" options={pushed} />
+              <Stack.Screen name="transaction-form" options={modal} />
+              <Stack.Screen name="account-form" options={modal} />
+              <Stack.Screen name="category-form" options={modal} />
+            </Stack.Protected>
+            <Stack.Protected guard={!setupDone}>
+              <Stack.Screen name="setup" />
+            </Stack.Protected>
           </Stack>
         </DialogProvider>
       </ThemeProvider>

@@ -28,6 +28,23 @@ export const ACCOUNT_TYPE_COLORS: Record<AccountType, string> = {
   savings: 'amber',
 };
 
+/** First-time setup: what each account type is for, and the name it starts with. */
+export const SETUP_ACCOUNT_OPTIONS: { type: AccountType; title: string; description: string; defaultName: string }[] = [
+  { type: 'cash', title: 'Cash', description: 'Money in hand', defaultName: 'Cash' },
+  { type: 'mobile_wallet', title: 'Mobile wallet', description: 'Mobile banking apps', defaultName: 'Mobile Wallet' },
+  { type: 'bank', title: 'Bank account', description: 'An account you pay from or get paid into', defaultName: 'Bank Account' },
+  {
+    type: 'savings',
+    title: 'Savings / DPS',
+    description: "Money you put aside and don't spend: DPS, FDR, a savings account",
+    defaultName: 'Savings (DPS)',
+  },
+];
+
+/** Category names the app looks for (and creates if missing); users can rename their own. */
+export const BALANCE_ADJUSTMENT_CATEGORY = 'Balance adjustment';
+export const TRANSFER_FEE_CATEGORY = 'Bank Charges';
+
 /** Section titles on the Accounts tab, in display order. */
 export const ACCOUNT_TYPE_SECTIONS: { type: AccountType; title: string }[] = [
   { type: 'bank', title: 'Bank accounts' },

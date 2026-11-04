@@ -3,8 +3,19 @@ import { router } from 'expo-router';
 
 import { CATEGORY_KIND_LABELS } from '@/lib/constants';
 import { Text } from '@/lib/gluestack-ui/text';
+import { RepeatIcon } from '@/lib/gluestack-ui/icon';
 import { setThemePreference, type ThemePreference, useLedger, useThemePreference } from '@/lib/hooks';
-import { Card, ListRow, ScreenContainer, ScreenHeader, SectionHeader, SegmentedControl, Skeleton } from '@/lib/ui';
+import { ledgerStore } from '@/lib/mocks';
+import {
+  Card,
+  ListRow,
+  ScreenContainer,
+  ScreenHeader,
+  SectionHeader,
+  SegmentedControl,
+  Skeleton,
+  useDialog,
+} from '@/lib/ui';
 
 const THEME_OPTIONS: { value: ThemePreference; label: string }[] = [
   { value: 'light', label: 'Light' },
@@ -15,6 +26,17 @@ const THEME_OPTIONS: { value: ThemePreference; label: string }[] = [
 export function SettingsScreen() {
   const { status, categories } = useLedger();
   const themePreference = useThemePreference();
+  const dialog = useDialog();
+
+  const startOver = () =>
+    dialog.confirm({
+      title: 'Start over?',
+      message: 'This removes all accounts and transactions and opens first-time setup again.',
+      tone: 'warning',
+      icon: RepeatIcon,
+      confirmLabel: 'Start over',
+      onConfirm: () => ledgerStore.resetSetup(),
+    });
   const count = (kind: 'expense' | 'income_source') =>
     status === 'ready' ? (
       String(categories.filter((c) => c.kind === kind && !c.archived).length)
@@ -51,9 +73,10 @@ export function SettingsScreen() {
       <Card>
         <ListRow title="Import from spreadsheet" trailing="Soon" />
         <ListRow divider title="Backup & export" trailing="Soon" />
+        <ListRow divider title="Set up accounts again" subtitle="Start over with first-time setup" onPress={() => void startOver()} />
       </Card>
       <Text className="px-1 pt-2 text-xs text-muted-foreground">
-        Showing sample data while the app is being built. Changes reset when the app restarts.
+        Prototype: everything is kept in memory for now and resets when the app restarts.
       </Text>
 
       <SectionHeader title="About" />
