@@ -89,6 +89,7 @@ export function TransactionDetailScreen() {
       <Card>
         <ListRow title={labels.from} trailing={nameOf(tx.fromId)} />
         <ListRow divider title={labels.to} trailing={nameOf(tx.toId)} />
+        {tx.type === 'income' && tx.party ? <ListRow divider title="Received from" trailing={tx.party} /> : null}
         <ListRow divider title="Date" trailing={formatFullDate(tx.date)} />
         {tx.note ? <ListRow divider title="Note" subtitle={tx.note} /> : null}
       </Card>

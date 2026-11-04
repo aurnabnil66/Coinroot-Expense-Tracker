@@ -22,13 +22,14 @@ import {
   Skeleton,
   SkeletonCard,
 } from '@/lib/ui';
-import { addMonths, formatMonthLabel, monthlySummary, todayKey, toMonthKey } from '@/lib/utils';
+import { addMonths, formatMonthLabel, incomeByParty, monthlySummary, todayKey, toMonthKey } from '@/lib/utils';
 
 export function SummaryScreen() {
   const { status, error, accounts, categories, transactions } = useLedger();
   const [month, setMonth] = useState(() => toMonthKey(todayKey()));
   const summary = useMemo(() => monthlySummary(month, transactions, accounts), [month, transactions, accounts]);
   const categoryById = useMemo(() => new Map(categories.map((c) => [c.id, c])), [categories]);
+  const byClient = useMemo(() => incomeByParty(month, transactions), [month, transactions]);
 
   return (
     <ScreenContainer safeTop tabBar>
@@ -123,6 +124,23 @@ export function SummaryScreen() {
               })}
             </Card>
           )}
+
+          {byClient.length > 0 ? (
+            <>
+              <SectionHeader title="Income by client" />
+              <Card>
+                {byClient.map((row, index) => (
+                  <HStack key={row.party} className={`items-center gap-3 px-4 py-3 ${index > 0 ? 'border-t border-border' : ''}`}>
+                    <InitialBadge label={row.party} color={CATEGORY_COLORS.emerald} />
+                    <Text numberOfLines={1} className="flex-1 text-base font-medium text-foreground">
+                      {row.party}
+                    </Text>
+                    <AmountText amount={row.amount} signed tone="income" className="text-base" />
+                  </HStack>
+                ))}
+              </Card>
+            </>
+          ) : null}
         </>
       )}
     </ScreenContainer>

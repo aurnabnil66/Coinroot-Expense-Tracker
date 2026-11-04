@@ -26,4 +26,5 @@ export * from './section-header.ui';
 export * from './segmented-control.ui';
 export * from './select-field.ui';
 export * from './skeleton.ui';
+export * from './suggest-text-field.ui';
 export * from './switch-row.ui';

@@ -4,7 +4,14 @@ import { router } from 'expo-router';
 import { CATEGORY_KIND_LABELS } from '@/lib/constants';
 import { Text } from '@/lib/gluestack-ui/text';
 import { RepeatIcon } from '@/lib/gluestack-ui/icon';
-import { setThemePreference, type ThemePreference, useLedger, useThemePreference } from '@/lib/hooks';
+import {
+  setSimpleMode,
+  setThemePreference,
+  type ThemePreference,
+  useLedger,
+  useSimpleMode,
+  useThemePreference,
+} from '@/lib/hooks';
 import { ledgerStore } from '@/lib/mocks';
 import {
   Card,
@@ -14,6 +21,7 @@ import {
   SectionHeader,
   SegmentedControl,
   Skeleton,
+  SwitchRow,
   useDialog,
 } from '@/lib/ui';
 
@@ -26,6 +34,7 @@ const THEME_OPTIONS: { value: ThemePreference; label: string }[] = [
 export function SettingsScreen() {
   const { status, categories } = useLedger();
   const themePreference = useThemePreference();
+  const simpleMode = useSimpleMode();
   const dialog = useDialog();
 
   const startOver = () =>
@@ -68,6 +77,14 @@ export function SettingsScreen() {
       <Text className="px-1 pt-2 text-xs text-muted-foreground">
         Device default follows your phone&apos;s light or dark setting.
       </Text>
+
+      <SectionHeader title="Display" />
+      <SwitchRow
+        label="Simple mode"
+        description="Big quick-add buttons for your usual entries, and fewer fields when adding."
+        value={simpleMode}
+        onValueChange={setSimpleMode}
+      />
 
       <SectionHeader title="Data" />
       <Card>

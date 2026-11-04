@@ -11,12 +11,13 @@ import {
   DEFAULT_CATEGORY_COLOR,
   TRANSACTION_FIELD_LABELS,
   TRANSACTION_TYPE_LABELS,
+  TRANSFER_FEE_CATEGORY,
 } from '@/lib/constants';
 import { Button, ButtonText } from '@/lib/gluestack-ui/button';
 import { TrashIcon } from '@/lib/gluestack-ui/icon';
 import { Text } from '@/lib/gluestack-ui/text';
 import { VStack } from '@/lib/gluestack-ui/vstack';
-import { useLedger } from '@/lib/hooks';
+import { useLedger, useSimpleMode } from '@/lib/hooks';
 import { ledgerStore, type LedgerSnapshot } from '@/lib/mocks';
 import {
   type TransactionFormInput,
@@ -36,17 +37,20 @@ import {
   SegmentedControl,
   type SelectOption,
   SelectField,
+  SuggestTextField,
   useDialog,
 } from '@/lib/ui';
 import {
   accountBalances,
   childrenOf,
   deleteTransactionMessage,
+  findCategoryByName,
   formatDayLabel,
   formatTaka,
   formatTakaInput,
   linkableParents,
   nameLookup,
+  partySuggestions,
   remainingOf,
 } from '@/lib/utils';
 
@@ -66,10 +70,25 @@ const SOURCES: Record<TransactionType, Record<Side, 'account' | CategoryKind>> =
   transfer: { from: 'account', to: 'account' },
 };
 
-function initialValues(ledger: LedgerSnapshot, id?: string, parentId?: string): TransactionFormInput {
-  const existing = id ? ledger.transactions.find((tx) => tx.id === id) : undefined;
+type FormParams = {
+  id?: string;
+  parentId?: string;
+  /** Quick-add preset: prefilled type and from / to. */
+  type?: string;
+  fromId?: string;
+  toId?: string;
+};
+
+function initialValues(ledger: LedgerSnapshot, params: FormParams): TransactionFormInput {
+  const defaults: TransactionFormInput = {
+    ...transactionFormDefaults(),
+    // Transfer charges default to the user's "Bank Charges" category, if they have one.
+    feeCategoryId: findCategoryByName(ledger.categories, 'expense', TRANSFER_FEE_CATEGORY)?.id ?? null,
+  };
+  const existing = params.id ? ledger.transactions.find((tx) => tx.id === params.id) : undefined;
   if (existing) {
     return {
+      ...defaults,
       type: existing.type,
       date: existing.date,
       fromId: existing.fromId,
@@ -77,14 +96,19 @@ function initialValues(ledger: LedgerSnapshot, id?: string, parentId?: string): 
       amount: formatTakaInput(existing.amount),
       note: existing.note,
       parentId: existing.parentId,
+      party: existing.party ?? '',
     };
   }
-  const parent = parentId ? ledger.transactions.find((tx) => tx.id === parentId) : undefined;
+  const parent = params.parentId ? ledger.transactions.find((tx) => tx.id === params.parentId) : undefined;
   if (parent) {
     // Spending money that came from `parent`: it leaves the account the parent paid into.
-    return { ...transactionFormDefaults(), date: parent.date, fromId: parent.toId, parentId: parent.id };
+    return { ...defaults, date: parent.date, fromId: parent.toId, parentId: parent.id };
   }
-  return transactionFormDefaults();
+  const presetType = TRANSACTION_TYPES.find((t) => t === params.type);
+  if (presetType) {
+    return { ...defaults, type: presetType, fromId: params.fromId ?? '', toId: params.toId ?? '' };
+  }
+  return defaults;
 }
 
 export function TransactionFormScreen() {
@@ -101,8 +125,10 @@ export function TransactionFormScreen() {
 
 /** Mounted once the ledger is loaded, so the default values come from real data. */
 function TransactionForm() {
-  const { id, parentId } = useLocalSearchParams<{ id?: string; parentId?: string }>();
+  const params = useLocalSearchParams<FormParams>();
+  const { id } = params;
   const ledger = useLedger();
+  const simpleMode = useSimpleMode();
   const { accounts, categories, transactions } = ledger;
   const isEdit = Boolean(id);
 
@@ -114,14 +140,15 @@ function TransactionForm() {
     formState: { errors, isSubmitting },
   } = useForm<TransactionFormInput, unknown, TransactionFormValues>({
     resolver: zodResolver(transactionFormSchema),
-    defaultValues: initialValues(ledger, id, parentId),
+    defaultValues: initialValues(ledger, params),
     mode: 'onTouched',
   });
   const [creatingCategory, setCreatingCategory] = useState(false);
   const dialog = useDialog();
-  const [type, fromId, toId, linkedId] = useWatch({ control, name: ['type', 'fromId', 'toId', 'parentId'] });
+  const [type, fromId, toId, linkedId, fee] = useWatch({ control, name: ['type', 'fromId', 'toId', 'parentId', 'fee'] });
 
   const nameOf = useMemo(() => nameLookup(accounts, categories), [accounts, categories]);
+  const parties = useMemo(() => partySuggestions(transactions), [transactions]);
   const balances = useMemo(() => accountBalances(accounts, transactions), [accounts, transactions]);
 
   const optionsFor = (side: Side): SelectOption[] => {
@@ -192,11 +219,28 @@ function TransactionForm() {
     setValue('parentId', null);
   };
 
-  const onSubmit = async (values: TransactionFormValues) => {
+  const onSubmit = async ({ fee: charge, feeCategoryId, ...values }: TransactionFormValues) => {
     try {
-      const input = { ...values, parentId: values.type === 'income' ? null : values.parentId };
+      const input = {
+        ...values,
+        parentId: values.type === 'income' ? null : values.parentId,
+        party: values.type === 'income' ? values.party : null,
+      };
       if (id) await ledgerStore.updateTransaction(id, input);
       else await ledgerStore.addTransaction(input);
+      // A transfer charge (e.g. a cash-out fee) is its own expense from the same account.
+      if (!id && values.type === 'transfer' && charge && feeCategoryId) {
+        await ledgerStore.addTransaction({
+          type: 'expense',
+          date: values.date,
+          fromId: values.fromId,
+          toId: feeCategoryId,
+          amount: charge,
+          note: `Charge for transfer to ${nameOf(values.toId)}`,
+          parentId: null,
+          party: null,
+        });
+      }
       router.back();
     } catch {
       setError('root', { message: 'Could not save. Please try again.' });
@@ -217,7 +261,16 @@ function TransactionForm() {
   };
 
   const labels = TRANSACTION_FIELD_LABELS[type];
-  const showLink = type !== 'income' && (parentOptions.length > 0 || linkedId !== null);
+  // Simple mode hides the money-tree link (unless this entry already has one).
+  const showLink = type !== 'income' && (linkedId !== null || (!simpleMode && parentOptions.length > 0));
+  const showFee = type === 'transfer' && !isEdit;
+  const expenseCategoryOptions: SelectOption[] = categories
+    .filter((c) => c.kind === 'expense' && !c.archived)
+    .map((c) => ({
+      value: c.id,
+      label: c.name,
+      leading: <InitialBadge label={c.name} color={CATEGORY_COLORS[c.color ?? DEFAULT_CATEGORY_COLOR]} size="sm" />,
+    }));
 
   return (
     <View className="flex-1 bg-background">
@@ -282,6 +335,61 @@ function TransactionForm() {
               />
             )}
           />
+
+          {type === 'income' ? (
+            <Controller
+              control={control}
+              name="party"
+              render={({ field, fieldState }) => (
+                <SuggestTextField
+                  label="Received from"
+                  value={field.value}
+                  onChangeText={field.onChange}
+                  onBlur={field.onBlur}
+                  error={fieldState.error?.message}
+                  placeholder="Client or person (optional)"
+                  maxLength={60}
+                  suggestions={parties}
+                />
+              )}
+            />
+          ) : null}
+
+          {showFee ? (
+            <Controller
+              control={control}
+              name="fee"
+              render={({ field, fieldState }) => (
+                <FormTextField
+                  label="Charge"
+                  value={field.value}
+                  onChangeText={field.onChange}
+                  onBlur={field.onBlur}
+                  error={fieldState.error?.message}
+                  placeholder="৳ 0 (optional)"
+                  hint="e.g. a cash-out or transfer fee. Saved as a separate expense."
+                  keyboardType="decimal-pad"
+                />
+              )}
+            />
+          ) : null}
+
+          {showFee && fee.trim() ? (
+            <Controller
+              control={control}
+              name="feeCategoryId"
+              render={({ field, fieldState }) => (
+                <SelectField
+                  label="Charge category"
+                  value={field.value}
+                  options={expenseCategoryOptions}
+                  onChange={field.onChange}
+                  onBlur={field.onBlur}
+                  error={fieldState.error?.message}
+                />
+              )}
+            />
+          ) : null}
 
           <Controller
             control={control}

@@ -3,13 +3,13 @@ import { useMemo, useState, useTransition } from 'react';
 import { SectionList } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { LedgerPending, TransactionRow } from '@/lib/components';
+import { LedgerPending, QuickAdd, TransactionRow } from '@/lib/components';
 import { BottomTabInset, MaxContentWidth } from '@/lib/constants';
 import { Box } from '@/lib/gluestack-ui/box';
 import { Button, ButtonText } from '@/lib/gluestack-ui/button';
 import { HStack } from '@/lib/gluestack-ui/hstack';
 import { Text } from '@/lib/gluestack-ui/text';
-import { useLedger } from '@/lib/hooks';
+import { useLedger, useSimpleMode } from '@/lib/hooks';
 import {
   AmountText,
   ButtonLoader,
@@ -42,6 +42,7 @@ const PAGE_SIZE = 30;
 export function TransactionsScreen() {
   const insets = useSafeAreaInsets();
   const { status, error, accounts, categories, transactions } = useLedger();
+  const simpleMode = useSimpleMode();
   const nameOf = useMemo(() => nameLookup(accounts, categories), [accounts, categories]);
   const allSections = useMemo(() => groupByDay(transactions), [transactions]);
   const [limit, setLimit] = useState(PAGE_SIZE);
@@ -100,6 +101,9 @@ export function TransactionsScreen() {
         style={{ width: '100%', maxWidth: MaxContentWidth, alignSelf: 'center' }}
         sections={sections}
         keyExtractor={(tx) => tx.id}
+        ListHeaderComponent={
+          simpleMode ? <QuickAdd accounts={accounts} categories={categories} transactions={transactions} /> : undefined
+        }
         stickySectionHeadersEnabled={false}
         contentContainerStyle={{
           paddingHorizontal: 20,

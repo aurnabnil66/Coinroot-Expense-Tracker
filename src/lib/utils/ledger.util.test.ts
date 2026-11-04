@@ -9,9 +9,12 @@ import {
   deleteTransactionMessage,
   findCategoryByName,
   groupByDay,
+  incomeByParty,
   linkableParents,
   monthlySpending,
   monthlySummary,
+  partySuggestions,
+  quickPresets,
   remainingOf,
   takeDays,
 } from './ledger.util';
@@ -36,6 +39,7 @@ const tx = (overrides: Partial<Transaction> & Pick<Transaction, 'type' | 'fromId
     date: '2026-11-02',
     note: '',
     parentId: null,
+    party: null,
     createdAt: `2026-11-02T00:00:${String(seq).padStart(2, '0')}Z`,
     updatedAt: '',
     ...overrides,
@@ -165,6 +169,32 @@ describe('findCategoryByName', () => {
     ];
     expect(findCategoryByName(categories, 'expense', 'bank charges')?.id).toBe('c1');
     expect(findCategoryByName(categories, 'expense', 'Rent')).toBeUndefined();
+  });
+});
+
+describe('incomeByParty and partySuggestions', () => {
+  const fromA = tx({ type: 'income', fromId: 'src-client', toId: 'cash', amount: 100000, party: 'Client A', date: '2026-11-03' });
+  const fromB = tx({ type: 'income', fromId: 'src-client', toId: 'cash', amount: 50000, party: 'Client B', date: '2026-11-04' });
+  const fromA2 = tx({ type: 'income', fromId: 'src-client', toId: 'cash', amount: 30000, party: 'client a ', date: '2026-11-05' });
+  const list = [...all, fromA, fromB, fromA2];
+
+  it('totals income per name for the month, largest first', () => {
+    expect(incomeByParty('2026-11', list)).toEqual([
+      { party: 'Client A', amount: 130000 },
+      { party: 'Client B', amount: 50000 },
+    ]);
+  });
+
+  it('suggests names used before, newest first, once each', () => {
+    expect(partySuggestions(list)).toEqual(['client a', 'Client B']);
+  });
+});
+
+describe('quickPresets', () => {
+  it('ranks type + from + to combinations by use', () => {
+    const presets = quickPresets(all, 2);
+    expect(presets[0]).toEqual({ type: 'expense', fromId: 'cash', toId: 'cat-transport', count: 2 });
+    expect(presets).toHaveLength(2);
   });
 });
 

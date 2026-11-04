@@ -200,6 +200,65 @@ export function findCategoryByName(
   return categories.find((c) => c.kind === kind && !c.archived && c.name.trim().toLowerCase() === wanted);
 }
 
+export type PartyTotal = {
+  party: string;
+  amount: number;
+};
+
+/** Income per "Received from" name in a month, largest first. Entries without a name are left out. */
+export function incomeByParty(monthKey: string, transactions: readonly Transaction[]): PartyTotal[] {
+  const totals = new Map<string, PartyTotal>();
+  for (const tx of transactions) {
+    if (tx.type !== 'income' || !tx.party || toMonthKey(tx.date) !== monthKey) continue;
+    const key = tx.party.trim().toLowerCase();
+    const total = totals.get(key) ?? { party: tx.party.trim(), amount: 0 };
+    total.amount += tx.amount;
+    totals.set(key, total);
+  }
+  return [...totals.values()].sort((a, b) => b.amount - a.amount);
+}
+
+/** "Received from" names used before, most recent first, without duplicates. */
+export function partySuggestions(transactions: readonly Transaction[]): string[] {
+  const seen = new Set<string>();
+  const names: string[] = [];
+  for (const tx of [...transactions].sort(compareNewestFirst)) {
+    const name = tx.party?.trim();
+    if (!name || seen.has(name.toLowerCase())) continue;
+    seen.add(name.toLowerCase());
+    names.push(name);
+  }
+  return names;
+}
+
+export type QuickPreset = {
+  type: Transaction['type'];
+  fromId: string;
+  toId: string;
+  /** How often this combination was used. */
+  count: number;
+};
+
+/**
+ * The most used type + from + to combinations among recent entries ("Food from Cash",
+ * "Client Payment into bKash"), for one-tap quick add. Ties go to the most recent.
+ */
+export function quickPresets(transactions: readonly Transaction[], limit = 4, recent = 100): QuickPreset[] {
+  const presets = new Map<string, QuickPreset>();
+  transactions
+    .slice()
+    .sort(compareNewestFirst)
+    .slice(0, recent)
+    .forEach((tx) => {
+      const key = `${tx.type}|${tx.fromId}|${tx.toId}`;
+      const preset = presets.get(key);
+      if (preset) preset.count += 1;
+      else presets.set(key, { type: tx.type, fromId: tx.fromId, toId: tx.toId, count: 1 });
+    });
+  // Map keeps insertion order (newest first), and sort is stable, so ties stay newest first.
+  return [...presets.values()].sort((a, b) => b.count - a.count).slice(0, limit);
+}
+
 /**
  * What to record when the counted balance differs from the app's: less money is spending
  * that wasn't recorded (an expense), more is unrecorded income. Null when they match.

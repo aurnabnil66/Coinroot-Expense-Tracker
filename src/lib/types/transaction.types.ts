@@ -18,6 +18,8 @@ export type Transaction = {
   note: string;
   /** The transaction this money came from (e.g. an expense paid from an ATM withdrawal). */
   parentId: string | null;
+  /** Income only: who paid, e.g. a client's name ("Received from"). */
+  party: string | null;
   createdAt: string;
   updatedAt: string;
 };

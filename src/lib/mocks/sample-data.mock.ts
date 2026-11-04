@@ -37,7 +37,9 @@ const expenseNames = [
   'Food', 'Groceries', 'Transport', 'Rent', 'Bills', 'Mobile & Internet', 'Shopping', 'Fitness',
   'Bank Charges', 'Health', 'Education', 'Family', 'Entertainment', 'Gifts', 'Other',
 ];
-const incomeNames = ['Salary', 'Bonus', 'Office Payment', 'Interest/Profit', 'Freelance', 'Gift Received', 'Other Income'];
+const incomeNames = [
+  'Salary', 'Bonus', 'Office Payment', 'Client Payment', 'Interest/Profit', 'Freelance', 'Gift Received', 'Other Income',
+];
 const swatches = ['orange', 'lime', 'sky', 'violet', 'amber', 'cyan', 'pink', 'emerald', 'slate', 'red', 'indigo', 'rose', 'fuchsia', 'teal', 'zinc'];
 
 const slug = (name: string) => name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
@@ -58,7 +60,7 @@ const entry = (
 ): Transaction => {
   seq += 1;
   const createdAt = new Date(Date.now() - days * 86_400_000 + seq * 1000).toISOString();
-  return { id: `tx-${seq}`, date: daysAgo(days), note: '', parentId: null, createdAt, updatedAt: createdAt, ...fields };
+  return { id: `tx-${seq}`, date: daysAgo(days), note: '', parentId: null, party: null, createdAt, updatedAt: createdAt, ...fields };
 };
 
 const salary = entry(4, { type: 'income', fromId: 'src-salary', toId: 'acc-salary', amount: 5000000, note: 'Monthly salary' });
@@ -72,6 +74,9 @@ const topUp = entry(1, { type: 'transfer', fromId: 'acc-main', toId: 'acc-wallet
 const recharge = entry(0, { type: 'expense', fromId: 'acc-wallet', toId: 'cat-mobile-internet', amount: 49900, note: 'Data pack', parentId: topUp.id });
 const groceries = entry(0, { type: 'expense', fromId: 'acc-main', toId: 'cat-groceries', amount: 87550, note: 'Card payment, supermarket' });
 const lunch = entry(0, { type: 'expense', fromId: 'acc-cash', toId: 'cat-food', amount: 22000, note: 'Lunch', parentId: atm.id });
+// Side income from invented clients, to show "Received from" and Income by client.
+const clientA = entry(2, { type: 'income', fromId: 'src-client-payment', toId: 'acc-wallet', amount: 1500000, note: 'Website work', party: 'Client A' });
+const clientB = entry(1, { type: 'income', fromId: 'src-client-payment', toId: 'acc-cash', amount: 600000, note: 'Design fix', party: 'Client B' });
 
 const HISTORY_MONTHS = 5;
 
@@ -85,7 +90,7 @@ const historyMonth = (monthsAgo: number): Transaction[] => {
     seq += 1;
     const date = `${month}-${String(Math.min(day, lastDay)).padStart(2, '0')}`;
     const createdAt = `${date}T09:00:${String(seq % 60).padStart(2, '0')}.000Z`;
-    return { id: `tx-${seq}`, date, note: '', parentId: null, createdAt, updatedAt: createdAt, ...fields };
+    return { id: `tx-${seq}`, date, note: '', parentId: null, party: null, createdAt, updatedAt: createdAt, ...fields };
   };
 
   const atm = on(5, { type: 'transfer', fromId: 'acc-main', toId: 'acc-cash', amount: 300000, note: 'ATM withdrawal' });
@@ -105,6 +110,7 @@ const historyMonth = (monthsAgo: number): Transaction[] => {
   ];
   return [
     on(1, { type: 'income', fromId: 'src-salary', toId: 'acc-salary', amount: 5000000, note: 'Monthly salary' }),
+    on(10, { type: 'income', fromId: 'src-client-payment', toId: 'acc-wallet', amount: vary(1200000, 7), party: monthsAgo % 2 ? 'Client A' : 'Client C' }),
     on(1, { type: 'transfer', fromId: 'acc-salary', toId: 'acc-main', amount: 4000000, note: 'Salary transfer' }),
     on(3, { type: 'transfer', fromId: 'acc-main', toId: 'acc-dps', amount: 500000, note: 'DPS installment' }),
     atm,
@@ -136,4 +142,6 @@ export const sampleTransactions: Transaction[] = [
   recharge,
   groceries,
   lunch,
+  clientA,
+  clientB,
 ];
