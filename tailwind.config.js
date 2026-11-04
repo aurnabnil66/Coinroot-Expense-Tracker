@@ -8,6 +8,18 @@ module.exports = {
   // (src/lib/gluestack-ui/gluestack-ui-provider/config.ts).
   theme: {
     extend: {
+      // Poppins is embedded by the expo-font plugin (app.json) as one family with
+      // 400/500/600/700 faces, so font-normal … font-bold pick the matching face.
+      fontFamily: {
+        sans: ['Poppins'],
+        body: ['Poppins'],
+        heading: ['Poppins'],
+      },
+      // Bold (700) is the heaviest weight in the app; heavier classes render as bold.
+      fontWeight: {
+        extrabold: '700',
+        black: '700',
+      },
       colors: {
         background: 'rgb(var(--background) / <alpha-value>)',
         foreground: 'rgb(var(--foreground) / <alpha-value>)',
@@ -36,6 +48,13 @@ module.exports = {
         border: 'rgb(var(--border) / <alpha-value>)',
         input: 'rgb(var(--input) / <alpha-value>)',
         ring: 'rgb(var(--ring) / <alpha-value>)',
+        sky: 'rgb(var(--sky) / <alpha-value>)',
+        income: 'rgb(var(--income) / <alpha-value>)',
+        expense: 'rgb(var(--expense) / <alpha-value>)',
+        transfer: 'rgb(var(--transfer) / <alpha-value>)',
+        warning: 'rgb(var(--warning) / <alpha-value>)',
+        'tab-bar': 'rgb(var(--tab-bar) / <alpha-value>)',
+        'tab-item': 'rgb(var(--tab-item) / <alpha-value>)',
       },
     },
   },

@@ -1,1 +1,1 @@
-export { HomeScreen as default } from '@/lib/screens/home/home.screen';
+export { TransactionsScreen as default } from '@/lib/screens/transactions/transactions.screen';
