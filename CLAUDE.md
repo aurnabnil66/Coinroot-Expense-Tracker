@@ -38,7 +38,7 @@ Salary → Office bank account → Primary bank account → ATM withdrawal (→ 
 
 Never hard-code real bank, wallet or institution names or real amounts. Account names are whatever the user enters.
 
-## Data model (planned)
+## Data model (implemented in the mock store; the DB schema should match)
 
 ```
 accounts       id, name, type (bank | cash | mobile_wallet | savings), opening_balance (poisha),
@@ -46,7 +46,8 @@ accounts       id, name, type (bank | cash | mobile_wallet | savings), opening_b
                savings extras (nullable): installment_amount, start_date, maturity_date, interest_rate
 categories     id, name, kind (expense | income_source), icon, color, archived
 transactions   id, date, type (income | expense | transfer), from_id, to_id, amount (poisha),
-               note, parent_id (nullable → transactions.id), created_at, updated_at
+               note, parent_id (nullable → transactions.id), party (nullable, income only: who paid),
+               created_at, updated_at
 ```
 
 `from_id` / `to_id` point to an account or a category/income source depending on type:
@@ -57,9 +58,10 @@ transactions   id, date, type (income | expense | transfer), from_id, to_id, amo
 Default seed data:
 - Accounts: generic, editable placeholders, one per type: e.g. "Bank Account", "Cash", "Mobile Wallet", "Savings (DPS)". The user renames or adds their own.
 - Expense categories: Food, Groceries, Transport, Rent, Bills, Mobile & Internet, Shopping, Fitness, Bank Charges, Health, Education, Family, Entertainment, Gifts, Other
-- Income sources: Salary, Bonus, Office Payment, Interest/Profit, Freelance, Gift Received, Other Income
+- Income sources: Salary, Bonus, Office Payment, Client Payment, Interest/Profit, Freelance, Gift Received, Other Income
+- "Balance adjustment" (expense and income source) and "Bank Charges" are looked up by name (`findCategoryByName`) and created if missing; users may rename their own.
 
-Accounts, categories and income sources are **user data in the database**, never hard-coded constants. The lists above are only first-launch seed rows. Every from/to field is a picker (dropdown) over those tables, with a "+ New category / account" option that creates the item inline and selects it. Shop or place names go in `note`, not in categories.
+Accounts, categories and income sources are **user data in the database**, never hard-coded constants. The lists above are only first-launch seed rows. Every from/to field is a picker (dropdown) over those tables, with a "+ New category / account" option that creates the item inline and selects it. Shop or place names go in `note`, and clients / payers in `party` ("Received from"), not in categories.
 
 ## Architecture: local-first
 
@@ -90,6 +92,7 @@ Planned (add with `bunx expo install` when the feature needs it, then move it to
 | Export / backup | `expo-file-system` + `expo-sharing` |
 | Dates | `date-fns` |
 | App lock | `expo-local-authentication` |
+| Small local settings | `react-native-mmkv` (theme, Simple mode, setup flag). Replaces today's `expo-sqlite/kv-store` in `useThemePreference` / `useSimpleMode`. Needs a dev-client rebuild. |
 | Small app state (only if needed) | Zustand. Prefer DB live queries as the source of truth. |
 
 Do not upgrade to Tailwind v4 / NativeWind v5 until they are stable.
@@ -103,15 +106,15 @@ Expo Router treats **every** `.ts`/`.tsx` file under `src/app/` as a route (no n
 | Dir | Purpose |
 |---|---|
 | `src/app/` | Expo Router routes and layouts only |
-| `src/lib/screens/<name>/` | Full-page screens, grouped by feature: `transactions/`, `accounts/`, `summary/`, `settings/`. Nothing sits directly in `src/lib/screens/`. |
-| `src/lib/components/` | Reusable, feature-aware pieces that aren't screens (`TransactionRow`, `TransactionTypeIcon`, `SpendingChart`, `LedgerPending`) |
-| `src/lib/ui/` | Reusable, feature-agnostic UI components, built from gluestack-ui + `className`: layout (`ScreenContainer`, `ScreenHeader`), `AppTabs`, `Card` / `GradientCard`, rows, form fields, `SelectField` bottom-sheet picker, `Dialog` + `useDialog`, `BarChart`, `Fab`, loading pieces (`Skeleton`, `LoadingState`, `ErrorState`, `ButtonLoader`) |
-| `src/lib/hooks/` | Shared hooks (`useLedger`, `useColorScheme`, `useThemePreference`, `useRipple`) |
+| `src/lib/screens/<name>/` | Full-page screens, grouped by feature: `setup/`, `transactions/`, `accounts/`, `summary/`, `settings/`. Nothing sits directly in `src/lib/screens/`. |
+| `src/lib/components/` | Reusable, feature-aware pieces that aren't screens (`TransactionRow`, `TransactionTypeIcon`, `SpendingChart`, `QuickAdd`, `LedgerPending`) |
+| `src/lib/ui/` | Reusable, feature-agnostic UI components, built from gluestack-ui + `className`: layout (`ScreenContainer`, `ScreenHeader`), `AppTabs`, `Card` / `GradientCard`, rows, form fields, `SelectField` bottom-sheet picker, `Dialog` + `useDialog`, `Calendar`, `SuggestTextField`, `BarChart`, `Fab`, loading pieces (`Skeleton`, `LoadingState`, `ErrorState`, `ButtonLoader`) |
+| `src/lib/hooks/` | Shared hooks (`useLedger`, `useColorScheme`, `useThemePreference`, `useSimpleMode`, `useRipple`) |
 | `src/lib/constants/` | Static values (`ledger.constants.ts`: labels, account/category colours; `theme.constants.ts`: `BottomTabInset`, `MaxContentWidth`, `FontFamily`) |
 | `src/lib/schemas/` | Zod schemas, their inferred types and form defaults |
 | `src/lib/types/` | Domain types (`Account`, `Category`, `Transaction`), matching the data model above |
 | `src/lib/utils/` | Pure logic with unit tests: `money.util.ts` (parse/format taka ↔ poisha), `date.util.ts` (`YYYY-MM-DD` day keys), `ledger.util.ts` (balances, remaining, monthly summary, daily/monthly spending, day grouping and paging) |
-| `src/lib/mocks/` | **Temporary** in-memory sample data (current month plus five generated earlier months) and an async store (`ledgerStore`) used until the database exists. Generic names, invented amounts. |
+| `src/lib/mocks/` | **Temporary** in-memory sample data (current month plus five generated earlier months) and an async store (`ledgerStore`) used until the database exists. Each launch starts at first-time setup (`setupDone: false`); "Explore with sample data" loads the samples. Generic names, invented amounts. |
 | `src/lib/gluestack-ui/` | Vendored gluestack-ui components, one folder each. Owned, editable code. |
 | `src/global.css` | The only global stylesheet and the NativeWind entry (`@tailwind` directives + font variables) |
 | `assets/` | Images, icons and fonts (repo root) |
@@ -148,7 +151,8 @@ New layers follow the same `src/lib/<layer>/*.<suffix>.ts(x)` shape with their o
 - Current routes:
   - Tabs: `(tabs)/index` (Transactions), `(tabs)/accounts`, `(tabs)/summary`, `(tabs)/settings`.
   - Pushed with the native header: `transaction/[id]`, `account/[id]`, `categories?kind=`. Screens set their title / Edit button with `<Stack.Screen options>`.
-  - Modals (own `ModalHeader`): `transaction-form?id=|parentId=`, `account-form?id=|name=`, `category-form?id=|kind=`.
+  - Modals (own `ModalHeader`): `transaction-form?id=|parentId=|type=&fromId=&toId=` (the last is a quick-add preset), `account-form?id=|name=`, `category-form?id=|kind=`, `balance-check?accountId=`.
+  - `setup`: first-time setup. The root `Stack` wraps the app in `<Stack.Protected guard={setupDone}>` and `setup` in `guard={!setupDone}`, so finishing (or resetting) setup switches screens automatically.
 - The root `src/app/_layout.tsx` imports `@/global.css` and owns `GluestackUIProvider` (outermost, `mode={themePreference}`), the react-navigation `ThemeProvider` (gluestack colours + Poppins fonts), the `StatusBar`, `DialogProvider` and the root `Stack`. When the DB lands, the Drizzle `useMigrations` gate (spinner → error → app) goes here too.
 
 ## Styling
@@ -162,11 +166,12 @@ New layers follow the same `src/lib/<layer>/*.<suffix>.ts(x)` shape with their o
   - **Tab bar:** a floating pill (`bg-tab-bar`: white with a border in light mode, navy in dark) centred above the bottom safe area. Inactive tabs are round icon buttons (`bg-tab-item`), and the active tab expands into a soft purple pill (`bg-primary/15`) with a purple icon + label (animated with Reanimated `LinearTransition`). Icons are `SymbolView` from `expo-symbols` (SF Symbols on iOS, Material Symbols on Android/web). Screens scroll under it; reserve `BottomTabInset` + safe-area bottom.
   - **Shadows on Android:** `style.borderRadius` on gluestack `Box` is ignored, so round shapes use `rounded-*` classes. A pressable with `android_ripple` gets its shadow from an outer view: the FAB uses native `elevation` + `shadowColor` on a `rounded-full bg-primary` wrapper.
   - Pressables get a Material ripple via `android_ripple={useRipple()}`. The add button is a round "+" FAB (icon only, with an accessibility label). On list tabs the title and hero card stay pinned and only the list scrolls (`ScreenContainer header`, or a fixed block above a `SectionList`). Segmented controls use filled pills (`selectedClass`, e.g. `bg-expense` / `bg-income` / `bg-transfer` for the type switch).
-  - Money colours are only for meaning: `text-income` (green), `text-expense` (rose), `text-transfer` (light blue). Expense amounts show as `-৳…` in the normal text colour; income as `+৳…` in green.
+  - Money colours are only for meaning: `text-income` (green), `text-expense` (rose), `text-transfer` (blue). They're deep (600) in light mode and bright (400) in dark mode. Tinted backgrounds are `bg-x/20 dark:bg-x/25` so they stay visible on navy. Expense amounts show as `-৳…` in the normal text colour; income as `+৳…` in green.
+  - Filled pills (`SegmentedControl`) use white text in light mode and dark text (`dark:text-primary-foreground`) on the brighter dark-mode colours.
   - Gradients and shadows use React Native's built-in `experimental_backgroundImage: linear-gradient(...)` and `boxShadow` styles (no gradient library).
 - **Font: Poppins** (400 / 500 / 600 / 700, OFL licence in `assets/fonts`), embedded at build time by the `expo-font` plugin in `app.json` as one family, so `font-normal` … `font-bold` pick the matching face. Tailwind's `font-sans` / `font-body` / `font-heading` map to it. Props that can't take `className` (navigation header, tab labels) use `FontFamily` from `@/lib/constants`. Raw `TextInput`s need `font-sans`. Don't use weights other than these four: never `font-extrabold` / `font-black` (Tailwind maps them to 700 anyway), use `font-bold`. Screen titles and large headline amounts (`text-4xl`+) are `font-semibold` (`AmountText weight="semibold"`), since Poppins Bold looks too heavy at that size. Changing fonts needs a new native build.
   - Poppins has no ৳ glyph (it falls back to the system font) and only proportional digits, so `tabular-nums` has no effect.
-- Props that can't take `className` (tab icons, navigation header, `placeholderTextColor`, `Switch`) get hex values from `useGluestackColors()`. Per-item colours (category swatches) are keys into `CATEGORY_COLORS`, applied via `style`.
+- Props that can't take `className` (tab icons, navigation header, `placeholderTextColor`, `Switch`) get hex values from `useGluestackColors()`. Per-item colours (category / account swatches) are keys into the palette from `useCategoryColors()` (`CATEGORY_COLORS` deep tones in light mode, `CATEGORY_COLORS_DARK` bright tones in dark), applied via `style`. Never read `CATEGORY_COLORS` directly for display.
 - Add components with `bunx gluestack-ui@latest add <component> --use-bun`. The output lands in `src/lib/gluestack-ui/<component>/`. The CLI is alpha. After adding:
   - install any dependency it skipped (it skipped `@legendapp/motion` for `actionsheet`).
   - check `bunx tsc --noEmit`. `button`, `input` and `actionsheet` needed `as any` casts on the `cssInterop` `nativeStyleToProp` object.
@@ -200,14 +205,31 @@ ID, Date, Type, From, To/Category, Amount, Note, Linked to, Left from this (auto
 
 ## Roadmap
 
-Done: design and all screens below running on sample data (`src/lib/mocks`), plus the spending-over-time chart, paging, loading states and dialogs. Next: the database, then replace the mocks.
+**Phase 1: design and prototype is done.** Every screen and feature below runs on the in-memory mock store (`src/lib/mocks`) and has been checked on Android in light and dark mode. Design changes come later, as needed.
 
-1. Add / edit / delete transactions; list grouped by day
-2. Accounts with derived balances; total money; monthly summary (income, expenses, saved, moved to savings, by category)
-3. CSV import from the spreadsheet
-4. Parent links + tree view ("remaining" from a withdrawal)
-5. More charts (spending chart done), per-category budgets, DPS details and reminders, app lock
-6. Backup/export, then open source
+Done in phase 1:
+- Transactions: add / edit / delete, list grouped by day with Load more, quick add (Simple mode), transfer charges, "Received from" with suggestions, calendar date picker, money-tree links ("Linked to", "Left from this")
+- Accounts: derived balances, total / available / in savings, Count cash / Check balance
+- Summary: monthly totals, spending over time (daily / 6 months), spending by category, income by client, moved to savings
+- First-time setup (no bank account required), sample-data mode, Settings (theme, Simple mode, categories, set up again)
+- Design system: navy + purple theme in light / dark, Poppins, floating tab bar, dialogs, loading / error / saving states everywhere
+
+**Phase 2 (next): the backend.** Local-first with Drizzle + SQLite (`expo-sqlite`, `drizzle-orm`) for data and MMKV for small settings; the exact setup is still being decided.
+1. Drizzle schema in `src/lib/db` matching the data model (including `party`), migrations, and the `useMigrations` gate in the root layout
+2. Seed categories on first launch; persist `setupDone` (MMKV) so setup runs once
+3. Replace `useLedger` with live queries and `ledgerStore.*` with DB writes, keeping the same shapes (`status`, `error`, async writes), so screens and utils don't change
+4. Paged queries for the transaction list (`takeDays` page size → `LIMIT`)
+
+Later:
+1. CSV import from the spreadsheet
+2. Backup / restore (JSON) and export
+3. Money-tree view
+4. More charts, per-category budgets, recurring transactions, DPS details and reminders
+5. App lock (fingerprint / PIN), hide amounts
+6. Bengali language and digits
+7. App icon and splash in the brand design, then open source
+
+Known small design items (deferred): content scrolls under the status bar on long screens; text fields other than the amount still show the default (teal) cursor.
 
 ## Conventions
 
@@ -227,7 +249,13 @@ Done: design and all screens below running on sample data (`src/lib/mocks`), plu
   - `await dialog.alert({ title, message, tone: 'info' })` shows information with an OK button.
   - `dialog.show({ title, message, tone, icon, actions: [{ label, value, variant, onPress }] })` takes any buttons and resolves to the pressed `value` (or `null` if dismissed).
   - Tones: `default` (question), `info`, `success`, `warning`, `danger`. `message` can be any React node. `dismissible: false` blocks the back button and tapping outside. Dialogs queue, so only one shows at a time. The declarative `<Dialog open onClose>` is there for rare cases.
-- Dates in forms use `DateField` (day stepper + Today/Yesterday), so no native date-picker module is needed yet.
+- **First-time setup** (`setup` route): Welcome → "What do you use for money?" (Cash / Mobile wallet / Bank account / Savings / DPS, no bank required) → "Name your accounts" with today's balance → app. "Explore with sample data" skips it; Settings → "Set up accounts again" resets.
+- **Count cash / Check balance** (`balance-check` modal, from account detail): the user enters what they actually have. The difference is saved as a `Balance adjustment` expense (missing) or income (extra), so the derived balance matches reality.
+- **Transfer charge:** new transfers have an optional Charge (e.g. cash-out fee). It's saved as its own expense from the same account (default category Bank Charges). It's not a parent link, so it doesn't change "remaining".
+- **Received from** (`party`): optional on income, with suggestions from earlier names (`SuggestTextField`, `partySuggestions`). Summary shows "Income by client" (`incomeByParty`).
+- **Simple mode** (Settings → Display, `useSimpleMode`, kv-store): the Transactions list starts with Quick add (the 4 most used type + from + to combinations from `quickPresets`, excluding balance adjustments, plus Expense / Income / Transfer buttons), and the form hides "Linked to".
+- Dates in forms use `DateField`: tapping it opens a themed `Calendar` (`src/lib/ui/calendar.ui.tsx`) in a bottom sheet, with Today / Yesterday shortcut chips. Weeks start on Sunday, and days after `maxDate` (default today) are disabled. No native date-picker module.
+- `AmountField` sizes its input to the text (measured from a hidden copy), so it grows instead of scrolling, and drops a size for long amounts. Large Poppins text needs an explicit `leading-[…]`, since Tailwind's `text-4xl`+ set line-height 1, which clips it.
 - App icon and splash images (`assets/images`) are still Expo's; their background colours are navy `#1E2A5E` (takes effect after a native rebuild).
 - **Dev server:** run Metro in watch mode (`bun start`), not with `CI=1`, which disables reloads. If the app shows "Cannot read property 'ErrorBoundary' of undefined" after several quick edits, it's a Fast Refresh glitch: do a full reload (`r` in Metro or dev menu → Reload). If it survives a reload, check the Metro output for the real error.
 - Before open-sourcing: replace the template LICENSE (currently copyright Expo) and README.
