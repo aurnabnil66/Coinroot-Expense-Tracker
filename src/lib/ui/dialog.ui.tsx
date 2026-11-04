@@ -71,11 +71,11 @@ export type AlertOptions = Omit<DialogOptions, 'actions'> & {
 };
 
 const TONES: Record<DialogTone, { icon: IconComponent; badge: string; iconClass: string }> = {
-  default: { icon: HelpCircleIcon, badge: 'bg-primary/15', iconClass: 'text-primary' },
-  info: { icon: InfoIcon, badge: 'bg-sky/15', iconClass: 'text-sky' },
-  success: { icon: CheckCircleIcon, badge: 'bg-income/15', iconClass: 'text-income' },
-  warning: { icon: AlertCircleIcon, badge: 'bg-warning/15', iconClass: 'text-warning' },
-  danger: { icon: AlertCircleIcon, badge: 'bg-destructive/15', iconClass: 'text-destructive' },
+  default: { icon: HelpCircleIcon, badge: 'bg-primary/20 dark:bg-primary/25', iconClass: 'text-primary' },
+  info: { icon: InfoIcon, badge: 'bg-sky/20 dark:bg-sky/25', iconClass: 'text-sky' },
+  success: { icon: CheckCircleIcon, badge: 'bg-income/20 dark:bg-income/25', iconClass: 'text-income' },
+  warning: { icon: AlertCircleIcon, badge: 'bg-warning/20 dark:bg-warning/25', iconClass: 'text-warning' },
+  danger: { icon: AlertCircleIcon, badge: 'bg-destructive/20 dark:bg-destructive/25', iconClass: 'text-destructive' },
 };
 
 const BUTTON_VARIANTS = {

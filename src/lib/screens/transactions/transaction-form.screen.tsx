@@ -17,7 +17,7 @@ import { Button, ButtonText } from '@/lib/gluestack-ui/button';
 import { TrashIcon } from '@/lib/gluestack-ui/icon';
 import { Text } from '@/lib/gluestack-ui/text';
 import { VStack } from '@/lib/gluestack-ui/vstack';
-import { useLedger, useSimpleMode } from '@/lib/hooks';
+import { useCategoryColors, useLedger, useSimpleMode } from '@/lib/hooks';
 import { ledgerStore, type LedgerSnapshot } from '@/lib/mocks';
 import {
   type TransactionFormInput,
@@ -129,6 +129,7 @@ function TransactionForm() {
   const { id } = params;
   const ledger = useLedger();
   const simpleMode = useSimpleMode();
+  const palette = useCategoryColors();
   const { accounts, categories, transactions } = ledger;
   const isEdit = Boolean(id);
 
@@ -163,7 +164,7 @@ function TransactionForm() {
           value: a.id,
           label: a.name,
           trailing: formatTaka(balances.get(a.id) ?? 0),
-          leading: <InitialBadge label={a.name} color={CATEGORY_COLORS[ACCOUNT_TYPE_COLORS[a.type]]} size="sm" />,
+          leading: <InitialBadge label={a.name} color={palette[ACCOUNT_TYPE_COLORS[a.type]]} size="sm" />,
         }));
     }
     return categories
@@ -171,7 +172,7 @@ function TransactionForm() {
       .map((c) => ({
         value: c.id,
         label: c.name,
-        leading: <InitialBadge label={c.name} color={CATEGORY_COLORS[c.color ?? DEFAULT_CATEGORY_COLOR]} size="sm" />,
+        leading: <InitialBadge label={c.name} color={palette[c.color ?? DEFAULT_CATEGORY_COLOR]} size="sm" />,
       }));
   };
 
@@ -269,7 +270,7 @@ function TransactionForm() {
     .map((c) => ({
       value: c.id,
       label: c.name,
-      leading: <InitialBadge label={c.name} color={CATEGORY_COLORS[c.color ?? DEFAULT_CATEGORY_COLOR]} size="sm" />,
+      leading: <InitialBadge label={c.name} color={palette[c.color ?? DEFAULT_CATEGORY_COLOR]} size="sm" />,
     }));
 
   return (

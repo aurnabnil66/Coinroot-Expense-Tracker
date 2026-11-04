@@ -5,7 +5,7 @@ import { BackHandler, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { LedgerPending } from '@/lib/components';
-import { ACCOUNT_TYPE_COLORS, CATEGORY_COLORS, SETUP_ACCOUNT_OPTIONS } from '@/lib/constants';
+import { ACCOUNT_TYPE_COLORS, SETUP_ACCOUNT_OPTIONS } from '@/lib/constants';
 import { Box } from '@/lib/gluestack-ui/box';
 import { Button, ButtonText } from '@/lib/gluestack-ui/button';
 import { useGluestackColors } from '@/lib/gluestack-ui/gluestack-ui-provider';
@@ -14,7 +14,7 @@ import { AddIcon, CheckIcon, ChevronLeftIcon, CloseIcon, Icon } from '@/lib/glue
 import { Pressable } from '@/lib/gluestack-ui/pressable';
 import { Text } from '@/lib/gluestack-ui/text';
 import { VStack } from '@/lib/gluestack-ui/vstack';
-import { useLedger } from '@/lib/hooks';
+import { useCategoryColors, useLedger } from '@/lib/hooks';
 import { ledgerStore } from '@/lib/mocks';
 import { type SetupFormInput, type SetupFormValues, setupFormDefaults, setupFormSchema } from '@/lib/schemas';
 import type { AccountType } from '@/lib/types';
@@ -37,6 +37,7 @@ export function SetupScreen() {
 function SetupFlow() {
   const [step, setStep] = useState<Step>('welcome');
   const [types, setTypes] = useState<AccountType[]>([]);
+  const palette = useCategoryColors();
   const form = useForm<SetupFormInput, unknown, SetupFormValues>({
     resolver: zodResolver(setupFormSchema),
     defaultValues: setupFormDefaults(),
@@ -95,7 +96,7 @@ function SetupFlow() {
               key={option.type}
               title={option.title}
               description={option.description}
-              color={CATEGORY_COLORS[ACCOUNT_TYPE_COLORS[option.type]]}
+              color={palette[ACCOUNT_TYPE_COLORS[option.type]]}
               selected={types.includes(option.type)}
               onPress={() => toggle(option.type)}
             />

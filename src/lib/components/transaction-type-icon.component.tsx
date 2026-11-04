@@ -3,9 +3,9 @@ import { ArrowDownIcon, ArrowUpIcon, Icon, RepeatIcon } from '@/lib/gluestack-ui
 import type { TransactionType } from '@/lib/types';
 
 const styles: Record<TransactionType, { icon: typeof ArrowUpIcon; box: string; color: string }> = {
-  expense: { icon: ArrowUpIcon, box: 'bg-expense/15', color: 'text-expense' },
-  income: { icon: ArrowDownIcon, box: 'bg-income/15', color: 'text-income' },
-  transfer: { icon: RepeatIcon, box: 'bg-transfer/15', color: 'text-transfer' },
+  expense: { icon: ArrowUpIcon, box: 'bg-expense/20 dark:bg-expense/25', color: 'text-expense' },
+  income: { icon: ArrowDownIcon, box: 'bg-income/20 dark:bg-income/25', color: 'text-income' },
+  transfer: { icon: RepeatIcon, box: 'bg-transfer/20 dark:bg-transfer/25', color: 'text-transfer' },
 };
 
 /** Money out (arrow up), money in (arrow down) or moved between own accounts (repeat). */

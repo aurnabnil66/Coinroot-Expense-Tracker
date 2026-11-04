@@ -4,14 +4,14 @@ import { Controller, useForm } from 'react-hook-form';
 import { View } from 'react-native';
 
 import { LedgerPending } from '@/lib/components';
-import { CATEGORY_COLORS, CATEGORY_KIND_LABELS, DEFAULT_CATEGORY_COLOR } from '@/lib/constants';
+import { CATEGORY_KIND_LABELS, DEFAULT_CATEGORY_COLOR } from '@/lib/constants';
 import { Button, ButtonText } from '@/lib/gluestack-ui/button';
 import { HStack } from '@/lib/gluestack-ui/hstack';
 import { CheckIcon, Icon } from '@/lib/gluestack-ui/icon';
 import { Pressable } from '@/lib/gluestack-ui/pressable';
 import { Text } from '@/lib/gluestack-ui/text';
 import { VStack } from '@/lib/gluestack-ui/vstack';
-import { useLedger } from '@/lib/hooks';
+import { useCategoryColors, useLedger } from '@/lib/hooks';
 import { ledgerStore } from '@/lib/mocks';
 import { type CategoryFormInput, type CategoryFormValues, categoryFormDefaults, categoryFormSchema } from '@/lib/schemas';
 import { ButtonLoader, FieldShell, FormTextField, ModalHeader, ScreenContainer, SwitchRow } from '@/lib/ui';
@@ -33,6 +33,7 @@ export function CategoryFormScreen() {
 function CategoryForm() {
   const params = useLocalSearchParams<{ id?: string; kind?: string }>();
   const { categories } = useLedger();
+  const palette = useCategoryColors();
   const existing = params.id ? categories.find((c) => c.id === params.id) : undefined;
   const kind = existing?.kind ?? (params.kind === 'income_source' ? 'income_source' : 'expense');
   const label = CATEGORY_KIND_LABELS[kind].singular;
@@ -89,7 +90,7 @@ function CategoryForm() {
             render={({ field }) => (
               <FieldShell label="Colour">
                 <HStack className="flex-wrap gap-3">
-                  {Object.entries(CATEGORY_COLORS).map(([key, hex]) => {
+                  {Object.entries(palette).map(([key, hex]) => {
                     const selected = field.value === key;
                     return (
                       <Pressable

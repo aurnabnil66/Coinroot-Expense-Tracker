@@ -1,12 +1,12 @@
 import { useMemo, useState } from 'react';
 
 import { LedgerPending, SpendingChart } from '@/lib/components';
-import { CATEGORY_COLORS, DEFAULT_CATEGORY_COLOR } from '@/lib/constants';
+import { DEFAULT_CATEGORY_COLOR } from '@/lib/constants';
 import { Box } from '@/lib/gluestack-ui/box';
 import { HStack } from '@/lib/gluestack-ui/hstack';
 import { Text } from '@/lib/gluestack-ui/text';
 import { VStack } from '@/lib/gluestack-ui/vstack';
-import { useLedger } from '@/lib/hooks';
+import { useCategoryColors, useLedger } from '@/lib/hooks';
 import {
   AmountText,
   Card,
@@ -29,6 +29,7 @@ export function SummaryScreen() {
   const [month, setMonth] = useState(() => toMonthKey(todayKey()));
   const summary = useMemo(() => monthlySummary(month, transactions, accounts), [month, transactions, accounts]);
   const categoryById = useMemo(() => new Map(categories.map((c) => [c.id, c])), [categories]);
+  const palette = useCategoryColors();
   const byClient = useMemo(() => incomeByParty(month, transactions), [month, transactions]);
 
   return (
@@ -76,7 +77,7 @@ export function SummaryScreen() {
           </GradientCard>
 
           <Card className="mt-3 flex-row items-center gap-3 p-4">
-            <Box className="h-11 w-11 items-center justify-center rounded-2xl bg-sky/15">
+            <Box className="h-11 w-11 items-center justify-center rounded-2xl bg-sky/20 dark:bg-sky/25">
               <Text className="text-lg font-bold text-sky">৳</Text>
             </Box>
             <VStack className="flex-1">
@@ -99,7 +100,7 @@ export function SummaryScreen() {
               {summary.byCategory.map((row, index) => {
                 const category = categoryById.get(row.categoryId);
                 const name = category?.name ?? 'Unknown';
-                const color = CATEGORY_COLORS[category?.color ?? DEFAULT_CATEGORY_COLOR] ?? CATEGORY_COLORS[DEFAULT_CATEGORY_COLOR];
+                const color = palette[category?.color ?? DEFAULT_CATEGORY_COLOR] ?? palette[DEFAULT_CATEGORY_COLOR];
                 return (
                   <HStack key={row.categoryId} className={`items-center gap-3 px-4 py-3 ${index > 0 ? 'border-t border-border' : ''}`}>
                     <InitialBadge label={name} color={color} />
@@ -131,7 +132,7 @@ export function SummaryScreen() {
               <Card>
                 {byClient.map((row, index) => (
                   <HStack key={row.party} className={`items-center gap-3 px-4 py-3 ${index > 0 ? 'border-t border-border' : ''}`}>
-                    <InitialBadge label={row.party} color={CATEGORY_COLORS.emerald} />
+                    <InitialBadge label={row.party} color={palette.emerald} />
                     <Text numberOfLines={1} className="flex-1 text-base font-medium text-foreground">
                       {row.party}
                     </Text>

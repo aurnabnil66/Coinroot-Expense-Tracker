@@ -21,9 +21,9 @@ type QuickAddProps = {
 };
 
 const TYPE_BUTTON_CLASS: Record<TransactionType, string> = {
-  expense: 'bg-expense/10',
-  income: 'bg-income/10',
-  transfer: 'bg-transfer/10',
+  expense: 'bg-expense/20 dark:bg-expense/25',
+  income: 'bg-income/20 dark:bg-income/25',
+  transfer: 'bg-transfer/20 dark:bg-transfer/25',
 };
 
 const TYPE_TEXT_CLASS: Record<TransactionType, string> = {

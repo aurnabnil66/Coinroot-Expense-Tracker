@@ -1,10 +1,10 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 
 import { LedgerPending } from '@/lib/components';
-import { CATEGORY_COLORS, CATEGORY_KIND_LABELS, DEFAULT_CATEGORY_COLOR } from '@/lib/constants';
+import { CATEGORY_KIND_LABELS, DEFAULT_CATEGORY_COLOR } from '@/lib/constants';
 import { AddIcon } from '@/lib/gluestack-ui/icon';
 import { Text } from '@/lib/gluestack-ui/text';
-import { useLedger } from '@/lib/hooks';
+import { useCategoryColors, useLedger } from '@/lib/hooks';
 import type { Category, CategoryKind } from '@/lib/types';
 import { Card, IconButton, InitialBadge, ListRow, ScreenContainer, SectionHeader, SkeletonCard } from '@/lib/ui';
 
@@ -16,6 +16,7 @@ export function CategoriesScreen() {
   const active = list.filter((c) => !c.archived);
   const archived = list.filter((c) => c.archived);
   const labels = CATEGORY_KIND_LABELS[kind];
+  const palette = useCategoryColors();
 
   const renderList = (items: Category[]) => (
     <Card>
@@ -24,7 +25,7 @@ export function CategoriesScreen() {
           key={category.id}
           divider={index > 0}
           muted={category.archived}
-          leading={<InitialBadge label={category.name} color={CATEGORY_COLORS[category.color ?? DEFAULT_CATEGORY_COLOR]} size="sm" />}
+          leading={<InitialBadge label={category.name} color={palette[category.color ?? DEFAULT_CATEGORY_COLOR]} size="sm" />}
           title={category.name}
           onPress={() => router.push({ pathname: '/category-form', params: { id: category.id } })}
         />

@@ -59,25 +59,45 @@ export const CATEGORY_KIND_LABELS: Record<CategoryKind, { singular: string; plur
 };
 
 /**
- * Swatches for category dots. Stored on the category as the key, so the palette
- * can change without touching data. Mid-tone values read well in light and dark mode.
+ * Swatches for category and account badges. Stored on the category as the key, so the palette
+ * can change without touching data. Deep (600) tones for light mode; read them through
+ * `useCategoryColors()`, which switches to `CATEGORY_COLORS_DARK` in dark mode.
  */
 export const CATEGORY_COLORS: Record<string, string> = {
-  emerald: '#10b981',
-  teal: '#14b8a6',
-  cyan: '#06b6d4',
-  sky: '#0ea5e9',
-  indigo: '#6366f1',
-  violet: '#8b5cf6',
-  fuchsia: '#d946ef',
-  pink: '#ec4899',
-  rose: '#f43f5e',
-  red: '#ef4444',
-  orange: '#f97316',
-  amber: '#f59e0b',
-  lime: '#84cc16',
-  slate: '#64748b',
-  zinc: '#71717a',
+  emerald: '#059669',
+  teal: '#0d9488',
+  cyan: '#0891b2',
+  sky: '#0284c7',
+  indigo: '#4f46e5',
+  violet: '#7c3aed',
+  fuchsia: '#c026d3',
+  pink: '#db2777',
+  rose: '#e11d48',
+  red: '#dc2626',
+  orange: '#ea580c',
+  amber: '#d97706',
+  lime: '#65a30d',
+  slate: '#475569',
+  zinc: '#52525b',
+};
+
+/** The same swatches as bright (400) tones that stay clear on the dark navy background. */
+export const CATEGORY_COLORS_DARK: Record<string, string> = {
+  emerald: '#34d399',
+  teal: '#2dd4bf',
+  cyan: '#22d3ee',
+  sky: '#38bdf8',
+  indigo: '#818cf8',
+  violet: '#a78bfa',
+  fuchsia: '#e879f9',
+  pink: '#f472b6',
+  rose: '#fb7185',
+  red: '#f87171',
+  orange: '#fb923c',
+  amber: '#fbbf24',
+  lime: '#a3e635',
+  slate: '#94a3b8',
+  zinc: '#a1a1aa',
 };
 
 export const DEFAULT_CATEGORY_COLOR = 'zinc';

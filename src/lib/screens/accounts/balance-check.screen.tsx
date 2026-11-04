@@ -131,7 +131,7 @@ function BalanceCheckForm() {
           </VStack>
 
           {adjustment ? (
-            <Box className={`gap-1 rounded-xl p-4 ${adjustment.type === 'expense' ? 'bg-expense/10' : 'bg-income/10'}`}>
+            <Box className={`gap-1 rounded-xl p-4 ${adjustment.type === 'expense' ? 'bg-expense/20 dark:bg-expense/25' : 'bg-income/20 dark:bg-income/25'}`}>
               <Text className={`text-base font-semibold ${adjustment.type === 'expense' ? 'text-expense' : 'text-income'}`}>
                 {formatTaka(adjustment.amount)} {adjustment.type === 'expense' ? 'less' : 'more'} than recorded
               </Text>
@@ -142,7 +142,7 @@ function BalanceCheckForm() {
               </Text>
             </Box>
           ) : actual !== null ? (
-            <HStack className="items-center gap-2 rounded-xl bg-income/10 p-4">
+            <HStack className="items-center gap-2 rounded-xl bg-income/20 p-4 dark:bg-income/25">
               <Text className="text-base font-semibold text-income">Matches the app. Nothing to change.</Text>
             </HStack>
           ) : (

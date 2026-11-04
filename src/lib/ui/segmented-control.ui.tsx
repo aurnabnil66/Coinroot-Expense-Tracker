@@ -10,7 +10,7 @@ type SegmentedControlProps<T extends string> = {
   selectedClass?: Partial<Record<T, string>>;
 };
 
-/** Pill switch: the selected option is a filled pill with white text. */
+/** Pill switch: the selected option is a filled pill (white text; dark text on the brighter dark-mode colours). */
 export function SegmentedControl<T extends string>({ options, value, onChange, selectedClass }: SegmentedControlProps<T>) {
   return (
     <HStack className="gap-1 rounded-2xl border border-border/70 bg-card p-1">
@@ -25,7 +25,7 @@ export function SegmentedControl<T extends string>({ options, value, onChange, s
             className={`flex-1 items-center rounded-xl py-2.5 ${
               selected ? (selectedClass?.[option.value] ?? 'bg-primary') : 'data-[active=true]:bg-accent'
             }`}>
-            <Text className={`text-sm font-semibold ${selected ? 'text-white' : 'text-muted-foreground'}`}>
+            <Text className={`text-sm font-semibold ${selected ? 'text-white dark:text-primary-foreground' : 'text-muted-foreground'}`}>
               {option.label}
             </Text>
           </Pressable>

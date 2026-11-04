@@ -2,12 +2,12 @@ import { router } from 'expo-router';
 import { useMemo } from 'react';
 
 import { LedgerPending } from '@/lib/components';
-import { ACCOUNT_TYPE_COLORS, ACCOUNT_TYPE_SECTIONS, CATEGORY_COLORS } from '@/lib/constants';
+import { ACCOUNT_TYPE_COLORS, ACCOUNT_TYPE_SECTIONS } from '@/lib/constants';
 import { AddIcon } from '@/lib/gluestack-ui/icon';
 import { HStack } from '@/lib/gluestack-ui/hstack';
 import { Text } from '@/lib/gluestack-ui/text';
 import { VStack } from '@/lib/gluestack-ui/vstack';
-import { useLedger } from '@/lib/hooks';
+import { useCategoryColors, useLedger } from '@/lib/hooks';
 import type { Account } from '@/lib/types';
 import {
   AmountText,
@@ -29,6 +29,7 @@ import { accountBalances, formatFullDate } from '@/lib/utils';
 export function AccountsScreen() {
   const { status, error, accounts, transactions } = useLedger();
   const balances = useMemo(() => accountBalances(accounts, transactions), [accounts, transactions]);
+  const palette = useCategoryColors();
 
   const active = accounts.filter((a) => !a.archived).sort((a, b) => a.sortOrder - b.sortOrder);
   const archived = accounts.filter((a) => a.archived);
@@ -46,7 +47,7 @@ export function AccountsScreen() {
             key={account.id}
             divider={index > 0}
             muted={account.archived}
-            leading={<InitialBadge label={account.name} color={CATEGORY_COLORS[ACCOUNT_TYPE_COLORS[account.type]]} />}
+            leading={<InitialBadge label={account.name} color={palette[ACCOUNT_TYPE_COLORS[account.type]]} />}
             title={account.name}
             subtitle={`Since ${formatFullDate(account.openingDate)}`}
             trailing={<AmountText amount={balance} tone={balance < 0 ? 'expense' : 'default'} className="text-base" />}

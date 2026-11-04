@@ -4,7 +4,8 @@ import { vars } from 'nativewind';
 // Coinroot palette: navy + purple brand, light blue accent.
 // Light mode: soft lavender-white page, white cards, purple primary.
 // Dark mode: deep navy page, navy cards, lighter purple primary.
-// income / expense / transfer colours are used only for money meaning.
+// income / expense / transfer colours are used only for money meaning: deep (600) in light mode,
+// bright (400) in dark mode. Tints use /20 in light and /25 in dark so they stay visible on navy.
 // tab-bar / tab-item / tab-icon: the floating tab bar and its round inactive buttons (white in light, navy in dark).
 export const colors = {
   light: {
@@ -25,12 +26,12 @@ export const colors = {
     '--ring': '108 76 241',
     '--accent': '238 240 252',
     '--accent-foreground': '30 42 94',
-    '--sky': '56 189 248',
+    '--sky': '2 132 199',
     '--hero-start': '30 42 94',
     '--hero-end': '108 76 241',
-    '--income': '16 185 129',
-    '--expense': '244 63 94',
-    '--transfer': '14 165 233',
+    '--income': '5 150 105',
+    '--expense': '225 29 72',
+    '--transfer': '2 132 199',
     '--warning': '217 119 6',
     '--tab-bar': '255 255 255',
     '--tab-item': '238 240 250',
@@ -54,12 +55,12 @@ export const colors = {
     '--ring': '157 135 255',
     '--accent': '32 41 82',
     '--accent-foreground': '236 239 255',
-    '--sky': '125 211 252',
+    '--sky': '56 189 248',
     '--hero-start': '36 56 140',
     '--hero-end': '124 77 255',
     '--income': '52 211 153',
     '--expense': '251 113 133',
-    '--transfer': '125 211 252',
+    '--transfer': '56 189 248',
     '--warning': '251 191 36',
     '--tab-bar': '30 38 76',
     '--tab-item': '45 55 102',

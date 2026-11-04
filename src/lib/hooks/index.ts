@@ -1,3 +1,4 @@
+export * from './use-category-colors.hook';
 export * from './use-color-scheme.hook';
 export * from './use-ledger.hook';
 export * from './use-ripple.hook';
