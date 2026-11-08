@@ -82,6 +82,7 @@ Installed: Expo SDK 58, Expo Router (routes in `src/app/`), TypeScript (strict),
 | Tests | Jest via `jest-expo` (`bun run test`) |
 | Bottom sheets | `@legendapp/motion` (needed by gluestack `actionsheet`) |
 | Font | `expo-font` config plugin embedding Poppins from `assets/fonts` |
+| Small local settings | `react-native-mmkv` v4 (+ `react-native-nitro-modules`), wrapped by `src/lib/storage`. Device-only, never synced. Native code: needs a dev-client build, not Expo Go. |
 | Icons | gluestack `Icon` (lucide-style SVGs) in the UI; `expo-symbols` `SymbolView` for tab icons (SF Symbols on iOS, Material Symbols on Android/web) |
 
 Planned (add with `bunx expo install` when the feature needs it, then move it to the table above):
@@ -92,7 +93,6 @@ Planned (add with `bunx expo install` when the feature needs it, then move it to
 | Export / backup | `expo-file-system` + `expo-sharing` |
 | Dates | `date-fns` |
 | App lock | `expo-local-authentication` |
-| Small local settings | `react-native-mmkv` (theme, Simple mode, setup flag). Replaces today's `expo-sqlite/kv-store` in `useThemePreference` / `useSimpleMode`. Needs a dev-client rebuild. |
 | Small app state (only if needed) | Zustand. Prefer DB live queries as the source of truth. |
 
 Do not upgrade to Tailwind v4 / NativeWind v5 until they are stable.
@@ -113,6 +113,7 @@ Expo Router treats **every** `.ts`/`.tsx` file under `src/app/` as a route (no n
 | `src/lib/constants/` | Static values (`ledger.constants.ts`: labels, account/category colours; `theme.constants.ts`: `BottomTabInset`, `MaxContentWidth`, `FontFamily`) |
 | `src/lib/schemas/` | Zod schemas, their inferred types and form defaults |
 | `src/lib/types/` | Domain types (`Account`, `Category`, `Transaction`), matching the data model above |
+| `src/lib/storage/` | Device-only settings in MMKV (`settings.storage.ts`: `createSetting`, `createEnumSetting`, `createBooleanSetting` with in-memory cache + listeners, safe when storage is unavailable). Hooks such as `useThemePreference` / `useSimpleMode` define their setting here and read it with `useSyncExternalStore`. Tests mock `react-native-mmkv`. |
 | `src/lib/utils/` | Pure logic with unit tests: `money.util.ts` (parse/format taka ↔ poisha), `date.util.ts` (`YYYY-MM-DD` day keys), `ledger.util.ts` (balances, remaining, monthly summary, daily/monthly spending, day grouping and paging) |
 | `src/lib/mocks/` | **Temporary** in-memory sample data (current month plus five generated earlier months) and an async store (`ledgerStore`) used until the database exists. Each launch starts at first-time setup (`setupDone: false`); "Explore with sample data" loads the samples. Generic names, invented amounts. |
 | `src/lib/gluestack-ui/` | Vendored gluestack-ui components, one folder each. Owned, editable code. |
@@ -159,7 +160,7 @@ New layers follow the same `src/lib/<layer>/*.<suffix>.ts(x)` shape with their o
 
 - Use gluestack-ui components (`Box`, `VStack`, `HStack`, `Text`, `Heading`, `Button`, `Input`, `Pressable`, `Icon`, `Divider`) with Tailwind `className`, not `StyleSheet.create`. Dynamic numeric values with no Tailwind token (e.g. `MaxContentWidth`, `BottomTabInset`) go in `style` next to `className`.
 - Theme colours are CSS variables in `src/lib/gluestack-ui/gluestack-ui-provider/config.ts` (`--primary`, `--background`, `--muted`, `--destructive`, …), mapped to Tailwind colours in `tailwind.config.js`. Use `bg-background`, `text-foreground`, `text-muted-foreground`, `bg-primary`, never raw hex.
-- **Theme setting:** Settings → Theme offers Light / Dark / Device default (the default). `useThemePreference()` / `setThemePreference()` (`src/lib/hooks`) save it with `expo-sqlite/kv-store`, and the root layout passes it to `GluestackUIProvider mode`. NativeWind then sets the native appearance too, so alerts and the keyboard follow.
+- **Theme setting:** Settings → Theme offers Light / Dark / Device default (the default). `useThemePreference()` / `setThemePreference()` (`src/lib/hooks`) save it in MMKV (`src/lib/storage`), and the root layout passes it to `GluestackUIProvider mode`. NativeWind then sets the native appearance too, so alerts and the keyboard follow.
 - **Design (Android-first, modern):** navy + purple brand with a light-blue accent (`sky`). Light mode: lavender-white page (`bg-background`), white cards, purple `primary`. Dark mode: deep-navy page, navy cards, lighter purple `primary`.
   - Headline numbers sit on a `GradientCard` (navy → purple, `--hero-start` → `--hero-end`) with white text (`AmountText tone="onHero"`) and `GradientStat` tiles.
   - Cards (`Card`, `GradientCard`, grouped lists, skeletons) are `rounded-xl` (stat tiles inside gradient cards `rounded-lg`) with a soft navy shadow in light mode. Inputs and pickers are `h-14 rounded-2xl`. Icon badges are rounded squares.
@@ -214,7 +215,7 @@ Done in phase 1:
 - First-time setup (no bank account required), sample-data mode, Settings (theme, Simple mode, categories, set up again)
 - Design system: navy + purple theme in light / dark, Poppins, floating tab bar, dialogs, loading / error / saving states everywhere
 
-**Phase 2 (next): the backend.** Local-first with Drizzle + SQLite (`expo-sqlite`, `drizzle-orm`) for data and MMKV for small settings; the exact setup is still being decided.
+**Phase 2 (next): the backend.** Local-first with Drizzle + SQLite (`expo-sqlite`, `drizzle-orm`) for data and MMKV for small settings (MMKV done: theme and Simple mode). Supabase (Auth + Postgres with RLS) comes later as optional backup / sync; SQLite stays the source of truth. Schema should be sync-ready: UUID text ids, `created_at` / `updated_at` / `deleted_at` on every table.
 1. Drizzle schema in `src/lib/db` matching the data model (including `party`), migrations, and the `useMigrations` gate in the root layout
 2. Seed categories on first launch; persist `setupDone` (MMKV) so setup runs once
 3. Replace `useLedger` with live queries and `ledgerStore.*` with DB writes, keeping the same shapes (`status`, `error`, async writes), so screens and utils don't change
@@ -253,7 +254,7 @@ Known small design items (deferred): content scrolls under the status bar on lon
 - **Count cash / Check balance** (`balance-check` modal, from account detail): the user enters what they actually have. The difference is saved as a `Balance adjustment` expense (missing) or income (extra), so the derived balance matches reality.
 - **Transfer charge:** new transfers have an optional Charge (e.g. cash-out fee). It's saved as its own expense from the same account (default category Bank Charges). It's not a parent link, so it doesn't change "remaining".
 - **Received from** (`party`): optional on income, with suggestions from earlier names (`SuggestTextField`, `partySuggestions`). Summary shows "Income by client" (`incomeByParty`).
-- **Simple mode** (Settings → Display, `useSimpleMode`, kv-store): the Transactions list starts with Quick add (the 4 most used type + from + to combinations from `quickPresets`, excluding balance adjustments, plus Expense / Income / Transfer buttons), and the form hides "Linked to".
+- **Simple mode** (Settings → Display, `useSimpleMode`, MMKV): the Transactions list starts with Quick add (the 4 most used type + from + to combinations from `quickPresets`, excluding balance adjustments, plus Expense / Income / Transfer buttons), and the form hides "Linked to".
 - Dates in forms use `DateField`: tapping it opens a themed `Calendar` (`src/lib/ui/calendar.ui.tsx`) in a bottom sheet, with Today / Yesterday shortcut chips. Weeks start on Sunday, and days after `maxDate` (default today) are disabled. No native date-picker module.
 - `AmountField` sizes its input to the text (measured from a hidden copy), so it grows instead of scrolling, and drops a size for long amounts. Large Poppins text needs an explicit `leading-[…]`, since Tailwind's `text-4xl`+ set line-height 1, which clips it.
 - App icon and splash images (`assets/images`) are still Expo's; their background colours are navy `#1E2A5E` (takes effect after a native rebuild).
