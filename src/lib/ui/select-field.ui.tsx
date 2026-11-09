@@ -86,20 +86,23 @@ export function SelectField({
 
   return (
     <FieldShell label={label} error={error} hint={hint}>
-      <Pressable
-        onPress={() => setOpen(true)}
-        android_ripple={ripple}
-        accessibilityRole="button"
-        accessibilityLabel={`${label}: ${selected?.label ?? placeholder}`}
-        className={`h-14 flex-row items-center gap-3 overflow-hidden rounded-2xl border bg-card px-4 data-[active=true]:bg-accent ${
-          error ? 'border-destructive/60' : 'border-border'
-        }`}>
-        {selected?.leading}
-        <Text numberOfLines={1} className={`flex-1 text-base ${selected ? 'text-foreground' : 'text-muted-foreground'}`}>
-          {selected?.label ?? placeholder}
-        </Text>
-        <Icon as={ChevronDownIcon} size="sm" className="text-muted-foreground" />
-      </Pressable>
+      {/* Android draws the ripple over the whole rectangle, so a rounded parent clips it. */}
+      <Box className="overflow-hidden rounded-2xl">
+        <Pressable
+          onPress={() => setOpen(true)}
+          android_ripple={ripple}
+          accessibilityRole="button"
+          accessibilityLabel={`${label}: ${selected?.label ?? placeholder}`}
+          className={`h-14 flex-row items-center gap-3 overflow-hidden rounded-2xl border bg-card px-4 data-[active=true]:bg-accent ${
+            error ? 'border-destructive/60' : 'border-border'
+          }`}>
+          {selected?.leading}
+          <Text numberOfLines={1} className={`flex-1 text-base ${selected ? 'text-foreground' : 'text-muted-foreground'}`}>
+            {selected?.label ?? placeholder}
+          </Text>
+          <Icon as={ChevronDownIcon} size="sm" className="text-muted-foreground" />
+        </Pressable>
+      </Box>
 
       <Actionsheet isOpen={open} onClose={close} snapPoints={[70]}>
         <ActionsheetBackdrop />

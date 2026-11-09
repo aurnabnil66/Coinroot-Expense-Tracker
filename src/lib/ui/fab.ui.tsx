@@ -23,9 +23,9 @@ export function Fab({ onPress, label, tabBar = true }: FabProps) {
   const bottom = insets.bottom + (tabBar ? BottomTabInset : 0) + 16;
   return (
     // Native elevation casts a round shadow from the rounded, filled outer view. (A CSS boxShadow
-    // came out square on Android.)
+    // came out square on Android.) It also clips the ripple, which Android draws as a rectangle.
     <Box
-      className="absolute right-5 rounded-full bg-primary"
+      className="absolute right-5 overflow-hidden rounded-full bg-primary"
       style={{ bottom, width: FAB_SIZE, height: FAB_SIZE, elevation: 8, shadowColor: colors.heroEnd }}>
       <Pressable
         onPress={onPress}
