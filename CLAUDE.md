@@ -83,6 +83,7 @@ Installed: Expo SDK 58, Expo Router (routes in `src/app/`), TypeScript (strict),
 | Bottom sheets | `@legendapp/motion` (needed by gluestack `actionsheet`) |
 | Font | `expo-font` config plugin embedding Poppins from `assets/fonts` |
 | Small local settings | `react-native-mmkv` v4 (+ `react-native-nitro-modules`), wrapped by `src/lib/storage`. Device-only, never synced. Native code: needs a dev-client build, not Expo Go. |
+| Profile photo | `expo-image-picker` (library only; camera and microphone permissions disabled in `app.json`) + `expo-file-system` + `expo-image` |
 | Icons | gluestack `Icon` (lucide-style SVGs) in the UI; `expo-symbols` `SymbolView` for tab icons (SF Symbols on iOS, Material Symbols on Android/web) |
 
 Planned (add with `bunx expo install` when the feature needs it, then move it to the table above):
@@ -106,16 +107,16 @@ Expo Router treats **every** `.ts`/`.tsx` file under `src/app/` as a route (no n
 | Dir | Purpose |
 |---|---|
 | `src/app/` | Expo Router routes and layouts only |
-| `src/lib/screens/<name>/` | Full-page screens, grouped by feature: `setup/`, `transactions/`, `accounts/`, `summary/`, `settings/`. Nothing sits directly in `src/lib/screens/`. |
-| `src/lib/components/` | Reusable, feature-aware pieces that aren't screens (`TransactionRow`, `TransactionTypeIcon`, `SpendingChart`, `QuickAdd`, `LedgerPending`) |
-| `src/lib/ui/` | Reusable, feature-agnostic UI components, built from gluestack-ui + `className`: layout (`ScreenContainer`, `ScreenHeader`), `AppTabs`, `Card` / `GradientCard`, rows, form fields, `SelectField` bottom-sheet picker, `Dialog` + `useDialog`, `Calendar`, `SuggestTextField`, `BarChart`, `Fab`, loading pieces (`Skeleton`, `LoadingState`, `ErrorState`, `ButtonLoader`) |
-| `src/lib/hooks/` | Shared hooks (`useLedger`, `useColorScheme`, `useThemePreference`, `useSimpleMode`, `useRipple`) |
+| `src/lib/screens/<name>/` | Full-page screens, grouped by feature: `setup/`, `transactions/`, `accounts/`, `summary/`, `settings/`, `profile/`, `auth/`. Nothing sits directly in `src/lib/screens/`. |
+| `src/lib/components/` | Reusable, feature-aware pieces that aren't screens (`TransactionRow`, `TransactionTypeIcon`, `SpendingChart`, `QuickAdd`, `LedgerPending`, `GreetingHeader`) |
+| `src/lib/ui/` | Reusable, feature-agnostic UI components, built from gluestack-ui + `className`: `Button` (the only button), `TextField` (the only text input), layout (`ScreenContainer`, `ScreenHeader`), `AppTabs`, `Card` / `GradientCard`, rows, form fields, `SelectField` bottom-sheet picker, `Dialog` + `useDialog`, `Calendar`, `Avatar` / `AvatarPickerField`, `LinkPrompt`, `BarChart`, `Fab`, loading pieces (`Skeleton`, `LoadingState`, `ErrorState`, `ButtonLoader`) |
+| `src/lib/hooks/` | Shared hooks (`useLedger`, `useColorScheme`, `useThemePreference`, `useSimpleMode`, `useProfile` / `useGreeting`, `useAuth`, `useRipple`) |
 | `src/lib/constants/` | Static values (`ledger.constants.ts`: labels, account/category colours; `theme.constants.ts`: `BottomTabInset`, `MaxContentWidth`, `FontFamily`) |
 | `src/lib/schemas/` | Zod schemas, their inferred types and form defaults |
 | `src/lib/types/` | Domain types (`Account`, `Category`, `Transaction`), matching the data model above |
-| `src/lib/storage/` | Device-only settings in MMKV (`settings.storage.ts`: `createSetting`, `createEnumSetting`, `createBooleanSetting` with in-memory cache + listeners, safe when storage is unavailable). Hooks such as `useThemePreference` / `useSimpleMode` define their setting here and read it with `useSyncExternalStore`. Tests mock `react-native-mmkv`. |
-| `src/lib/utils/` | Pure logic with unit tests: `money.util.ts` (parse/format taka ↔ poisha), `date.util.ts` (`YYYY-MM-DD` day keys), `ledger.util.ts` (balances, remaining, monthly summary, daily/monthly spending, day grouping and paging) |
-| `src/lib/mocks/` | **Temporary** in-memory sample data (current month plus five generated earlier months) and an async store (`ledgerStore`) used until the database exists. Each launch starts at first-time setup (`setupDone: false`); "Explore with sample data" loads the samples. Generic names, invented amounts. |
+| `src/lib/storage/` | Device-only settings in MMKV (`settings.storage.ts`: `createSetting`, `createEnumSetting`, `createBooleanSetting` with in-memory cache + listeners, safe when storage is unavailable). `setup.storage.ts` holds `setupStateSetting` (whether first-time setup is done). `profile.storage.ts` holds the profile (`nickname`, `photo` URI, `email`, `phone`; an old `name` is read as the nickname) and `saveProfile`, which copies a picked photo into `Paths.document/profile/` (expo-file-system) and deletes the old one. Hooks such as `useThemePreference` / `useSimpleMode` define their setting here and read it with `useSyncExternalStore`. Tests mock `react-native-mmkv`. |
+| `src/lib/utils/` | Pure logic with unit tests: `money.util.ts` (parse/format taka ↔ poisha), `date.util.ts` (`YYYY-MM-DD` day keys), `greeting.util.ts` (`greetingFor`, `initialsOf`), `phone.util.ts` (`normalizeBdPhone` → `+8801XXXXXXXXX`, `formatBdPhone`), `ledger.util.ts` (balances, remaining, monthly summary, daily/monthly spending, day grouping and paging) |
+| `src/lib/mocks/` | **Temporary** stand-ins: `authStore` (sign-up / log-in / log-out shaped like Supabase Auth: async, throws `AuthError` with a user-facing message; the session `{ userId, email }` persists in MMKV; accounts created this session are checked in memory, any other email and password work; passwords are never stored) and in-memory sample data (current month plus five generated earlier months) and an async store (`ledgerStore`) used until the database exists. Whether setup is done is saved in MMKV (`setupStateSetting`: `none` / `own` / `sample`), so setup runs once: after "Explore with sample data" every launch reloads the samples; after the user's own setup, launches skip setup but start with no accounts (the mock keeps no data). Generic names, invented amounts. |
 | `src/lib/gluestack-ui/` | Vendored gluestack-ui components, one folder each. Owned, editable code. |
 | `src/global.css` | The only global stylesheet and the NativeWind entry (`@tailwind` directives + font variables) |
 | `assets/` | Images, icons and fonts (repo root) |
@@ -152,13 +153,14 @@ New layers follow the same `src/lib/<layer>/*.<suffix>.ts(x)` shape with their o
 - Current routes:
   - Tabs: `(tabs)/index` (Transactions), `(tabs)/accounts`, `(tabs)/summary`, `(tabs)/settings`.
   - Pushed with the native header: `transaction/[id]`, `account/[id]`, `categories?kind=`. Screens set their title / Edit button with `<Stack.Screen options>`.
-  - Modals (own `ModalHeader`): `transaction-form?id=|parentId=|type=&fromId=&toId=` (the last is a quick-add preset), `account-form?id=|name=`, `category-form?id=|kind=`, `balance-check?accountId=`.
+  - Modals (own `ModalHeader`): `transaction-form?id=|parentId=|type=&fromId=&toId=` (the last is a quick-add preset), `account-form?id=|name=`, `category-form?id=|kind=`, `balance-check?accountId=`, `profile-form` (create / edit profile), `log-in`, `sign-up`.
   - `setup`: first-time setup. The root `Stack` wraps the app in `<Stack.Protected guard={setupDone}>` and `setup` in `guard={!setupDone}`, so finishing (or resetting) setup switches screens automatically.
 - The root `src/app/_layout.tsx` imports `@/global.css` and owns `GluestackUIProvider` (outermost, `mode={themePreference}`), the react-navigation `ThemeProvider` (gluestack colours + Poppins fonts), the `StatusBar`, `DialogProvider` and the root `Stack`. When the DB lands, the Drizzle `useMigrations` gate (spinner → error → app) goes here too.
 
 ## Styling
 
-- Use gluestack-ui components (`Box`, `VStack`, `HStack`, `Text`, `Heading`, `Button`, `Input`, `Pressable`, `Icon`, `Divider`) with Tailwind `className`, not `StyleSheet.create`. Dynamic numeric values with no Tailwind token (e.g. `MaxContentWidth`, `BottomTabInset`) go in `style` next to `className`.
+- Use gluestack-ui components (`Box`, `VStack`, `HStack`, `Text`, `Heading`, `Input`, `Pressable`, `Icon`, `Divider`) with Tailwind `className`, not `StyleSheet.create`.
+- **Buttons:** always `Button` from `@/lib/ui` (`button.ui.tsx`), never gluestack's `Button` / `ButtonText` directly, and no hand-made `Pressable` + `Text` links. Props: `label`, `onPress`, `variant` (`solid` default · `soft` · `outline` · `ghost` · `link`), `color` (`primary` default · `danger` · `muted`), `size` (`sm` pill h-11 · `md` default h-12 · `lg` h-14 for full-screen flows; for links only the text size), `icon`, `loading` (spinner + disabled), `loadingLabel`, `disabled`, `className` for layout (margins, `flex-1`, `self-start`; conflicting classes override). Examples: submit `<Button label="Save" loading={isSubmitting} onPress={…} />`, delete `variant="ghost" color="danger"`, inline link `variant="link"`. Dialog actions map onto it (`ACTION_STYLES`). Chips, tiles and list rows stay `Pressable`. Dynamic numeric values with no Tailwind token (e.g. `MaxContentWidth`, `BottomTabInset`) go in `style` next to `className`.
 - Theme colours are CSS variables in `src/lib/gluestack-ui/gluestack-ui-provider/config.ts` (`--primary`, `--background`, `--muted`, `--destructive`, …), mapped to Tailwind colours in `tailwind.config.js`. Use `bg-background`, `text-foreground`, `text-muted-foreground`, `bg-primary`, never raw hex.
 - **Theme setting:** Settings → Theme offers Light / Dark / Device default (the default). `useThemePreference()` / `setThemePreference()` (`src/lib/hooks`) save it in MMKV (`src/lib/storage`), and the root layout passes it to `GluestackUIProvider mode`. NativeWind then sets the native appearance too, so alerts and the keyboard follow.
 - **Design (Android-first, modern):** navy + purple brand with a light-blue accent (`sky`). Light mode: lavender-white page (`bg-background`), white cards, purple `primary`. Dark mode: deep-navy page, navy cards, lighter purple `primary`.
@@ -186,6 +188,7 @@ React Hook Form + Zod via `zodResolver` from `@hookform/resolvers/zod`.
 
 - **Schema first:** each `src/lib/schemas/*.schema.ts` exports the schema, its `z.infer` type and a `defaults` object. Validation messages and types come only from the schema, never from the `rules` prop. Put `.trim()` and other normalisation (e.g. taka → poisha) in the schema, since `onSubmit` receives the schema's output.
 - **Always `<Controller>`, never `register()`.** React Native's `TextInput` has no DOM ref.
+- **Text inputs:** always `TextField` from `@/lib/ui` (`text-field.ui.tsx`), never gluestack `Input` / `InputField` directly. `type` sets the behaviour: `text` (default) · `nickname` · `email` · `password` / `new-password` (hidden, show / hide button, autofill) · `phone` · `money` (decimal keypad) · `search` (search icon). Other props: `label` (optional), `error`, `hint`, `placeholder`, `multiline`, `maxLength`, `autoFocus`, `readOnly`, `icon`, `suggestions` (chips of earlier values), `size` (`md` h-14 · `sm` h-12), `className`. Single-line text is vertically centred (Android font padding off) and the cursor / selection are purple. The big centred amount input stays `AmountField`; pickers are `SelectField` / `DateField`.
 - **Field UI and form wiring stay separate.** Field components in `src/lib/ui` (e.g. a text field, amount field or account picker) take plain `label` / `value` / `onChangeText` / `onBlur` / `error` props and import nothing from `react-hook-form`. The `<Controller>` lives in the screen. Don't pass `control`/`name` into field components.
 - `mode: 'onTouched'`, disable submit while `isSubmitting`, and show DB failures with `setError('root', …)`.
 
@@ -215,9 +218,9 @@ Done in phase 1:
 - First-time setup (no bank account required), sample-data mode, Settings (theme, Simple mode, categories, set up again)
 - Design system: navy + purple theme in light / dark, Poppins, floating tab bar, dialogs, loading / error / saving states everywhere
 
-**Phase 2 (next): the backend.** Local-first with Drizzle + SQLite (`expo-sqlite`, `drizzle-orm`) for data and MMKV for small settings (MMKV done: theme and Simple mode). Supabase (Auth + Postgres with RLS) comes later as optional backup / sync; SQLite stays the source of truth. Schema should be sync-ready: UUID text ids, `created_at` / `updated_at` / `deleted_at` on every table.
+**Phase 2 (next): the backend.** Local-first with Drizzle + SQLite (`expo-sqlite`, `drizzle-orm`) for data and MMKV for small settings (MMKV done: theme and Simple mode). Supabase (Auth + Postgres with RLS) comes later as optional backup / sync; SQLite stays the source of truth. The sign-in screens already exist on the stand-in `authStore`; swapping it for `supabase.auth` (session kept in secure storage) is the first Supabase step. Schema should be sync-ready: UUID text ids, `created_at` / `updated_at` / `deleted_at` on every table.
 1. Drizzle schema in `src/lib/db` matching the data model (including `party`), migrations, and the `useMigrations` gate in the root layout
-2. Seed categories on first launch; persist `setupDone` (MMKV) so setup runs once
+2. Seed categories on first launch (`setupDone` is already persisted in MMKV via `setupStateSetting`; `sample` should seed the sample rows once instead of reloading them)
 3. Replace `useLedger` with live queries and `ledgerStore.*` with DB writes, keeping the same shapes (`status`, `error`, async writes), so screens and utils don't change
 4. Paged queries for the transaction list (`takeDays` page size → `LIMIT`)
 
@@ -230,7 +233,7 @@ Later:
 6. Bengali language and digits
 7. App icon and splash in the brand design, then open source
 
-Known small design items (deferred): content scrolls under the status bar on long screens; text fields other than the amount still show the default (teal) cursor.
+Known small design items (deferred): content scrolls under the status bar on long screens.
 
 ## Conventions
 
@@ -250,10 +253,13 @@ Known small design items (deferred): content scrolls under the status bar on lon
   - `await dialog.alert({ title, message, tone: 'info' })` shows information with an OK button.
   - `dialog.show({ title, message, tone, icon, actions: [{ label, value, variant, onPress }] })` takes any buttons and resolves to the pressed `value` (or `null` if dismissed).
   - Tones: `default` (question), `info`, `success`, `warning`, `danger`. `message` can be any React node. `dismissible: false` blocks the back button and tapping outside. Dialogs queue, so only one shows at a time. The declarative `<Dialog open onClose>` is there for rare cases.
-- **First-time setup** (`setup` route): Welcome → "What do you use for money?" (Cash / Mobile wallet / Bank account / Savings / DPS, no bank required) → "Name your accounts" with today's balance → app. "Explore with sample data" skips it; Settings → "Set up accounts again" resets.
+- **Profile and greeting:** the Transactions tab header (`GreetingHeader`) says "Good Morning / Afternoon / Evening, Nickname" (5–12 / 12–17 / otherwise, rechecked every minute; just the greeting without a name) in `text-2xl`, with the month in small purple text below, and the avatar opens `profile-form`. The avatar shows the photo, else initials, else a person icon. Settings starts with a profile row. The profile is device-only (MMKV) for now; with Supabase it becomes a `profiles` row and the photo goes to Storage. "Set up accounts again" keeps it.
+- **Accounts are optional.** `useAuth()` returns the session or `null`. The app works fully without one; an account is for backup and sync later. Settings → Account shows "Log in or create account" (opens `log-in`, which links to `sign-up`) or "Signed in as" + Log out (confirm dialog; local data stays). When Supabase lands, `authStore` becomes `supabase.auth` (`signUp`, `signInWithPassword`, `signOut`, `resetPasswordForEmail` for "Forgot password?", which is an info dialog for now).
+- **Profile validation** (`profile.schema.ts`, `auth.schema.ts`): nickname is required, one word, 2–15 characters, starting with a letter (any script); email is optional in the profile and required for an account; phone is optional, an 11-digit Bangladeshi mobile number (013–019), stored as `+8801XXXXXXXXX`; a new password needs 8+ characters with a letter and a number (log in only checks it's filled in). With an account the profile email is the sign-in email and read-only.
+- **First-time setup** (`setup` route): Welcome (Create account / Log in / Continue without an account / Explore with sample data) → step 1: `SignUpForm`, `LogInForm` (then the profile if it has no nickname) or `ProfileForm` → "What do you use for money?" (Cash / Mobile wallet / Bank account / Savings / DPS, no bank required) → "Name your accounts" with today's balance → app. "Explore with sample data" skips it; Settings → "Set up accounts again" resets.
 - **Count cash / Check balance** (`balance-check` modal, from account detail): the user enters what they actually have. The difference is saved as a `Balance adjustment` expense (missing) or income (extra), so the derived balance matches reality.
 - **Transfer charge:** new transfers have an optional Charge (e.g. cash-out fee). It's saved as its own expense from the same account (default category Bank Charges). It's not a parent link, so it doesn't change "remaining".
-- **Received from** (`party`): optional on income, with suggestions from earlier names (`SuggestTextField`, `partySuggestions`). Summary shows "Income by client" (`incomeByParty`).
+- **Received from** (`party`): optional on income, with suggestions from earlier names (`TextField suggestions`, `partySuggestions`). Summary shows "Income by client" (`incomeByParty`).
 - **Simple mode** (Settings → Display, `useSimpleMode`, MMKV): the Transactions list starts with Quick add (the 4 most used type + from + to combinations from `quickPresets`, excluding balance adjustments, plus Expense / Income / Transfer buttons), and the form hides "Linked to".
 - Dates in forms use `DateField`: tapping it opens a themed `Calendar` (`src/lib/ui/calendar.ui.tsx`) in a bottom sheet, with Today / Yesterday shortcut chips. Weeks start on Sunday, and days after `maxDate` (default today) are disabled. No native date-picker module.
 - `AmountField` sizes its input to the text (measured from a hidden copy), so it grows instead of scrolling, and drops a size for long amounts. Large Poppins text needs an explicit `leading-[…]`, since Tailwind's `text-4xl`+ set line-height 1, which clips it.
