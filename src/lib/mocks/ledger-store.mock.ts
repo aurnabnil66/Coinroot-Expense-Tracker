@@ -5,9 +5,12 @@
  * Loading and writes are async with a small simulated delay, like the database,
  * so the screens' loading states and button spinners are exercised.
  *
- * Each launch starts with first-time setup (`setupDone: false`) and only the seed
- * categories; setup either creates the user's accounts or loads the sample data.
+ * Whether setup is done is saved in MMKV (`setupStateSetting`), so setup runs once.
+ * A fresh install starts with setup and only the seed categories. After "Explore with
+ * sample data" every launch reloads the samples. After the user's own setup, launches
+ * skip setup but start with no accounts, since this mock keeps nothing (the DB will).
  */
+import { setupStateSetting } from '@/lib/storage';
 import type { Account, Category, Transaction } from '@/lib/types';
 
 import { sampleAccounts, sampleCategories, sampleTransactions } from './sample-data.mock';
@@ -38,6 +41,12 @@ const LOAD_DELAY_MS = 700;
 const WRITE_DELAY_MS = 300;
 const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
+const sampleLedger = () => ({
+  accounts: sampleAccounts,
+  categories: sampleCategories,
+  transactions: sampleTransactions,
+});
+
 const listeners = new Set<() => void>();
 
 function commit(next: Partial<LedgerSnapshot>) {
@@ -66,8 +75,13 @@ export const ledgerStore = {
     commit({ status: 'loading', error: null });
     try {
       await delay(LOAD_DELAY_MS);
-      // A fresh install: seed categories only; accounts come from setup.
-      commit({ status: 'ready', categories: sampleCategories });
+      const setup = setupStateSetting.get();
+      if (setup === 'sample') {
+        commit({ status: 'ready', setupDone: true, ...sampleLedger() });
+      } else {
+        // Seed categories only; accounts come from setup (or, after setup, aren't kept by this mock).
+        commit({ status: 'ready', setupDone: setup === 'own', categories: sampleCategories });
+      }
     } catch (e) {
       commit({ status: 'error', error: e instanceof Error ? e.message : String(e) });
     }
@@ -80,12 +94,14 @@ export const ledgerStore = {
   /** Skips setup and fills the app with the invented sample accounts and history. */
   async loadSampleData() {
     await delay(WRITE_DELAY_MS);
-    commit({ setupDone: true, accounts: sampleAccounts, categories: sampleCategories, transactions: sampleTransactions });
+    setupStateSetting.set('sample');
+    commit({ setupDone: true, ...sampleLedger() });
   },
 
   /** Finishes first-time setup with the accounts the user chose. */
   async completeSetup(accounts: AccountInput[]) {
     await delay(WRITE_DELAY_MS);
+    setupStateSetting.set('own');
     commit({
       setupDone: true,
       accounts: accounts.map((input, sortOrder) => ({ ...input, id: newId('acc'), sortOrder })),
@@ -96,6 +112,7 @@ export const ledgerStore = {
   /** Removes all accounts and transactions and goes back to first-time setup. */
   async resetSetup() {
     await delay(WRITE_DELAY_MS);
+    setupStateSetting.set('none');
     commit({ setupDone: false, accounts: [], categories: sampleCategories, transactions: [] });
   },
 
