@@ -3,17 +3,22 @@ import { router } from 'expo-router';
 
 import { CATEGORY_KIND_LABELS } from '@/lib/constants';
 import { Text } from '@/lib/gluestack-ui/text';
-import { RepeatIcon } from '@/lib/gluestack-ui/icon';
+import { VStack } from '@/lib/gluestack-ui/vstack';
+import { LogOutIcon, RepeatIcon } from '@/lib/gluestack-ui/icon';
 import {
   setSimpleMode,
   setThemePreference,
   type ThemePreference,
+  useAuth,
   useLedger,
+  useProfile,
   useSimpleMode,
   useThemePreference,
 } from '@/lib/hooks';
-import { ledgerStore } from '@/lib/mocks';
+import { authStore, ledgerStore } from '@/lib/mocks';
+import { formatBdPhone } from '@/lib/utils';
 import {
+  Avatar,
   Card,
   ListRow,
   ScreenContainer,
@@ -35,12 +40,27 @@ export function SettingsScreen() {
   const { status, categories } = useLedger();
   const themePreference = useThemePreference();
   const simpleMode = useSimpleMode();
+  const profile = useProfile();
+  const session = useAuth();
   const dialog = useDialog();
+  const profileSubtitle = profile.nickname
+    ? [profile.email, profile.phone ? formatBdPhone(profile.phone) : null].filter(Boolean).join(' · ') || 'Edit your profile'
+    : 'Add a nickname and a photo';
+
+  const logOut = () =>
+    dialog.confirm({
+      title: 'Log out?',
+      message: 'Your data stays on this phone. You can log in again any time.',
+      tone: 'warning',
+      icon: LogOutIcon,
+      confirmLabel: 'Log out',
+      onConfirm: () => authStore.signOut(),
+    });
 
   const startOver = () =>
     dialog.confirm({
       title: 'Start over?',
-      message: 'This removes all accounts and transactions and opens first-time setup again.',
+      message: 'This removes all accounts and transactions and opens first-time setup again. Your profile is kept.',
       tone: 'warning',
       icon: RepeatIcon,
       confirmLabel: 'Start over',
@@ -56,6 +76,37 @@ export function SettingsScreen() {
   return (
     <ScreenContainer safeTop tabBar>
       <ScreenHeader title="Settings" />
+
+      <Card>
+        <ListRow
+          leading={<Avatar name={profile.nickname} photo={profile.photo} />}
+          title={profile.nickname || 'Create your profile'}
+          subtitle={profileSubtitle}
+          onPress={() => router.push('/profile-form')}
+        />
+      </Card>
+
+      <SectionHeader title="Account" />
+      <Card>
+        {session ? (
+          <>
+            {/* Information only: a ListRow without onPress would look disabled. */}
+            <VStack className="min-h-14 justify-center px-4 py-3">
+              <Text className="text-sm text-muted-foreground">Signed in as</Text>
+              <Text numberOfLines={1} className="text-base font-medium text-foreground">
+                {session.email}
+              </Text>
+            </VStack>
+            <ListRow divider title="Log out" onPress={() => void logOut()} />
+          </>
+        ) : (
+          <ListRow
+            title="Log in or create account"
+            subtitle="Optional: for backup and sync later"
+            onPress={() => router.push('/log-in')}
+          />
+        )}
+      </Card>
 
       <SectionHeader title="Lists" />
       <Card>

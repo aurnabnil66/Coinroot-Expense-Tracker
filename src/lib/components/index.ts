@@ -1,3 +1,4 @@
+export * from './greeting-header.component';
 export * from './ledger-pending.component';
 export * from './quick-add.component';
 export * from './spending-chart.component';
