@@ -6,7 +6,6 @@ import { View } from 'react-native';
 import { LedgerPending } from '@/lib/components';
 import { BALANCE_ADJUSTMENT_CATEGORY } from '@/lib/constants';
 import { Box } from '@/lib/gluestack-ui/box';
-import { Button, ButtonText } from '@/lib/gluestack-ui/button';
 import { HStack } from '@/lib/gluestack-ui/hstack';
 import { Text } from '@/lib/gluestack-ui/text';
 import { VStack } from '@/lib/gluestack-ui/vstack';
@@ -19,7 +18,7 @@ import {
   balanceCheckFormSchema,
 } from '@/lib/schemas';
 import type { Account } from '@/lib/types';
-import { AmountField, AmountText, ButtonLoader, Card, EmptyState, ModalHeader, ScreenContainer } from '@/lib/ui';
+import { AmountField, AmountText, Button, Card, EmptyState, ModalHeader, ScreenContainer } from '@/lib/ui';
 import { accountBalance, balanceAdjustment, findCategoryByName, formatTaka, parseTaka, todayKey } from '@/lib/utils';
 
 const titleFor = (account?: Account) => (account?.type === 'cash' ? 'Count cash' : 'Check balance');
@@ -154,13 +153,11 @@ function BalanceCheckForm() {
           {errors.root ? <Text className="text-sm text-destructive">{errors.root.message}</Text> : null}
 
           <Button
-            size="lg"
-            className="h-12 rounded-xl"
-            isDisabled={isSubmitting || actual === null}
-            onPress={() => void handleSubmit(onSubmit)()}>
-            {isSubmitting ? <ButtonLoader /> : null}
-            <ButtonText className="text-base font-semibold">{adjustment ? 'Update balance' : 'Done'}</ButtonText>
-          </Button>
+            label={adjustment ? 'Update balance' : 'Done'}
+            loading={isSubmitting}
+            disabled={actual === null}
+            onPress={() => void handleSubmit(onSubmit)()}
+          />
         </VStack>
       </ScreenContainer>
     </View>

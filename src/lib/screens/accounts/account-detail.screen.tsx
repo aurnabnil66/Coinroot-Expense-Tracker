@@ -4,14 +4,12 @@ import { useMemo } from 'react';
 import { LedgerPending, TransactionRow } from '@/lib/components';
 import { ACCOUNT_TYPE_LABELS } from '@/lib/constants';
 import { Box } from '@/lib/gluestack-ui/box';
-import { Button, ButtonIcon, ButtonText } from '@/lib/gluestack-ui/button';
 import { HStack } from '@/lib/gluestack-ui/hstack';
 import { CheckCircleIcon } from '@/lib/gluestack-ui/icon';
-import { Pressable } from '@/lib/gluestack-ui/pressable';
 import { Text } from '@/lib/gluestack-ui/text';
 import { VStack } from '@/lib/gluestack-ui/vstack';
 import { useLedger } from '@/lib/hooks';
-import { AmountText, Card, EmptyState, ScreenContainer, SectionHeader } from '@/lib/ui';
+import { AmountText, Button, Card, EmptyState, ScreenContainer, SectionHeader } from '@/lib/ui';
 import { accountBalance, compareNewestFirst, formatFullDate, nameLookup, todayKey, toMonthKey } from '@/lib/utils';
 
 export function AccountDetailScreen() {
@@ -58,12 +56,7 @@ export function AccountDetailScreen() {
         options={{
           title: account.name,
           headerRight: () => (
-            <Pressable
-              onPress={() => router.push({ pathname: '/account-form', params: { id: account.id } })}
-              hitSlop={8}
-              accessibilityRole="button">
-              <Text className="text-base font-semibold text-primary">Edit</Text>
-            </Pressable>
+            <Button label="Edit" variant="link" size="md" onPress={() => router.push({ pathname: '/account-form', params: { id: account.id } })} />
           ),
         }}
       />
@@ -79,13 +72,13 @@ export function AccountDetailScreen() {
           {formatFullDate(account.openingDate)}
         </Text>
         <Button
+          label={account.type === 'cash' ? 'Count cash' : 'Check balance'}
           variant="outline"
-          size="lg"
-          className="mt-4 h-11 rounded-full px-5"
-          onPress={() => router.push({ pathname: '/balance-check', params: { accountId: account.id } })}>
-          <ButtonIcon as={CheckCircleIcon} />
-          <ButtonText className="text-sm font-semibold">{account.type === 'cash' ? 'Count cash' : 'Check balance'}</ButtonText>
-        </Button>
+          size="sm"
+          icon={CheckCircleIcon}
+          className="mt-4"
+          onPress={() => router.push({ pathname: '/balance-check', params: { accountId: account.id } })}
+        />
       </VStack>
 
       <Card className="flex-row">

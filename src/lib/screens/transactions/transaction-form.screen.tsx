@@ -13,7 +13,6 @@ import {
   TRANSACTION_TYPE_LABELS,
   TRANSFER_FEE_CATEGORY,
 } from '@/lib/constants';
-import { Button, ButtonText } from '@/lib/gluestack-ui/button';
 import { TrashIcon } from '@/lib/gluestack-ui/icon';
 import { Text } from '@/lib/gluestack-ui/text';
 import { VStack } from '@/lib/gluestack-ui/vstack';
@@ -28,16 +27,15 @@ import {
 import { TRANSACTION_TYPES, type CategoryKind, type TransactionType } from '@/lib/types';
 import {
   AmountField,
-  ButtonLoader,
+  Button,
   DateField,
-  FormTextField,
   InitialBadge,
   ModalHeader,
   ScreenContainer,
   SegmentedControl,
-  type SelectOption,
   SelectField,
-  SuggestTextField,
+  type SelectOption,
+  TextField,
   useDialog,
 } from '@/lib/ui';
 import {
@@ -342,7 +340,7 @@ function TransactionForm() {
               control={control}
               name="party"
               render={({ field, fieldState }) => (
-                <SuggestTextField
+                <TextField
                   label="Received from"
                   value={field.value}
                   onChangeText={field.onChange}
@@ -361,7 +359,7 @@ function TransactionForm() {
               control={control}
               name="fee"
               render={({ field, fieldState }) => (
-                <FormTextField
+                <TextField
                   label="Charge"
                   value={field.value}
                   onChangeText={field.onChange}
@@ -369,7 +367,7 @@ function TransactionForm() {
                   error={fieldState.error?.message}
                   placeholder="৳ 0 (optional)"
                   hint="e.g. a cash-out or transfer fee. Saved as a separate expense."
-                  keyboardType="decimal-pad"
+                  type="money"
                 />
               )}
             />
@@ -404,7 +402,7 @@ function TransactionForm() {
             control={control}
             name="note"
             render={({ field, fieldState }) => (
-              <FormTextField
+              <TextField
                 label="Note"
                 value={field.value}
                 onChangeText={field.onChange}
@@ -437,20 +435,15 @@ function TransactionForm() {
 
           {errors.root ? <Text className="text-sm text-destructive">{errors.root.message}</Text> : null}
 
-          <Button size="lg" className="h-12 rounded-xl" onPress={() => void handleSubmit(onSubmit)()} isDisabled={isSubmitting || creatingCategory}>
-            {isSubmitting ? <ButtonLoader /> : null}
-            <ButtonText className="text-base font-semibold">{isEdit ? 'Save changes' : 'Add transaction'}</ButtonText>
-          </Button>
+          <Button
+            label={isEdit ? 'Save changes' : 'Add transaction'}
+            loading={isSubmitting}
+            disabled={creatingCategory}
+            onPress={() => void handleSubmit(onSubmit)()}
+          />
 
           {isEdit ? (
-            <Button
-              variant="ghost"
-              size="lg"
-              className="h-12 rounded-xl"
-              onPress={() => void confirmDelete()}
-              isDisabled={isSubmitting}>
-              <ButtonText className="text-base font-semibold text-destructive">Delete transaction</ButtonText>
-            </Button>
+            <Button label="Delete transaction" variant="ghost" color="danger" disabled={isSubmitting} onPress={() => void confirmDelete()} />
           ) : null}
         </VStack>
       </ScreenContainer>
