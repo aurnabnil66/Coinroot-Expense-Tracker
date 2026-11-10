@@ -12,6 +12,7 @@
     "drizzle-orm": "^0.45.4",
     "expo": "~58.0.22",
     "expo-constants": "~58.0.14",
+    "expo-crypto": "~58.0.7",
     "expo-device": "~58.0.5",
     "expo-file-system": "~58.0.13",
     "expo-font": "~58.0.11",
@@ -47,6 +48,7 @@
     "@types/jest": "30.0.0",
     "@types/react": "~19.3.0",
     "autoprefixer": "^10.6.2",
+    "babel-plugin-inline-import": "^3.0.0",
     "drizzle-kit": "^0.31.11",
     "eslint": "^9.0.0",
     "eslint-config-expo": "~58.0.4",
@@ -62,7 +64,9 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "lint": "expo lint",
-    "test": "jest"
+    "test": "jest",
+    "db:generate": "drizzle-kit generate",
+    "db:check": "drizzle-kit check"
   },
   "private": true,
   "jest": {
