@@ -1,4 +1,5 @@
 export * from './use-auth.hook';
+export * from './use-auto-focus.hook';
 export * from './use-category-colors.hook';
 export * from './use-color-scheme.hook';
 export * from './use-ledger.hook';
