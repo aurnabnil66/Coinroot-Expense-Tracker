@@ -13,7 +13,6 @@ import { Modal } from 'react-native';
 import Animated, { ZoomIn } from 'react-native-reanimated';
 
 import { Box } from '@/lib/gluestack-ui/box';
-import { Button, ButtonText } from '@/lib/gluestack-ui/button';
 import {
   AlertCircleIcon,
   CheckCircleIcon,
@@ -24,7 +23,7 @@ import {
 import { Pressable } from '@/lib/gluestack-ui/pressable';
 import { Text } from '@/lib/gluestack-ui/text';
 
-import { ButtonLoader } from './button-loader.ui';
+import { Button, type ButtonColor, type ButtonVariant } from './button.ui';
 import { Card } from './card.ui';
 
 /** Sets the icon and its colour: a question, information, success, caution or something destructive. */
@@ -78,12 +77,13 @@ const TONES: Record<DialogTone, { icon: IconComponent; badge: string; iconClass:
   danger: { icon: AlertCircleIcon, badge: 'bg-destructive/20 dark:bg-destructive/25', iconClass: 'text-destructive' },
 };
 
-const BUTTON_VARIANTS = {
-  primary: 'default',
-  destructive: 'destructive',
-  secondary: 'secondary',
-  ghost: 'ghost',
-} as const;
+/** How each dialog action looks, as `Button` props. */
+const ACTION_STYLES: Record<NonNullable<DialogAction['variant']>, { variant: ButtonVariant; color: ButtonColor }> = {
+  primary: { variant: 'solid', color: 'primary' },
+  destructive: { variant: 'solid', color: 'danger' },
+  secondary: { variant: 'soft', color: 'primary' },
+  ghost: { variant: 'ghost', color: 'muted' },
+};
 
 const OK_ACTION: DialogAction = { label: 'OK', value: 'ok', variant: 'primary' };
 
@@ -166,25 +166,17 @@ export function Dialog({
             {failed ? <Text className="text-center text-sm font-medium text-destructive">{errorMessage}</Text> : null}
 
             <Box className={`mt-4 w-full gap-2 ${row ? 'flex-row' : ''}`}>
-              {actions.map((action) => {
-                const variant = action.variant ?? 'primary';
-                return (
-                  <Button
-                    key={action.value}
-                    variant={BUTTON_VARIANTS[variant]}
-                    size="lg"
-                    className={`h-12 rounded-2xl px-4 ${row ? 'flex-1' : ''}`}
-                    isDisabled={busy !== null}
-                    onPress={() => void press(action)}>
-                    {busy === action.value ? (
-                      <ButtonLoader tone={variant === 'destructive' ? 'onDestructive' : variant === 'primary' ? 'onPrimary' : 'primary'} />
-                    ) : null}
-                    <ButtonText numberOfLines={1} className="text-base font-semibold">
-                      {action.label}
-                    </ButtonText>
-                  </Button>
-                );
-              })}
+              {actions.map((action) => (
+                <Button
+                  key={action.value}
+                  label={action.label}
+                  {...ACTION_STYLES[action.variant ?? 'primary']}
+                  className={`rounded-2xl ${row ? 'flex-1' : ''}`}
+                  loading={busy === action.value}
+                  disabled={busy !== null}
+                  onPress={() => void press(action)}
+                />
+              ))}
             </Box>
           </Card>
         </Animated.View>

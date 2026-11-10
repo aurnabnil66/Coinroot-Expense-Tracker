@@ -5,7 +5,6 @@ import { View } from 'react-native';
 
 import { LedgerPending } from '@/lib/components';
 import { CATEGORY_KIND_LABELS, DEFAULT_CATEGORY_COLOR } from '@/lib/constants';
-import { Button, ButtonText } from '@/lib/gluestack-ui/button';
 import { HStack } from '@/lib/gluestack-ui/hstack';
 import { CheckIcon, Icon } from '@/lib/gluestack-ui/icon';
 import { Pressable } from '@/lib/gluestack-ui/pressable';
@@ -14,7 +13,7 @@ import { VStack } from '@/lib/gluestack-ui/vstack';
 import { useCategoryColors, useLedger } from '@/lib/hooks';
 import { ledgerStore } from '@/lib/mocks';
 import { type CategoryFormInput, type CategoryFormValues, categoryFormDefaults, categoryFormSchema } from '@/lib/schemas';
-import { ButtonLoader, FieldShell, FormTextField, ModalHeader, ScreenContainer, SwitchRow } from '@/lib/ui';
+import { Button, FieldShell, ModalHeader, ScreenContainer, SwitchRow, TextField } from '@/lib/ui';
 
 export function CategoryFormScreen() {
   const params = useLocalSearchParams<{ id?: string; kind?: string }>();
@@ -71,7 +70,7 @@ function CategoryForm() {
             control={control}
             name="name"
             render={({ field, fieldState }) => (
-              <FormTextField
+              <TextField
                 label="Name"
                 value={field.value}
                 onChangeText={field.onChange}
@@ -127,10 +126,11 @@ function CategoryForm() {
 
           {errors.root ? <Text className="text-sm text-destructive">{errors.root.message}</Text> : null}
 
-          <Button size="lg" className="h-12 rounded-xl" onPress={() => void handleSubmit(onSubmit)()} isDisabled={isSubmitting}>
-            {isSubmitting ? <ButtonLoader /> : null}
-            <ButtonText className="text-base font-semibold">{existing ? 'Save changes' : `Add ${label.toLowerCase()}`}</ButtonText>
-          </Button>
+          <Button
+            label={existing ? 'Save changes' : `Add ${label.toLowerCase()}`}
+            loading={isSubmitting}
+            onPress={() => void handleSubmit(onSubmit)()}
+          />
         </VStack>
       </ScreenContainer>
     </View>

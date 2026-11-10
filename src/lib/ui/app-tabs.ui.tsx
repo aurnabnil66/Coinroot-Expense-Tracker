@@ -80,7 +80,9 @@ type TabButtonProps = TabTriggerSlotProps & {
 function TabButton({ label, icon, isFocused, style: _triggerStyle, ...props }: TabButtonProps) {
   const colors = useGluestackColors();
   return (
-    <Animated.View layout={LinearTransition.duration(220)}>
+    // Android draws `android_ripple` over the Pressable's whole rectangle, ignoring its own
+    // rounded corners, so this parent clips the ripple to the pill shape.
+    <Animated.View layout={LinearTransition.duration(220)} style={{ borderRadius: 999, overflow: 'hidden' }}>
       {/* TabTriggerSlotProps types `ref` for a function component, not the Pressable it lands on. */}
       <Pressable
         {...(props as PressableProps)}

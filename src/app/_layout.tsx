@@ -59,6 +59,9 @@ export default function RootLayout() {
               <Stack.Screen name="account-form" options={modal} />
               <Stack.Screen name="category-form" options={modal} />
               <Stack.Screen name="balance-check" options={modal} />
+              <Stack.Screen name="profile-form" options={modal} />
+              <Stack.Screen name="log-in" options={modal} />
+              <Stack.Screen name="sign-up" options={modal} />
             </Stack.Protected>
             <Stack.Protected guard={!setupDone}>
               <Stack.Screen name="setup" />

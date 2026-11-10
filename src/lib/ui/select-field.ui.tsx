@@ -11,13 +11,13 @@ import {
 } from '@/lib/gluestack-ui/actionsheet';
 import { Box } from '@/lib/gluestack-ui/box';
 import { HStack } from '@/lib/gluestack-ui/hstack';
-import { AddIcon, CheckIcon, ChevronDownIcon, Icon, SearchIcon } from '@/lib/gluestack-ui/icon';
-import { Input, InputField, InputIcon, InputSlot } from '@/lib/gluestack-ui/input';
+import { AddIcon, CheckIcon, ChevronDownIcon, Icon } from '@/lib/gluestack-ui/icon';
 import { Pressable } from '@/lib/gluestack-ui/pressable';
 import { Text } from '@/lib/gluestack-ui/text';
 import { useRipple } from '@/lib/hooks';
 
 import { FieldShell } from './field-shell.ui';
+import { TextField } from './text-field.ui';
 
 export type SelectOption = {
   value: string;
@@ -86,20 +86,23 @@ export function SelectField({
 
   return (
     <FieldShell label={label} error={error} hint={hint}>
-      <Pressable
-        onPress={() => setOpen(true)}
-        android_ripple={ripple}
-        accessibilityRole="button"
-        accessibilityLabel={`${label}: ${selected?.label ?? placeholder}`}
-        className={`h-14 flex-row items-center gap-3 overflow-hidden rounded-2xl border bg-card px-4 data-[active=true]:bg-accent ${
-          error ? 'border-destructive/60' : 'border-border'
-        }`}>
-        {selected?.leading}
-        <Text numberOfLines={1} className={`flex-1 text-base ${selected ? 'text-foreground' : 'text-muted-foreground'}`}>
-          {selected?.label ?? placeholder}
-        </Text>
-        <Icon as={ChevronDownIcon} size="sm" className="text-muted-foreground" />
-      </Pressable>
+      {/* Android draws the ripple over the whole rectangle, so a rounded parent clips it. */}
+      <Box className="overflow-hidden rounded-2xl">
+        <Pressable
+          onPress={() => setOpen(true)}
+          android_ripple={ripple}
+          accessibilityRole="button"
+          accessibilityLabel={`${label}: ${selected?.label ?? placeholder}`}
+          className={`h-14 flex-row items-center gap-3 overflow-hidden rounded-2xl border bg-card px-4 data-[active=true]:bg-accent ${
+            error ? 'border-destructive/60' : 'border-border'
+          }`}>
+          {selected?.leading}
+          <Text numberOfLines={1} className={`flex-1 text-base ${selected ? 'text-foreground' : 'text-muted-foreground'}`}>
+            {selected?.label ?? placeholder}
+          </Text>
+          <Icon as={ChevronDownIcon} size="sm" className="text-muted-foreground" />
+        </Pressable>
+      </Box>
 
       <Actionsheet isOpen={open} onClose={close} snapPoints={[70]}>
         <ActionsheetBackdrop />
@@ -110,18 +113,16 @@ export function SelectField({
           <Text className="w-full px-1 pb-3 pt-1 text-lg font-semibold text-foreground">{sheetTitle ?? label}</Text>
 
           {options.length >= SEARCH_THRESHOLD || onCreate ? (
-            <Input className="mb-2 h-12 rounded-2xl bg-background">
-              <InputSlot className="pl-1">
-                <InputIcon as={SearchIcon} />
-              </InputSlot>
-              <InputField
+            <Box className="mb-2 w-full">
+              <TextField
+                type="search"
+                size="sm"
+                className="bg-background"
                 value={query}
                 onChangeText={setQuery}
                 placeholder={onCreate ? 'Search or type a new name' : 'Search'}
-                autoCorrect={false}
-                className="text-base"
               />
-            </Input>
+            </Box>
           ) : null}
 
           <ActionsheetScrollView keyboardShouldPersistTaps="handled" className="w-full">

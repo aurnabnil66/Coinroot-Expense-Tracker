@@ -8,6 +8,7 @@ import {
   ActionsheetDragIndicator,
   ActionsheetDragIndicatorWrapper,
 } from '@/lib/gluestack-ui/actionsheet';
+import { Box } from '@/lib/gluestack-ui/box';
 import { HStack } from '@/lib/gluestack-ui/hstack';
 import { CalendarDaysIcon, ChevronDownIcon, Icon } from '@/lib/gluestack-ui/icon';
 import { Pressable } from '@/lib/gluestack-ui/pressable';
@@ -52,18 +53,21 @@ export function DateField({ label, value, onChange, error, maxDate = todayKey() 
 
   return (
     <FieldShell label={label} error={error}>
-      <Pressable
-        onPress={() => setOpen(true)}
-        android_ripple={ripple}
-        accessibilityRole="button"
-        accessibilityLabel={`${label}: ${text}. Opens a calendar.`}
-        className={`h-14 flex-row items-center gap-3 overflow-hidden rounded-2xl border bg-card px-4 data-[active=true]:bg-accent ${
-          error ? 'border-destructive/60' : 'border-border'
-        }`}>
-        <Icon as={CalendarDaysIcon} size="md" className="text-primary" />
-        <Text className="flex-1 text-base text-foreground">{text}</Text>
-        <Icon as={ChevronDownIcon} size="sm" className="text-muted-foreground" />
-      </Pressable>
+      {/* Android draws the ripple over the whole rectangle, so a rounded parent clips it. */}
+      <Box className="overflow-hidden rounded-2xl">
+        <Pressable
+          onPress={() => setOpen(true)}
+          android_ripple={ripple}
+          accessibilityRole="button"
+          accessibilityLabel={`${label}: ${text}. Opens a calendar.`}
+          className={`h-14 flex-row items-center gap-3 overflow-hidden rounded-2xl border bg-card px-4 data-[active=true]:bg-accent ${
+            error ? 'border-destructive/60' : 'border-border'
+          }`}>
+          <Icon as={CalendarDaysIcon} size="md" className="text-primary" />
+          <Text className="flex-1 text-base text-foreground">{text}</Text>
+          <Icon as={ChevronDownIcon} size="sm" className="text-muted-foreground" />
+        </Pressable>
+      </Box>
 
       <HStack className="gap-2">
         {shortcuts.map((shortcut) => {

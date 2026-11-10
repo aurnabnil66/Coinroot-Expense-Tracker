@@ -3,29 +3,26 @@ import { useMemo, useState, useTransition } from 'react';
 import { SectionList } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { LedgerPending, QuickAdd, TransactionRow } from '@/lib/components';
+import { GreetingHeader, LedgerPending, QuickAdd, TransactionRow } from '@/lib/components';
 import { BottomTabInset, MaxContentWidth } from '@/lib/constants';
 import { Box } from '@/lib/gluestack-ui/box';
-import { Button, ButtonText } from '@/lib/gluestack-ui/button';
 import { HStack } from '@/lib/gluestack-ui/hstack';
 import { Text } from '@/lib/gluestack-ui/text';
 import { useLedger, useSimpleMode } from '@/lib/hooks';
 import {
   AmountText,
-  ButtonLoader,
+  Button,
   EmptyState,
   Fab,
   FAB_SIZE,
   GradientCard,
   GradientStat,
   ScreenContainer,
-  ScreenHeader,
   Skeleton,
   SkeletonCard,
 } from '@/lib/ui';
 import {
   formatDayLabel,
-  formatMonthLabel,
   formatTaka,
   groupByDay,
   monthlySummary,
@@ -58,7 +55,7 @@ export function TransactionsScreen() {
   if (status !== 'ready') {
     return (
       <ScreenContainer safeTop tabBar>
-        <ScreenHeader title="Transactions" subtitle={formatMonthLabel(month)} />
+        <GreetingHeader />
         <LedgerPending
           status={status}
           error={error}
@@ -80,7 +77,7 @@ export function TransactionsScreen() {
     <ScreenContainer safeTop scroll={false}>
       {/* Header and month card stay put; only the list below scrolls. */}
       <Box className="w-full self-center px-5 pb-1" style={{ maxWidth: MaxContentWidth }}>
-        <ScreenHeader title="Transactions" subtitle={formatMonthLabel(month)} />
+        <GreetingHeader />
         <GradientCard className="gap-4">
           <Box className="gap-1">
             <Text className="text-sm font-medium text-white/75">Spent this month</Text>
@@ -141,14 +138,13 @@ export function TransactionsScreen() {
           hasMore ? (
             <Box className="items-center gap-2 pt-6">
               <Button
+                label="Load more"
+                loadingLabel="Loading…"
                 variant="outline"
-                size="lg"
-                className="h-12 w-full rounded-2xl"
-                isDisabled={loadingMore}
-                onPress={() => startLoadingMore(() => setLimit((current) => current + PAGE_SIZE))}>
-                {loadingMore ? <ButtonLoader tone="primary" /> : null}
-                <ButtonText className="text-base font-semibold">{loadingMore ? 'Loading…' : 'Load more'}</ButtonText>
-              </Button>
+                className="w-full"
+                loading={loadingMore}
+                onPress={() => startLoadingMore(() => setLimit((current) => current + PAGE_SIZE))}
+              />
               <Text className="text-xs text-muted-foreground">
                 Showing {shown} of {transactions.length}
               </Text>

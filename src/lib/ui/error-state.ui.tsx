@@ -1,6 +1,7 @@
-import { Button, ButtonText } from '@/lib/gluestack-ui/button';
 
 import { EmptyState } from './empty-state.ui';
+
+import { Button } from './button.ui';
 
 type ErrorStateProps = {
   title?: string;
@@ -16,9 +17,7 @@ export function ErrorState({ title = 'Something went wrong', message, onRetry }:
       message={message ?? undefined}
       action={
         onRetry ? (
-          <Button variant="outline" size="lg" className="mt-3 h-12 rounded-2xl px-6" onPress={onRetry}>
-            <ButtonText className="text-base font-semibold">Try again</ButtonText>
-          </Button>
+          <Button label="Try again" variant="outline" className="mt-3 px-6" onPress={onRetry} />
         ) : null
       }
     />

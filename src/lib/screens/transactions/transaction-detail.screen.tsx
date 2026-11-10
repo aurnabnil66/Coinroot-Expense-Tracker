@@ -3,14 +3,12 @@ import { useMemo } from 'react';
 
 import { LedgerPending, TransactionRow, TransactionTypeIcon, transactionTitle } from '@/lib/components';
 import { TRANSACTION_FIELD_LABELS, TRANSACTION_TYPE_LABELS } from '@/lib/constants';
-import { Button, ButtonIcon, ButtonText } from '@/lib/gluestack-ui/button';
 import { HStack } from '@/lib/gluestack-ui/hstack';
 import { AddIcon, TrashIcon } from '@/lib/gluestack-ui/icon';
-import { Pressable } from '@/lib/gluestack-ui/pressable';
 import { Text } from '@/lib/gluestack-ui/text';
 import { useLedger } from '@/lib/hooks';
 import { ledgerStore } from '@/lib/mocks';
-import { AmountText, Card, EmptyState, ListRow, ScreenContainer, SectionHeader, useDialog } from '@/lib/ui';
+import { AmountText, Button, Card, EmptyState, ListRow, ScreenContainer, SectionHeader, useDialog } from '@/lib/ui';
 import { childrenOf, deleteTransactionMessage, formatFullDate, nameLookup, remainingOf } from '@/lib/utils';
 
 export function TransactionDetailScreen() {
@@ -63,12 +61,7 @@ export function TransactionDetailScreen() {
         options={{
           title: TRANSACTION_TYPE_LABELS[tx.type],
           headerRight: () => (
-            <Pressable
-              onPress={() => router.push({ pathname: '/transaction-form', params: { id: tx.id } })}
-              hitSlop={8}
-              accessibilityRole="button">
-              <Text className="text-base font-semibold text-primary">Edit</Text>
-            </Pressable>
+            <Button label="Edit" variant="link" size="md" onPress={() => router.push({ pathname: '/transaction-form', params: { id: tx.id } })} />
           ),
         }}
       />
@@ -134,19 +127,16 @@ export function TransactionDetailScreen() {
             </HStack>
           </Card>
           <Button
+            label="Add linked expense"
             variant="outline"
-            size="lg"
-            className="mt-3 h-12 rounded-xl"
-            onPress={() => router.push({ pathname: '/transaction-form', params: { parentId: tx.id } })}>
-            <ButtonIcon as={AddIcon} />
-            <ButtonText className="text-base font-semibold">Add linked expense</ButtonText>
-          </Button>
+            icon={AddIcon}
+            className="mt-3"
+            onPress={() => router.push({ pathname: '/transaction-form', params: { parentId: tx.id } })}
+          />
         </>
       ) : null}
 
-      <Button variant="ghost" size="lg" className="mt-6 h-12 rounded-xl" onPress={() => void confirmDelete()}>
-        <ButtonText className="text-base font-semibold text-destructive">Delete transaction</ButtonText>
-      </Button>
+      <Button label="Delete transaction" variant="ghost" color="danger" className="mt-6" onPress={() => void confirmDelete()} />
     </ScreenContainer>
   );
 }

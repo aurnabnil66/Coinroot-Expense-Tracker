@@ -112,21 +112,24 @@ type PresetTileProps = {
 function PresetTile({ type, title, subtitle, onPress }: PresetTileProps) {
   const ripple = useRipple();
   return (
-    <Pressable
-      onPress={onPress}
-      android_ripple={ripple}
-      accessibilityRole="button"
-      accessibilityLabel={`Add ${title}, ${subtitle}`}
-      className="gap-3 overflow-hidden rounded-xl border border-border/70 bg-card p-4 data-[active=true]:bg-accent">
-      <TransactionTypeIcon type={type} />
-      <VStack>
-        <Text numberOfLines={1} className="text-base font-semibold text-foreground">
-          {title}
-        </Text>
-        <Text numberOfLines={1} className="text-sm text-muted-foreground">
-          {subtitle}
-        </Text>
-      </VStack>
-    </Pressable>
+    // Android draws the ripple over the whole rectangle, so a rounded parent clips it.
+    <Box className="overflow-hidden rounded-xl">
+      <Pressable
+        onPress={onPress}
+        android_ripple={ripple}
+        accessibilityRole="button"
+        accessibilityLabel={`Add ${title}, ${subtitle}`}
+        className="gap-3 overflow-hidden rounded-xl border border-border/70 bg-card p-4 data-[active=true]:bg-accent">
+        <TransactionTypeIcon type={type} />
+        <VStack>
+          <Text numberOfLines={1} className="text-base font-semibold text-foreground">
+            {title}
+          </Text>
+          <Text numberOfLines={1} className="text-sm text-muted-foreground">
+            {subtitle}
+          </Text>
+        </VStack>
+      </Pressable>
+    </Box>
   );
 }
