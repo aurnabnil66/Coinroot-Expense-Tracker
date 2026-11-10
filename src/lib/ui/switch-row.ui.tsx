@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Switch } from 'react-native';
+import { Platform, Switch } from 'react-native';
 
 import { useGluestackColors } from '@/lib/gluestack-ui/gluestack-ui-provider';
 import { Box } from '@/lib/gluestack-ui/box';
@@ -40,7 +40,15 @@ export function SwitchRow({ label, description, value, onValueChange, leading, i
           <Text className="text-base font-medium text-foreground">{label}</Text>
           {description ? <Text className="text-sm text-muted-foreground">{description}</Text> : null}
         </Box>
-        <Switch value={value} onValueChange={onValueChange} trackColor={{ true: colors.primary }} />
+        <Switch
+          value={value}
+          onValueChange={onValueChange}
+          // Every colour set, so Android doesn't fall back to its own (green) thumb.
+          // Material style there: purple thumb on a light purple track; iOS keeps a white thumb.
+          trackColor={{ false: colors.border, true: Platform.OS === 'android' ? `${colors.primary}66` : colors.primary }}
+          thumbColor={Platform.OS === 'android' ? (value ? colors.primary : colors.mutedForeground) : '#ffffff'}
+          ios_backgroundColor={colors.border}
+        />
       </HStack>
     </Pressable>
   );
