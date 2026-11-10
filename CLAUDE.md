@@ -38,7 +38,7 @@ Salary → Office bank account → Primary bank account → ATM withdrawal (→ 
 
 Never hard-code real bank, wallet or institution names or real amounts. Account names are whatever the user enters.
 
-## Data model (implemented in the mock store; the DB schema should match)
+## Data model (SQLite via Drizzle, `src/lib/db/schema.database.ts`)
 
 ```
 accounts       id, name, type (bank | cash | mobile_wallet | savings), opening_balance (poisha),
@@ -57,7 +57,7 @@ transactions   id, date, type (income | expense | transfer), from_id, to_id, amo
 
 Default seed data:
 - Accounts: generic, editable placeholders, one per type: e.g. "Bank Account", "Cash", "Mobile Wallet", "Savings (DPS)". The user renames or adds their own.
-- Expense categories: Food, Groceries, Transport, Rent, Bills, Mobile & Internet, Shopping, Fitness, Bank Charges, Health, Education, Family, Entertainment, Gifts, Other
+- Expense categories (`DEFAULT_CATEGORIES` in `ledger.constants.ts`, with colours): Food, Groceries, Transport, Rent, Bills, Mobile & Internet, Shopping, Fitness, Bank Charges, Health, Education, Family, Entertainment, Gifts, Other
 - Income sources: Salary, Bonus, Office Payment, Client Payment, Interest/Profit, Freelance, Gift Received, Other Income
 - "Balance adjustment" (expense and income source) and "Bank Charges" are looked up by name (`findCategoryByName`) and created if missing; users may rename their own.
 
@@ -65,9 +65,9 @@ Accounts, categories and income sources are **user data in the database**, never
 
 ## Architecture: local-first
 
-- All data lives on the device in SQLite. **No backend.** The app must work fully offline.
+- All data lives on the device in SQLite, the source of truth. The app must work fully offline; no feature may require a server.
 - Backup/restore via exported files (CSV/JSON) shared to any cloud storage or file app.
-- Cloud sync is a later, optional phase (Supabase, or PowerSync/ElectricSQL to keep local SQLite). Don't design anything that requires a server.
+- Cloud backup / sync is a later, optional phase with Supabase (Auth + Postgres with RLS), mirroring the local tables. Signing in stays optional.
 
 ## Tech stack
 
@@ -77,7 +77,7 @@ Installed: Expo SDK 58, Expo Router (routes in `src/app/`), TypeScript (strict),
 |---|---|
 | Styling / theme | NativeWind v4 (`nativewind`, `react-native-css-interop`, `tailwindcss` v3) + vendored gluestack-ui v5 (`@gluestack-ui/core`, `@gluestack-ui/utils`, `@expo/html-elements`, `react-native-svg`) |
 | Forms / validation | `react-hook-form` + `zod` v4 + `@hookform/resolvers` (zod also validates CSV rows on import) |
-| Database | `expo-sqlite` + `drizzle-orm`, `drizzle-kit` (dev) for migrations. Installed but not wired up yet: add the schema in `src/lib/db`, then the `useMigrations` gate in the root layout. |
+| Database | `expo-sqlite` + `drizzle-orm`; `drizzle-kit` (dev) generates migrations; `babel-plugin-inline-import` bundles their `.sql` files (`babel.config.js`, `sql` in Metro `sourceExts`); `expo-crypto` `randomUUID` for row ids |
 | Lint | ESLint 9 + `eslint-config-expo` (`eslint.config.js`) |
 | Tests | Jest via `jest-expo` (`bun run test`) |
 | Bottom sheets | `@legendapp/motion` (needed by gluestack `actionsheet`) |
@@ -108,26 +108,36 @@ Expo Router treats **every** `.ts`/`.tsx` file under `src/app/` as a route (no n
 |---|---|
 | `src/app/` | Expo Router routes and layouts only |
 | `src/lib/screens/<name>/` | Full-page screens, grouped by feature: `setup/`, `transactions/`, `accounts/`, `summary/`, `settings/`, `profile/`, `auth/`. Nothing sits directly in `src/lib/screens/`. |
-| `src/lib/components/` | Reusable, feature-aware pieces that aren't screens (`TransactionRow`, `TransactionTypeIcon`, `SpendingChart`, `QuickAdd`, `LedgerPending`, `GreetingHeader`) |
+| `src/lib/components/` | Reusable, feature-aware pieces that aren't screens (`TransactionRow`, `TransactionTypeIcon`, `SpendingChart`, `QuickAdd`, `LedgerPending`, `GreetingHeader`, `DatabaseGate`) |
 | `src/lib/ui/` | Reusable, feature-agnostic UI components, built from gluestack-ui + `className`: `Button` (the only button), `TextField` (the only text input), layout (`ScreenContainer`, `ScreenHeader`), `AppTabs`, `Card` / `GradientCard`, rows, form fields, `SelectField` bottom-sheet picker, `Dialog` + `useDialog`, `Calendar`, `Avatar` / `AvatarPickerField`, `LinkPrompt`, `BarChart`, `Fab`, loading pieces (`Skeleton`, `LoadingState`, `ErrorState`, `ButtonLoader`) |
-| `src/lib/hooks/` | Shared hooks (`useLedger`, `useColorScheme`, `useThemePreference`, `useSimpleMode`, `useProfile` / `useGreeting`, `useAuth`, `useRipple`) |
+| `src/lib/hooks/` | Shared hooks (`useLedger`, `useColorScheme`, `useThemePreference`, `useSimpleMode`, `useProfile` / `useGreeting`, `useAuth`, `useAutoFocus` / `focusInput`, `useRipple`) |
 | `src/lib/constants/` | Static values (`ledger.constants.ts`: labels, account/category colours; `theme.constants.ts`: `BottomTabInset`, `MaxContentWidth`, `FontFamily`) |
 | `src/lib/schemas/` | Zod schemas, their inferred types and form defaults |
 | `src/lib/types/` | Domain types (`Account`, `Category`, `Transaction`), matching the data model above |
 | `src/lib/storage/` | Device-only settings in MMKV (`settings.storage.ts`: `createSetting`, `createEnumSetting`, `createBooleanSetting` with in-memory cache + listeners, safe when storage is unavailable). `setup.storage.ts` holds `setupStateSetting` (whether first-time setup is done). `profile.storage.ts` holds the profile (`nickname`, `photo` URI, `email`, `phone`; an old `name` is read as the nickname) and `saveProfile`, which copies a picked photo into `Paths.document/profile/` (expo-file-system) and deletes the old one. Hooks such as `useThemePreference` / `useSimpleMode` define their setting here and read it with `useSyncExternalStore`. Tests mock `react-native-mmkv`. |
 | `src/lib/utils/` | Pure logic with unit tests: `money.util.ts` (parse/format taka ↔ poisha), `date.util.ts` (`YYYY-MM-DD` day keys), `greeting.util.ts` (`greetingFor`, `initialsOf`), `phone.util.ts` (`normalizeBdPhone` → `+8801XXXXXXXXX`, `formatBdPhone`), `ledger.util.ts` (balances, remaining, monthly summary, daily/monthly spending, day grouping and paging) |
-| `src/lib/mocks/` | **Temporary** stand-ins: `authStore` (sign-up / log-in / log-out shaped like Supabase Auth: async, throws `AuthError` with a user-facing message; the session `{ userId, email }` persists in MMKV; accounts created this session are checked in memory, any other email and password work; passwords are never stored) and in-memory sample data (current month plus five generated earlier months) and an async store (`ledgerStore`) used until the database exists. Whether setup is done is saved in MMKV (`setupStateSetting`: `none` / `own` / `sample`), so setup runs once: after "Explore with sample data" every launch reloads the samples; after the user's own setup, launches skip setup but start with no accounts (the mock keeps no data). Generic names, invented amounts. |
+| `src/lib/mocks/` | **Temporary** stand-ins: `authStore` (sign-up / log-in / log-out shaped like Supabase Auth: async, throws `AuthError` with a user-facing message; the session `{ userId, email }` persists in MMKV; accounts created this session are checked in memory, any other email and password work; passwords are never stored). `sample-data.mock.ts`: invented sample accounts and history (current month plus five earlier months; generic names, invented amounts) that "Explore with sample data" writes into the database once. |
 | `src/lib/gluestack-ui/` | Vendored gluestack-ui components, one folder each. Owned, editable code. |
 | `src/global.css` | The only global stylesheet and the NativeWind entry (`@tailwind` directives + font variables) |
 | `assets/` | Images, icons and fonts (repo root) |
 
-New layers follow the same `src/lib/<layer>/*.<suffix>.ts(x)` shape with their own barrel. Next one: `src/lib/db/` (`*.db.ts`: Drizzle schema, client, queries).
+New layers follow the same `src/lib/<layer>/*.<suffix>.ts(x)` shape with their own barrel.
 
-**Data access today:** screens read everything through `useLedger()` (`status`, `error`, accounts, categories, transactions) and write through `ledgerStore.*` (`src/lib/mocks`). The mock loads and writes asynchronously with a short simulated delay, like the DB will, so loading states are always exercised. Balances and totals are computed with `src/lib/utils/ledger.util.ts`, never stored. When the DB lands, replace `useLedger` with Drizzle live queries and `ledgerStore` with DB writes; screens and utils should not need to change.
+**Database layer (`src/lib/db/`, `*.database.ts`):** (not `*.db.ts`: Expo's Metro config treats `.db` as an asset extension, so `./client.db` wouldn't resolve)
+- `schema.database.ts`: Drizzle tables `accounts`, `categories`, `transactions` (snake_case columns, camelCase fields) matching the data model. Sync-ready: UUID text `id` (the app always sets it with `newId()`), ISO `created_at` / `updated_at`, and `deleted_at` (set instead of deleting). Money is integer poisha, dates `YYYY-MM-DD` text, booleans `integer` (`mode: 'boolean'`). Check constraints: allowed `type` / `kind` values, `amount > 0`, `from_id <> to_id`. No foreign keys (from/to point at accounts or categories, and synced rows may arrive in any order). It must not import native modules: drizzle-kit loads it in Node.
+- `id.database.ts`: `newId()` (expo-crypto UUID v4). `client.database.ts`: the one connection (`coinroot.db`, `enableChangeListener: true` for `useLiveQuery`, WAL) and `db`.
+- `setup.database.ts`: `whenDatabaseReady()` runs the migrations, then `seedDefaultCategories()`, once per app start (a shared promise; retried after a failure). Anything touching the database awaits it; `useDatabaseSetup()` (→ `preparing` / `ready` / `error`) drives `DatabaseGate`.
+- `ledger-store.database.ts`: `ledgerStore` (`subscribe` / `getSnapshot` for `useLedger`, `load`, and every write: `addTransaction`, `updateTransaction`, `deleteTransaction`, `addAccount`, `updateAccount`, `addCategory`, `updateCategory`, `completeSetup`, `loadSampleData`, `resetSetup`), plus `LedgerSnapshot` / `LedgerStatus` and the `*Input` types.
+- `seed.database.ts`: `seedDefaultCategories()` (only while the table has never had a row, so removed categories never come back), `seedSampleData(sample)` (once: skipped while live accounts exist), `clearLedgerData()` (soft-deletes accounts and transactions for "Set up accounts again"; categories stay), `ledgerCounts()`. Sync drizzle API (`.all()`, `.run()`, `db.transaction((tx) => …)`).
+- `seed-rows.database.ts` (pure, tested): `defaultCategoryRows` from `DEFAULT_CATEGORIES` (`src/lib/constants`), and `sampleRows`, which gives sample rows new UUIDs, rewrites from / to / parent links and reuses existing categories by kind + name. `mappers.database.ts` (tested): `rowToAccount` / `accountToRow` (savings details ↔ flat columns), `rowToCategory`, `rowToTransaction` and back.
+- `migrations/`: generated by `bun run db:generate` after a schema change (never edit by hand; commit them). `bun run db:check` checks they're consistent. `drizzle.config.ts` (root) points drizzle-kit here.
+- `schema.database.test.ts` and `seed-rows.database.test.ts` run in Jest (no device needed); importing `client.database.ts` in a test would open expo-sqlite, so tested code takes plain data.
+
+**Data access:** screens read everything through `useLedger()` (`status`, `error`, `setupDone`, accounts, categories, transactions) and write through `ledgerStore.*` from `@/lib/db` (`ledger-store.database.ts`). The store keeps one shared snapshot of all live rows, loaded after `whenDatabaseReady()` and re-read after every write; writes are async, throw on failure, set new UUIDs and `updated_at`, and delete softly (deleting a parent unlinks its children). `setupDone` comes from `setupStateSetting` (`none` → setup; `own` / `sample` → app). Balances and totals are computed with `src/lib/utils/ledger.util.ts`, never stored. Step 4 adds paged queries for the transaction list.
 
 ## File naming
 
-- All filenames are kebab-case, with a suffix naming their layer: `*.screen.tsx`, `*.component.tsx`, `*.ui.tsx`, `*.hook.ts`, `*.constants.ts`, `*.schema.ts`, `*.types.ts`, `*.util.ts`, `*.mock.ts` (and `*.db.ts` next).
+- All filenames are kebab-case, with a suffix naming their layer: `*.screen.tsx`, `*.component.tsx`, `*.ui.tsx`, `*.hook.ts`, `*.constants.ts`, `*.schema.ts`, `*.types.ts`, `*.util.ts`, `*.mock.ts`, `*.database.ts`.
 - Unit tests sit next to the file as `*.test.ts` (not in barrels) and import `describe`/`it`/`expect` from `@jest/globals` (TypeScript 6 doesn't load `@types/jest` globals).
 - Platform variants keep the suffix before the platform extension: `use-color-scheme.hook.web.ts`.
 - Exceptions: `index.ts` barrels, `_layout.tsx` and route files in `src/app/`, and everything in `src/lib/gluestack-ui/` (the CLI's own `index.tsx` per component; don't rename).
@@ -155,7 +165,7 @@ New layers follow the same `src/lib/<layer>/*.<suffix>.ts(x)` shape with their o
   - Pushed with the native header: `transaction/[id]`, `account/[id]`, `categories?kind=`. Screens set their title / Edit button with `<Stack.Screen options>`.
   - Modals (own `ModalHeader`): `transaction-form?id=|parentId=|type=&fromId=&toId=` (the last is a quick-add preset), `account-form?id=|name=`, `category-form?id=|kind=`, `balance-check?accountId=`, `profile-form` (create / edit profile), `log-in`, `sign-up`.
   - `setup`: first-time setup. The root `Stack` wraps the app in `<Stack.Protected guard={setupDone}>` and `setup` in `guard={!setupDone}`, so finishing (or resetting) setup switches screens automatically.
-- The root `src/app/_layout.tsx` imports `@/global.css` and owns `GluestackUIProvider` (outermost, `mode={themePreference}`), the react-navigation `ThemeProvider` (gluestack colours + Poppins fonts), the `StatusBar`, `DialogProvider` and the root `Stack`. When the DB lands, the Drizzle `useMigrations` gate (spinner → error → app) goes here too.
+- The root `src/app/_layout.tsx` imports `@/global.css` and owns `GluestackUIProvider` (outermost, `mode={themePreference}`), the react-navigation `ThemeProvider` (gluestack colours + Poppins fonts), the `StatusBar`, `DialogProvider` and the root `Stack`, wrapped in `DatabaseGate` (`src/lib/components`), which prepares the database first (migrations + default categories): spinner → error with Try again → app.
 
 ## Styling
 
@@ -180,7 +190,7 @@ New layers follow the same `src/lib/<layer>/*.<suffix>.ts(x)` shape with their o
   - check `bunx tsc --noEmit`. `button`, `input` and `actionsheet` needed `as any` casts on the `cssInterop` `nativeStyleToProp` object.
   - delete any stray root `globals.css` it creates.
   - make sure it didn't change `tailwind.config.js`, `babel.config.js` or `metro.config.js`.
-- Config files: `tailwind.config.js`, `postcss.config.js`, `babel.config.js` (`jsxImportSource: 'nativewind'` + `nativewind/babel`), `metro.config.js` (`withNativeWind`, input `./src/global.css`; `wasm` added to `assetExts` for expo-sqlite on web), `nativewind-env.d.ts`, `gluestack-ui.config.json`.
+- Config files: `tailwind.config.js`, `postcss.config.js`, `babel.config.js` (`jsxImportSource: 'nativewind'` + `nativewind/babel`, `inline-import` for `.sql`), `metro.config.js` (`withNativeWind`, input `./src/global.css`; `wasm` added to `assetExts` for expo-sqlite on web, `sql` to `sourceExts` for migrations), `drizzle.config.ts`, `nativewind-env.d.ts`, `gluestack-ui.config.json`.
 
 ## Forms
 
@@ -189,6 +199,7 @@ React Hook Form + Zod via `zodResolver` from `@hookform/resolvers/zod`.
 - **Schema first:** each `src/lib/schemas/*.schema.ts` exports the schema, its `z.infer` type and a `defaults` object. Validation messages and types come only from the schema, never from the `rules` prop. Put `.trim()` and other normalisation (e.g. taka → poisha) in the schema, since `onSubmit` receives the schema's output.
 - **Always `<Controller>`, never `register()`.** React Native's `TextInput` has no DOM ref.
 - **Text inputs:** always `TextField` from `@/lib/ui` (`text-field.ui.tsx`), never gluestack `Input` / `InputField` directly. `type` sets the behaviour: `text` (default) · `nickname` · `email` · `password` / `new-password` (hidden, show / hide button, autofill) · `phone` · `money` (decimal keypad) · `search` (search icon). Other props: `label` (optional), `error`, `hint`, `placeholder`, `multiline`, `maxLength`, `autoFocus`, `readOnly`, `icon`, `suggestions` (chips of earlier values), `size` (`md` h-14 · `sm` h-12), `className`. Single-line text is vertically centred (Android font padding off) and the cursor / selection are purple. The big centred amount input stays `AmountField`; pickers are `SelectField` / `DateField`.
+- **Keyboard must always open:** tapping anywhere on a field (padding, edges, the ৳ sign, the space around the amount) focuses it through `focusInput()` (`src/lib/hooks/use-auto-focus.hook.ts`), which re-focuses an input that's still focused after Back closed the keyboard (a plain `focus()` would leave it closed on Android). `autoFocus` goes through `useAutoFocus(ref)`, which waits for the screen / modal to finish sliding in (`AUTO_FOCUS_DELAY_MS`); never pass the native `autoFocus` prop to a `TextInput`. Any new raw `TextInput` needs both.
 - **Field UI and form wiring stay separate.** Field components in `src/lib/ui` (e.g. a text field, amount field or account picker) take plain `label` / `value` / `onChangeText` / `onBlur` / `error` props and import nothing from `react-hook-form`. The `<Controller>` lives in the screen. Don't pass `control`/`name` into field components.
 - `mode: 'onTouched'`, disable submit while `isSubmitting`, and show DB failures with `setError('root', …)`.
 
@@ -209,7 +220,7 @@ ID, Date, Type, From, To/Category, Amount, Note, Linked to, Left from this (auto
 
 ## Roadmap
 
-**Phase 1: design and prototype is done.** Every screen and feature below runs on the in-memory mock store (`src/lib/mocks`) and has been checked on Android in light and dark mode. Design changes come later, as needed.
+**Phase 1: design and prototype is done.** Every screen and feature below was built on an in-memory mock store (now replaced by SQLite) and has been checked on Android in light and dark mode. Design changes come later, as needed.
 
 Done in phase 1:
 - Transactions: add / edit / delete, list grouped by day with Load more, quick add (Simple mode), transfer charges, "Received from" with suggestions, calendar date picker, money-tree links ("Linked to", "Left from this")
@@ -219,9 +230,9 @@ Done in phase 1:
 - Design system: navy + purple theme in light / dark, Poppins, floating tab bar, dialogs, loading / error / saving states everywhere
 
 **Phase 2 (next): the backend.** Local-first with Drizzle + SQLite (`expo-sqlite`, `drizzle-orm`) for data and MMKV for small settings (MMKV done: theme and Simple mode). Supabase (Auth + Postgres with RLS) comes later as optional backup / sync; SQLite stays the source of truth. The sign-in screens already exist on the stand-in `authStore`; swapping it for `supabase.auth` (session kept in secure storage) is the first Supabase step. Schema should be sync-ready: UUID text ids, `created_at` / `updated_at` / `deleted_at` on every table.
-1. Drizzle schema in `src/lib/db` matching the data model (including `party`), migrations, and the `useMigrations` gate in the root layout
-2. Seed categories on first launch (`setupDone` is already persisted in MMKV via `setupStateSetting`; `sample` should seed the sample rows once instead of reloading them)
-3. Replace `useLedger` with live queries and `ledgerStore.*` with DB writes, keeping the same shapes (`status`, `error`, async writes), so screens and utils don't change
+1. ~~Drizzle schema in `src/lib/db` matching the data model (including `party`), migrations, and the migrations gate in the root layout~~ (done)
+2. ~~Seed categories on first launch; sample data written once~~ (done)
+3. ~~Replace the in-memory store with SQLite reads and writes, same shapes~~ (done: `ledgerStore` in `src/lib/db`; data survives restarts)
 4. Paged queries for the transaction list (`takeDays` page size → `LIMIT`)
 
 Later:
