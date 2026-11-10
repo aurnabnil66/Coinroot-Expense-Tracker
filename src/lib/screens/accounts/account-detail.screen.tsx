@@ -1,27 +1,36 @@
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
 import { LedgerPending, TransactionRow } from '@/lib/components';
 import { ACCOUNT_TYPE_LABELS } from '@/lib/constants';
+import { getAccountBalances, getAccountTransactions, getTransactionsBetween } from '@/lib/db';
 import { Box } from '@/lib/gluestack-ui/box';
 import { HStack } from '@/lib/gluestack-ui/hstack';
 import { CheckCircleIcon } from '@/lib/gluestack-ui/icon';
 import { Text } from '@/lib/gluestack-ui/text';
 import { VStack } from '@/lib/gluestack-ui/vstack';
-import { useLedger } from '@/lib/hooks';
+import { useLedger, useLedgerQuery } from '@/lib/hooks';
 import { AmountText, Button, Card, EmptyState, ScreenContainer, SectionHeader } from '@/lib/ui';
-import { accountBalance, compareNewestFirst, formatFullDate, nameLookup, todayKey, toMonthKey } from '@/lib/utils';
+import { daysInMonth, formatFullDate, nameLookup, todayKey, toMonthKey } from '@/lib/utils';
+
+/** Entries shown at first and added by each "Load more". */
+const PAGE_SIZE = 50;
 
 export function AccountDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { status, error, accounts, categories, transactions } = useLedger();
+  const { status, error, accounts, categories } = useLedger();
   const nameOf = useMemo(() => nameLookup(accounts, categories), [accounts, categories]);
   const account = accounts.find((a) => a.id === id);
+  const month = toMonthKey(todayKey());
+  const [limit, setLimit] = useState(PAGE_SIZE);
 
-  const related = useMemo(
-    () => transactions.filter((tx) => tx.fromId === id || tx.toId === id).sort(compareNewestFirst),
-    [transactions, id]
+  const balance = useLedgerQuery((database) => getAccountBalances(database).get(id) ?? 0, [id]) ?? 0;
+  const thisMonth = useLedgerQuery(
+    (database) => getTransactionsBetween(database, `${month}-01`, `${month}-${daysInMonth(month)}`, id),
+    [id, month]
   );
+  const history = useLedgerQuery((database) => getAccountTransactions(database, id, limit), [id, limit]);
+  const related = history?.transactions ?? [];
 
   if (status !== 'ready') {
     return (
@@ -40,12 +49,10 @@ export function AccountDetailScreen() {
     );
   }
 
-  const balance = accountBalance(account, transactions);
-  const month = toMonthKey(todayKey());
   let moneyIn = 0;
   let moneyOut = 0;
-  for (const tx of related) {
-    if (toMonthKey(tx.date) !== month || tx.date < account.openingDate) continue;
+  for (const tx of thisMonth ?? []) {
+    if (tx.date < account.openingDate) continue;
     if (tx.type !== 'expense' && tx.toId === account.id) moneyIn += tx.amount;
     if (tx.type !== 'income' && tx.fromId === account.id) moneyOut += tx.amount;
   }
@@ -111,6 +118,9 @@ export function AccountDetailScreen() {
           </HStack>
         ) : null}
       </Card>
+      {history?.hasMore ? (
+        <Button label="Load more" variant="outline" className="mt-4" onPress={() => setLimit((n) => n + PAGE_SIZE)} />
+      ) : null}
     </ScreenContainer>
   );
 }

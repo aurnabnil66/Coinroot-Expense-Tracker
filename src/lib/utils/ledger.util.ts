@@ -149,9 +149,11 @@ export function monthlySpending(
   return months;
 }
 
+/** Newest first: by date, then by when it was entered, then by id so the order is always the same. */
 export function compareNewestFirst(a: Transaction, b: Transaction): number {
   if (a.date !== b.date) return a.date < b.date ? 1 : -1;
-  return a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0;
+  if (a.createdAt !== b.createdAt) return a.createdAt < b.createdAt ? 1 : -1;
+  return a.id < b.id ? 1 : a.id > b.id ? -1 : 0;
 }
 
 export type DayGroup = {

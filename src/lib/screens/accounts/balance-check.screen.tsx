@@ -9,8 +9,8 @@ import { Box } from '@/lib/gluestack-ui/box';
 import { HStack } from '@/lib/gluestack-ui/hstack';
 import { Text } from '@/lib/gluestack-ui/text';
 import { VStack } from '@/lib/gluestack-ui/vstack';
-import { useLedger } from '@/lib/hooks';
-import { ledgerStore } from '@/lib/db';
+import { useLedger, useLedgerQuery } from '@/lib/hooks';
+import { getAccountBalances, ledgerStore } from '@/lib/db';
 import {
   type BalanceCheckFormInput,
   type BalanceCheckFormValues,
@@ -19,7 +19,7 @@ import {
 } from '@/lib/schemas';
 import type { Account } from '@/lib/types';
 import { AmountField, AmountText, Button, Card, EmptyState, ModalHeader, ScreenContainer } from '@/lib/ui';
-import { accountBalance, balanceAdjustment, findCategoryByName, formatTaka, parseTaka, todayKey } from '@/lib/utils';
+import { balanceAdjustment, findCategoryByName, formatTaka, parseTaka, todayKey } from '@/lib/utils';
 
 const titleFor = (account?: Account) => (account?.type === 'cash' ? 'Count cash' : 'Check balance');
 
@@ -40,8 +40,9 @@ export function BalanceCheckScreen() {
 
 function BalanceCheckForm() {
   const { accountId } = useLocalSearchParams<{ accountId?: string }>();
-  const { accounts, categories, transactions } = useLedger();
+  const { accounts, categories } = useLedger();
   const account = accounts.find((a) => a.id === accountId);
+  const recorded = useLedgerQuery((database) => getAccountBalances(database).get(accountId ?? '') ?? 0, [accountId]) ?? 0;
 
   const {
     control,
@@ -64,7 +65,6 @@ function BalanceCheckForm() {
     );
   }
 
-  const recorded = accountBalance(account, transactions);
   const actual = actualText.trim() ? parseTaka(actualText) : null;
   const adjustment = actual === null ? null : balanceAdjustment(recorded, actual);
   const isCash = account.type === 'cash';

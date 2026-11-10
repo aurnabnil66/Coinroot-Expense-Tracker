@@ -6,17 +6,32 @@ import { TRANSACTION_FIELD_LABELS, TRANSACTION_TYPE_LABELS } from '@/lib/constan
 import { HStack } from '@/lib/gluestack-ui/hstack';
 import { AddIcon, TrashIcon } from '@/lib/gluestack-ui/icon';
 import { Text } from '@/lib/gluestack-ui/text';
-import { useLedger } from '@/lib/hooks';
-import { ledgerStore } from '@/lib/db';
+import { getChildren, getChildTotals, getTransaction, ledgerStore, remainingFrom } from '@/lib/db';
+import { useLedger, useLedgerQuery } from '@/lib/hooks';
 import { AmountText, Button, Card, EmptyState, ListRow, ScreenContainer, SectionHeader, useDialog } from '@/lib/ui';
-import { childrenOf, deleteTransactionMessage, formatFullDate, nameLookup, remainingOf } from '@/lib/utils';
+import { deleteTransactionMessage, formatFullDate, nameLookup } from '@/lib/utils';
 
 export function TransactionDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { status, error, accounts, categories, transactions } = useLedger();
+  const { status, error, accounts, categories } = useLedger();
   const nameOf = useMemo(() => nameLookup(accounts, categories), [accounts, categories]);
   const dialog = useDialog();
-  const tx = transactions.find((t) => t.id === id);
+  // The entry, where its money came from, what was paid from it, and how much is left of each.
+  const detail = useLedgerQuery(
+    (database) => {
+      const found = getTransaction(database, id);
+      if (!found) return null;
+      const parentTx = found.parentId ? getTransaction(database, found.parentId) : null;
+      return {
+        tx: found,
+        parent: parentTx,
+        children: getChildren(database, found.id),
+        used: getChildTotals(database, parentTx ? [found.id, parentTx.id] : [found.id]),
+      };
+    },
+    [id]
+  );
+  const tx = detail?.tx;
 
   if (status !== 'ready') {
     return (
@@ -35,9 +50,10 @@ export function TransactionDetailScreen() {
     );
   }
 
-  const parent = tx.parentId ? transactions.find((t) => t.id === tx.parentId) : undefined;
-  const children = childrenOf(tx.id, transactions);
-  const remaining = remainingOf(tx, transactions);
+  const parent = detail?.parent ?? undefined;
+  const children = detail?.children ?? [];
+  const used = detail?.used ?? new Map<string, number>();
+  const remaining = remainingFrom(tx, used);
   // Money that landed in an account can be spent from — that's what gets linked (the tree).
   const canHaveChildren = tx.type !== 'expense';
   const labels = TRANSACTION_FIELD_LABELS[tx.type];
@@ -95,7 +111,7 @@ export function TransactionDetailScreen() {
               transaction={parent}
               nameOf={nameOf}
               showDate
-              remaining={remainingOf(parent, transactions)}
+              remaining={remainingFrom(parent, used)}
               onPress={() => open(parent.id)}
             />
           </Card>

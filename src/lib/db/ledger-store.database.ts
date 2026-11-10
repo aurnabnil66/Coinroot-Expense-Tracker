@@ -1,6 +1,9 @@
 /**
- * The ledger the screens use, backed by SQLite: one shared snapshot (`getSnapshot` /
- * `subscribe`, read by `useLedger`) that is reloaded from the database after every write.
+ * The ledger the screens use, backed by SQLite. The shared snapshot (`getSnapshot` /
+ * `subscribe`, read by `useLedger`) holds only the small lists (accounts, categories) and a
+ * `version` that goes up after every write. Transactions are never all loaded: screens ask
+ * for what they show with `useLedgerQuery` + `queries.database.ts`, which re-run when
+ * `version` changes.
  * Writes are async, throw on failure (screens show it with `setError('root', …)`), and keep
  * the sync columns current: new UUIDs, `updated_at` on every change, and soft deletes.
  *
@@ -15,7 +18,7 @@ import type { Account, Category, Transaction } from '@/lib/types';
 
 import { db } from './client.database';
 import { newId } from './id.database';
-import { accountToRow, categoryToRow, rowToAccount, rowToCategory, rowToTransaction, transactionToRow } from './mappers.database';
+import { accountToRow, categoryToRow, rowToAccount, rowToCategory, transactionToRow } from './mappers.database';
 import { accounts, categories, transactions } from './schema.database';
 import { clearLedgerData, seedSampleData } from './seed.database';
 import { whenDatabaseReady } from './setup.database';
@@ -30,7 +33,8 @@ export type LedgerSnapshot = {
   setupDone: boolean;
   accounts: Account[];
   categories: Category[];
-  transactions: Transaction[];
+  /** Goes up after every load and write; queries re-run when it changes. */
+  version: number;
 };
 
 export type TransactionInput = Omit<Transaction, 'id' | 'createdAt' | 'updatedAt'>;
@@ -43,7 +47,7 @@ let snapshot: LedgerSnapshot = {
   setupDone: setupStateSetting.get() !== 'none',
   accounts: [],
   categories: [],
-  transactions: [],
+  version: 0,
 };
 
 const listeners = new Set<() => void>();
@@ -55,8 +59,8 @@ function commit(next: Partial<LedgerSnapshot>) {
 
 const nowIso = () => new Date().toISOString();
 
-/** Every live (not deleted) row, as domain objects. */
-function readLedger(): Pick<LedgerSnapshot, 'accounts' | 'categories' | 'transactions'> {
+/** Every live (not deleted) account and category, as domain objects. */
+function readLists(): Pick<LedgerSnapshot, 'accounts' | 'categories'> {
   return {
     accounts: db
       .select()
@@ -67,19 +71,12 @@ function readLedger(): Pick<LedgerSnapshot, 'accounts' | 'categories' | 'transac
       .map(rowToAccount),
     // Insertion order, so the seeded list keeps its order and new ones come last.
     categories: db.select().from(categories).where(isNull(categories.deletedAt)).orderBy(sql`rowid`).all().map(rowToCategory),
-    transactions: db
-      .select()
-      .from(transactions)
-      .where(isNull(transactions.deletedAt))
-      .orderBy(asc(transactions.date), asc(transactions.createdAt))
-      .all()
-      .map(rowToTransaction),
   };
 }
 
 /** Re-reads the database after a write and tells the screens. */
 function refresh() {
-  commit({ ...readLedger(), setupDone: setupStateSetting.get() !== 'none' });
+  commit({ ...readLists(), setupDone: setupStateSetting.get() !== 'none', version: snapshot.version + 1 });
 }
 
 /** Waits for the database, runs the write, then refreshes the snapshot. */
@@ -118,7 +115,14 @@ export const ledgerStore = {
     commit({ status: 'loading', error: null });
     try {
       await whenDatabaseReady();
-      commit({ status: 'ready', error: null, ...readLedger(), setupDone: setupStateSetting.get() !== 'none' });
+      const lists = readLists();
+      commit({
+        status: 'ready',
+        error: null,
+        ...lists,
+        setupDone: setupStateSetting.get() !== 'none',
+        version: snapshot.version + 1,
+      });
     } catch (e) {
       commit({ status: 'error', error: e instanceof Error ? e.message : String(e) });
     }
