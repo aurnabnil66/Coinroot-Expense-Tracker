@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 
-import { ledgerStore, type LedgerStatus } from '@/lib/mocks';
+import { ledgerStore, type LedgerStatus } from '@/lib/db';
 import { ErrorState, LoadingState } from '@/lib/ui';
 
 type LedgerPendingProps = {

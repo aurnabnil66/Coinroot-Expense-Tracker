@@ -15,7 +15,8 @@ import {
   useSimpleMode,
   useThemePreference,
 } from '@/lib/hooks';
-import { authStore, ledgerStore } from '@/lib/mocks';
+import { ledgerStore } from '@/lib/db';
+import { authStore } from '@/lib/mocks';
 import { formatBdPhone } from '@/lib/utils';
 import {
   Avatar,
@@ -144,7 +145,7 @@ export function SettingsScreen() {
         <ListRow divider title="Set up accounts again" subtitle="Start over with first-time setup" onPress={() => void startOver()} />
       </Card>
       <Text className="px-1 pt-2 text-xs text-muted-foreground">
-        Prototype: everything is kept in memory for now and resets when the app restarts.
+        Your data is saved on this phone and works offline. Backup and export are coming soon.
       </Text>
 
       <SectionHeader title="About" />

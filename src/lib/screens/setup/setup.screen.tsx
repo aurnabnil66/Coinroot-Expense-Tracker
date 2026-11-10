@@ -14,7 +14,7 @@ import { Pressable } from '@/lib/gluestack-ui/pressable';
 import { Text } from '@/lib/gluestack-ui/text';
 import { VStack } from '@/lib/gluestack-ui/vstack';
 import { useCategoryColors, useLedger } from '@/lib/hooks';
-import { ledgerStore } from '@/lib/mocks';
+import { ledgerStore } from '@/lib/db';
 import { LogInForm } from '@/lib/screens/auth/log-in.screen';
 import { SignUpForm } from '@/lib/screens/auth/sign-up.screen';
 import { ProfileForm } from '@/lib/screens/profile/profile-form.screen';

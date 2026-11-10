@@ -7,7 +7,7 @@ import { Text } from '@/lib/gluestack-ui/text';
 import { VStack } from '@/lib/gluestack-ui/vstack';
 import { LedgerPending } from '@/lib/components';
 import { useLedger } from '@/lib/hooks';
-import { ledgerStore } from '@/lib/mocks';
+import { ledgerStore } from '@/lib/db';
 import { type AccountFormInput, type AccountFormValues, accountFormDefaults, accountFormSchema } from '@/lib/schemas';
 import type { AccountType } from '@/lib/types';
 import { Button, DateField, FieldShell, ModalHeader, ScreenContainer, SegmentedControl, SwitchRow, TextField } from '@/lib/ui';

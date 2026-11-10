@@ -1,5 +1,6 @@
 export * from './client.database';
 export * from './id.database';
+export * from './ledger-store.database';
 export * from './mappers.database';
 export * from './schema.database';
 export * from './seed-rows.database';

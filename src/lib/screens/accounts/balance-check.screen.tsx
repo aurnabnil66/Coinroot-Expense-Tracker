@@ -10,7 +10,7 @@ import { HStack } from '@/lib/gluestack-ui/hstack';
 import { Text } from '@/lib/gluestack-ui/text';
 import { VStack } from '@/lib/gluestack-ui/vstack';
 import { useLedger } from '@/lib/hooks';
-import { ledgerStore } from '@/lib/mocks';
+import { ledgerStore } from '@/lib/db';
 import {
   type BalanceCheckFormInput,
   type BalanceCheckFormValues,

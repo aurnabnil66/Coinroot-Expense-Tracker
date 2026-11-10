@@ -7,7 +7,7 @@ import { HStack } from '@/lib/gluestack-ui/hstack';
 import { AddIcon, TrashIcon } from '@/lib/gluestack-ui/icon';
 import { Text } from '@/lib/gluestack-ui/text';
 import { useLedger } from '@/lib/hooks';
-import { ledgerStore } from '@/lib/mocks';
+import { ledgerStore } from '@/lib/db';
 import { AmountText, Button, Card, EmptyState, ListRow, ScreenContainer, SectionHeader, useDialog } from '@/lib/ui';
 import { childrenOf, deleteTransactionMessage, formatFullDate, nameLookup, remainingOf } from '@/lib/utils';
 

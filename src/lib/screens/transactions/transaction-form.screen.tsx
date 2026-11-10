@@ -17,7 +17,7 @@ import { TrashIcon } from '@/lib/gluestack-ui/icon';
 import { Text } from '@/lib/gluestack-ui/text';
 import { VStack } from '@/lib/gluestack-ui/vstack';
 import { useCategoryColors, useLedger, useSimpleMode } from '@/lib/hooks';
-import { ledgerStore, type LedgerSnapshot } from '@/lib/mocks';
+import { ledgerStore, type LedgerSnapshot } from '@/lib/db';
 import {
   type TransactionFormInput,
   type TransactionFormValues,
