@@ -13,11 +13,13 @@
 import { and, asc, eq, isNull, sql } from 'drizzle-orm';
 
 import { sampleAccounts, sampleCategories, sampleTransactions } from '@/lib/mocks';
+import type { Backup } from '@/lib/schemas';
 import { setupStateSetting } from '@/lib/storage';
 import type { Account, Category, Transaction } from '@/lib/types';
 
 import { db } from './client.database';
 import { newId } from './id.database';
+import { readBackup, restoreBackup } from './backup.database';
 import { accountToRow, categoryToRow, rowToAccount, rowToCategory, transactionToRow } from './mappers.database';
 import { accounts, categories, transactions } from './schema.database';
 import { clearLedgerData, seedSampleData } from './seed.database';
@@ -155,6 +157,23 @@ export const ledgerStore = {
     write(() => {
       clearLedgerData();
       setupStateSetting.set('none');
+    }),
+
+  /** Every live row as a backup (reads the whole database, so only for an explicit backup). */
+  async exportBackup(): Promise<Backup> {
+    await whenDatabaseReady();
+    return readBackup(db);
+  },
+
+  /**
+   * Replaces everything with a backup that `checkBackup` accepted. Finishes first-time setup
+   * when the backup has accounts (restoring onto a new phone).
+   */
+  restoreBackup: (backup: Backup) =>
+    write(() => {
+      const restored = restoreBackup(db, backup);
+      if (restored.accounts > 0) setupStateSetting.set('own');
+      return restored;
     }),
 
   addTransaction: (input: TransactionInput): Promise<Transaction> =>

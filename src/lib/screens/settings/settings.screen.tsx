@@ -1,15 +1,19 @@
 import Constants from 'expo-constants';
 import { router } from 'expo-router';
+import { ActivityIndicator } from 'react-native';
 
+import { useBackupActions } from '@/lib/components';
 import { CATEGORY_KIND_LABELS } from '@/lib/constants';
 import { Text } from '@/lib/gluestack-ui/text';
 import { VStack } from '@/lib/gluestack-ui/vstack';
+import { useGluestackColors } from '@/lib/gluestack-ui/gluestack-ui-provider';
 import { LogOutIcon, RepeatIcon } from '@/lib/gluestack-ui/icon';
 import {
   setSimpleMode,
   setThemePreference,
   type ThemePreference,
   useAuth,
+  useLastBackupAt,
   useLedger,
   useProfile,
   useSimpleMode,
@@ -17,7 +21,7 @@ import {
 } from '@/lib/hooks';
 import { ledgerStore } from '@/lib/db';
 import { authStore } from '@/lib/mocks';
-import { formatBdPhone } from '@/lib/utils';
+import { formatBdPhone, formatFullDate } from '@/lib/utils';
 import {
   Avatar,
   Card,
@@ -43,6 +47,9 @@ export function SettingsScreen() {
   const simpleMode = useSimpleMode();
   const profile = useProfile();
   const session = useAuth();
+  const backup = useBackupActions();
+  const lastBackupAt = useLastBackupAt();
+  const colors = useGluestackColors();
   const dialog = useDialog();
   const profileSubtitle = profile.nickname
     ? [profile.email, profile.phone ? formatBdPhone(profile.phone) : null].filter(Boolean).join(' · ') || 'Edit your profile'
@@ -140,12 +147,25 @@ export function SettingsScreen() {
 
       <SectionHeader title="Data" />
       <Card>
-        <ListRow title="Import from spreadsheet" trailing="Soon" />
-        <ListRow divider title="Backup & export" trailing="Soon" />
+        <ListRow
+          title="Back up to a file"
+          subtitle={lastBackupAt ? `Last backup ${formatFullDate(lastBackupAt.slice(0, 10))}` : 'Not backed up yet'}
+          trailing={backup.busy === 'backup' ? <ActivityIndicator color={colors.primary} /> : undefined}
+          onPress={() => void backup.backUp()}
+        />
+        <ListRow
+          divider
+          title="Restore from a backup"
+          subtitle="Replaces what's on this phone"
+          trailing={backup.busy === 'restore' ? <ActivityIndicator color={colors.primary} /> : undefined}
+          onPress={() => void backup.restore()}
+        />
+        <ListRow divider title="Import from spreadsheet" trailing="Soon" />
         <ListRow divider title="Set up accounts again" subtitle="Start over with first-time setup" onPress={() => void startOver()} />
       </Card>
       <Text className="px-1 pt-2 text-xs text-muted-foreground">
-        Your data is saved on this phone and works offline. Backup and export are coming soon.
+        Your data is saved on this phone and works offline. Back it up now and then, and keep the file somewhere safe
+        (Drive, email, your computer).
       </Text>
 
       <SectionHeader title="About" />

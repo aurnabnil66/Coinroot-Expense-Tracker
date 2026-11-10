@@ -3,10 +3,6 @@
  * and checks each one returns exactly what the tested JS function returns on the full list.
  */
 import { beforeAll, describe, expect, it } from '@jest/globals';
-import Database from 'better-sqlite3';
-import { drizzle } from 'drizzle-orm/better-sqlite3';
-import { readdirSync, readFileSync } from 'fs';
-import { join } from 'path';
 
 import { sampleAccounts, sampleCategories, sampleTransactions } from '@/lib/mocks/sample-data.mock';
 import type { Account, Transaction } from '@/lib/types';
@@ -48,9 +44,9 @@ import {
   type LedgerDatabase,
   remainingFrom,
 } from './queries.database';
-import * as schema from './schema.database';
 import { accounts, categories, transactions } from './schema.database';
 import { sampleRows } from './seed-rows.database';
+import { createTestDatabase } from './testing.database';
 
 let db: LedgerDatabase;
 let liveAccounts: Account[];
@@ -65,19 +61,8 @@ function random(seed: number) {
   };
 }
 
-function migrate(sqlite: Database.Database) {
-  const dir = join(__dirname, 'migrations');
-  for (const file of readdirSync(dir).filter((f) => f.endsWith('.sql')).sort()) {
-    for (const statement of readFileSync(join(dir, file), 'utf8').split('--> statement-breakpoint')) {
-      if (statement.trim()) sqlite.exec(statement);
-    }
-  }
-}
-
 beforeAll(() => {
-  const sqlite = new Database(':memory:');
-  migrate(sqlite);
-  db = drizzle(sqlite, { schema });
+  db = createTestDatabase();
 
   let n = 0;
   const id = () => `id-${String(++n).padStart(6, '0')}`;

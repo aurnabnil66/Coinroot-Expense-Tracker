@@ -1,3 +1,4 @@
+export * from './backup.database';
 export * from './client.database';
 export * from './id.database';
 export * from './ledger-store.database';
