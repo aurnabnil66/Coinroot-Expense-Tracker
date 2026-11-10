@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 
 import { db } from './client.database';
 import migrations from './migrations/migrations';
+import { seedDefaultCategories } from './seed.database';
 
 export type DatabaseStatus =
   | { status: 'preparing'; error: null }
@@ -12,12 +13,14 @@ export type DatabaseStatus =
 let preparing: Promise<void> | null = null;
 
 /**
- * Creates or updates the tables (the generated migrations). Runs once per app start however often it's called; await it before touching the
+ * Creates or updates the tables (the generated migrations), then adds the default categories
+ * once. Runs once per app start however often it's called; await it before touching the
  * database. After a failure the next call tries again.
  */
 export function whenDatabaseReady(): Promise<void> {
   preparing ??= (async () => {
     await migrate(db, migrations);
+    seedDefaultCategories();
   })().catch((e: unknown) => {
     preparing = null;
     throw e;

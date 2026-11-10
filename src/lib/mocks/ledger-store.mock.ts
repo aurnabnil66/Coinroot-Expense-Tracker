@@ -10,6 +10,7 @@
  * sample data" every launch reloads the samples. After the user's own setup, launches
  * skip setup but start with no accounts, since this mock keeps nothing (the DB will).
  */
+import { clearLedgerData, seedSampleData, whenDatabaseReady } from '@/lib/db';
 import { setupStateSetting } from '@/lib/storage';
 import type { Account, Category, Transaction } from '@/lib/types';
 
@@ -41,6 +42,10 @@ const LOAD_DELAY_MS = 700;
 const WRITE_DELAY_MS = 300;
 const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
+/**
+ * Step 2 of the database work: the sample rows and "start over" are already written to SQLite
+ * (once), while the screens still read this in-memory copy until step 3 switches them over.
+ */
 const sampleLedger = () => ({
   accounts: sampleAccounts,
   categories: sampleCategories,
@@ -75,8 +80,11 @@ export const ledgerStore = {
     commit({ status: 'loading', error: null });
     try {
       await delay(LOAD_DELAY_MS);
+      await whenDatabaseReady();
       const setup = setupStateSetting.get();
       if (setup === 'sample') {
+        // Fills the database for anyone who chose sample data before it existed; no-op otherwise.
+        seedSampleData(sampleLedger());
         commit({ status: 'ready', setupDone: true, ...sampleLedger() });
       } else {
         // Seed categories only; accounts come from setup (or, after setup, aren't kept by this mock).
@@ -94,6 +102,8 @@ export const ledgerStore = {
   /** Skips setup and fills the app with the invented sample accounts and history. */
   async loadSampleData() {
     await delay(WRITE_DELAY_MS);
+    await whenDatabaseReady();
+    seedSampleData(sampleLedger());
     setupStateSetting.set('sample');
     commit({ setupDone: true, ...sampleLedger() });
   },
@@ -112,6 +122,8 @@ export const ledgerStore = {
   /** Removes all accounts and transactions and goes back to first-time setup. */
   async resetSetup() {
     await delay(WRITE_DELAY_MS);
+    await whenDatabaseReady();
+    clearLedgerData();
     setupStateSetting.set('none');
     commit({ setupDone: false, accounts: [], categories: sampleCategories, transactions: [] });
   },

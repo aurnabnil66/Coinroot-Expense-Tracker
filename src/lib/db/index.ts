@@ -1,4 +1,7 @@
 export * from './client.database';
 export * from './id.database';
+export * from './mappers.database';
 export * from './schema.database';
+export * from './seed-rows.database';
+export * from './seed.database';
 export * from './setup.database';

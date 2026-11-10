@@ -5,7 +5,8 @@ import { useDatabaseSetup } from '@/lib/db';
 import { ErrorState, LoadingState } from '@/lib/ui';
 
 /**
- * Shows the app only once the database is ready: tables created or updated (migrations).
+ * Shows the app only once the database is ready: tables created or updated (migrations)
+ * and the default categories added on first launch.
  * Meanwhile a spinner; on failure an error with "Try again", which runs them again.
  */
 export function DatabaseGate({ children }: PropsWithChildren) {
