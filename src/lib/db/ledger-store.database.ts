@@ -14,13 +14,15 @@ import { and, asc, eq, isNull, sql } from 'drizzle-orm';
 
 import { sampleAccounts, sampleCategories, sampleTransactions } from '@/lib/mocks';
 import type { Backup } from '@/lib/schemas';
+import { type ImportPlan, transactionsToCsv } from '@/lib/spreadsheet';
 import { setupStateSetting } from '@/lib/storage';
 import type { Account, Category, Transaction } from '@/lib/types';
 
 import { db } from './client.database';
 import { newId } from './id.database';
 import { readBackup, restoreBackup } from './backup.database';
-import { accountToRow, categoryToRow, rowToAccount, rowToCategory, transactionToRow } from './mappers.database';
+import { saveImport } from './import.database';
+import { accountToRow, categoryToRow, rowToAccount, rowToCategory, rowToTransaction, transactionToRow } from './mappers.database';
 import { accounts, categories, transactions } from './schema.database';
 import { clearLedgerData, seedSampleData } from './seed.database';
 import { whenDatabaseReady } from './setup.database';
@@ -175,6 +177,16 @@ export const ledgerStore = {
       if (restored.accounts > 0) setupStateSetting.set('own');
       return restored;
     }),
+
+  /** Adds what a spreadsheet import planned (`buildImport`); everything already here stays. */
+  importSpreadsheet: (plan: ImportPlan) => write(() => saveImport(db, plan)),
+
+  /** Every live transaction as CSV text in the import's columns (reads them all, so only on request). */
+  async exportSpreadsheet(): Promise<string> {
+    await whenDatabaseReady();
+    const all = db.select().from(transactions).where(isNull(transactions.deletedAt)).all().map(rowToTransaction);
+    return transactionsToCsv(snapshot.accounts, readLists().categories, all);
+  },
 
   addTransaction: (input: TransactionInput): Promise<Transaction> =>
     write(() => {
