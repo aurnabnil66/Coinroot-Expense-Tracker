@@ -187,13 +187,18 @@ export function SettingsScreen() {
         />
         <ListRow
           divider
-          leading={<IconBadge icon={SpreadsheetIcon} tone="muted" />}
+          leading={<IconBadge icon={SpreadsheetIcon} tone="income" />}
           title="Import from spreadsheet"
-          trailing={
-            <Box className="rounded-full bg-muted px-2.5 py-0.5">
-              <Text className="text-xs font-medium text-muted-foreground">Soon</Text>
-            </Box>
-          }
+          subtitle="CSV, or a table copied from Excel or Word"
+          onPress={() => router.push('/import')}
+        />
+        <ListRow
+          divider
+          leading={<IconBadge icon={SpreadsheetIcon} tone="primary" />}
+          title="Export to spreadsheet"
+          subtitle="All transactions as a CSV file"
+          trailing={backup.busy === 'export' ? <ActivityIndicator color={colors.primary} /> : undefined}
+          onPress={() => void backup.exportCsv()}
         />
       </Card>
       <Text className="px-1 pt-2 text-xs text-muted-foreground">

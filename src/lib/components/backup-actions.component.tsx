@@ -3,19 +3,19 @@ import { useState } from 'react';
 import { countTransactions, db, ledgerStore } from '@/lib/db';
 import { DownloadIcon } from '@/lib/gluestack-ui/icon';
 import { checkBackup } from '@/lib/schemas';
-import { pickBackupFile, shareBackupFile } from '@/lib/storage';
+import { pickBackupFile, shareBackupFile, shareSpreadsheetFile } from '@/lib/storage';
 import { useDialog } from '@/lib/ui';
 import { formatFullDate } from '@/lib/utils';
 
 const plural = (count: number, one: string, many = `${one}s`) => `${count.toLocaleString('en-US')} ${count === 1 ? one : many}`;
 
 /**
- * Back up to a file (share sheet) and restore from one (pick → check → confirm → replace),
- * with the dialogs for each step. Used by Settings and the Welcome screen.
+ * Back up to a file (share sheet), restore from one (pick → check → confirm → replace) and
+ * export transactions as CSV, with the dialogs for each step. Used by Settings and the Welcome screen.
  */
 export function useBackupActions() {
   const dialog = useDialog();
-  const [busy, setBusy] = useState<'backup' | 'restore' | null>(null);
+  const [busy, setBusy] = useState<'backup' | 'restore' | 'export' | null>(null);
 
   const backUp = async () => {
     if (busy) return;
@@ -72,5 +72,22 @@ export function useBackupActions() {
     }
   };
 
-  return { backUp, restore, busy };
+  /** Every transaction as a CSV file (the import's columns) through the share sheet. */
+  const exportCsv = async () => {
+    if (busy) return;
+    setBusy('export');
+    try {
+      await shareSpreadsheetFile(await ledgerStore.exportSpreadsheet());
+    } catch {
+      await dialog.alert({
+        title: "Couldn't export",
+        message: 'Something went wrong while writing the file. Please try again.',
+        tone: 'danger',
+      });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return { backUp, restore, exportCsv, busy };
 }
