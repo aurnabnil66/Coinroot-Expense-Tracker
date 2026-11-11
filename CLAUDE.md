@@ -66,7 +66,7 @@ Accounts, categories and income sources are **user data in the database**, never
 ## Architecture: local-first
 
 - All data lives on the device in SQLite, the source of truth. The app must work fully offline; no feature may require a server.
-- Backup / restore: a JSON file of every live row, shared to any cloud storage or file app and restored from a picked file (done). CSV export comes with the spreadsheet import.
+- Backup / restore: a JSON file of every live row, shared to any cloud storage or file app and restored from a picked file (done). Spreadsheet import (CSV or a pasted table, any layout) and CSV export are done too.
 - Cloud backup / sync is a later, optional phase with Supabase (Auth + Postgres with RLS), mirroring the local tables. Signing in stays optional.
 
 ## Tech stack
@@ -84,6 +84,7 @@ Installed: Expo SDK 58, Expo Router (routes in `src/app/`), TypeScript (strict),
 | Font | `expo-font` config plugin embedding Poppins from `assets/fonts` |
 | Small local settings | `react-native-mmkv` v4 (+ `react-native-nitro-modules`), wrapped by `src/lib/storage`. Device-only, never synced. Native code: needs a dev-client build, not Expo Go. |
 | Profile photo | `expo-image-picker` (library only; camera and microphone permissions disabled in `app.json`) + `expo-file-system` + `expo-image` |
+| Spreadsheet import / export | `papaparse` (CSV and pasted tab-separated tables, separator detected; `toCsv` for the export) + `expo-document-picker` / `expo-sharing` |
 | Backup / restore | `expo-sharing` (share sheet for the backup file; its config plugin is in `app.json` with receiving shares off) + `expo-document-picker` (pick a file to restore) + `expo-file-system` |
 | Icons | gluestack `Icon` (lucide-style SVGs) in the UI; `expo-symbols` `SymbolView` for tab icons (SF Symbols on iOS, Material Symbols on Android/web) |
 
@@ -91,7 +92,6 @@ Planned (add with `bunx expo install` when the feature needs it, then move it to
 
 | Need | Library |
 |---|---|
-| CSV import | `expo-document-picker` + `papaparse` |
 | Dates | `date-fns` |
 | App lock | `expo-local-authentication` |
 | Small app state (only if needed) | Zustand. Prefer DB live queries as the source of truth. |
@@ -114,6 +114,7 @@ Expo Router treats **every** `.ts`/`.tsx` file under `src/app/` as a route (no n
 | `src/lib/constants/` | Static values (`ledger.constants.ts`: labels, account/category colours; `theme.constants.ts`: `BottomTabInset`, `MaxContentWidth`, `FontFamily`) |
 | `src/lib/schemas/` | Zod schemas, their inferred types and form defaults |
 | `src/lib/types/` | Domain types (`Account`, `Category`, `Transaction`), matching the data model above |
+| `src/lib/spreadsheet/` | Spreadsheet import / export, pure and tested (`*.spreadsheet.ts`, see **Spreadsheet import** below): `table` (`parseTable`, `unreadableFileReason`, `toCsv`), `values` (amount / date / type cells), `columns` (`guessHeaderRow`, `guessColumns`, `IMPORT_FIELDS`), `rows` (`readRows` → draft rows + row problems), `plan` (`neededNames`, `buildImport`, `findDuplicates`, `withoutDuplicates`), `export` (`transactionsToCsv`). No database or native imports. |
 | `src/lib/storage/` | Device-only settings in MMKV (`settings.storage.ts`: `createSetting`, `createEnumSetting`, `createBooleanSetting` with in-memory cache + listeners, safe when storage is unavailable). `setup.storage.ts` holds `setupStateSetting` (whether first-time setup is done). `profile.storage.ts` holds the profile (`nickname`, `photo` URI, `email`, `phone`; an old `name` is read as the nickname) and `saveProfile`, which copies a picked photo into `Paths.document/profile/` (expo-file-system) and deletes the old one. Hooks such as `useThemePreference` / `useSimpleMode` define their setting here and read it with `useSyncExternalStore`. Tests mock `react-native-mmkv`. |
 | `src/lib/utils/` | Pure logic with unit tests: `money.util.ts` (parse/format taka ↔ poisha), `date.util.ts` (`YYYY-MM-DD` day keys), `greeting.util.ts` (`greetingFor`, `initialsOf`), `phone.util.ts` (`normalizeBdPhone` → `+8801XXXXXXXXX`, `formatBdPhone`), `ledger.util.ts` (balances, remaining, monthly summary, daily/monthly spending, day grouping and paging) |
 | `src/lib/mocks/` | **Temporary** stand-ins: `authStore` (sign-up / log-in / log-out shaped like Supabase Auth: async, throws `AuthError` with a user-facing message; the session `{ userId, email }` persists in MMKV; accounts created this session are checked in memory, any other email and password work; passwords are never stored). `sample-data.mock.ts`: invented sample accounts and history (current month plus five earlier months; generic names, invented amounts) that "Explore with sample data" writes into the database once. |
@@ -129,6 +130,7 @@ New layers follow the same `src/lib/<layer>/*.<suffix>.ts(x)` shape with their o
 - `setup.database.ts`: `whenDatabaseReady()` runs the migrations, then `seedDefaultCategories()`, once per app start (a shared promise; retried after a failure). Anything touching the database awaits it; `useDatabaseSetup()` (→ `preparing` / `ready` / `error`) drives `DatabaseGate`.
 - `ledger-store.database.ts`: `ledgerStore` (`subscribe` / `getSnapshot` for `useLedger`, `load`, and every write: `addTransaction`, `updateTransaction`, `deleteTransaction`, `addAccount`, `updateAccount`, `addCategory`, `updateCategory`, `completeSetup`, `loadSampleData`, `resetSetup`), plus `LedgerSnapshot` / `LedgerStatus` and the `*Input` types. The snapshot holds only accounts, categories, `setupDone` and a `version` that goes up after every load and write.
 - `queries.database.ts`: the read queries screens use, each returning only what one screen shows and each matching a tested function in `ledger.util.ts` run on the full list: `getRecentDays` (list pages = `takeDays(groupByDay(all))`), `getTransactionsBetween` (month / range, optionally one account), `getAccountBalances` (SQL sums), `getMonthlySpending`, `getAccountTransactions` (history pages), `getRecentTransactions` (Quick add's last 100), `getPartyNames`, `getLinkableParents` (newest 30, always keeping the current link), `getTransaction`, `getChildren`, `getChildTotals` + `remainingFrom`, `countChildren`, `countTransactions`. They take the database as a parameter (`LedgerDatabase`, any sync Drizzle SQLite db). Order is always `compareNewestFirst` (date, created_at, id).
+- `import.database.ts`: `saveImport(db, plan)` adds a spreadsheet import's new accounts (after the existing ones), categories and transactions in one transaction; nothing existing changes. `ledgerStore.importSpreadsheet(plan)` wraps it; `ledgerStore.exportSpreadsheet()` returns every live transaction as CSV text.
 - `backup.database.ts`: `readBackup(db)` (every live row, oldest first, as a `Backup`) and `restoreBackup(db, backup)`: in one transaction, marks every current row deleted, then upserts each backup row by id (so restoring your own backup brings the same rows back) with a fresh `updated_at`. `ledgerStore.exportBackup()` / `ledgerStore.restoreBackup()` wrap them (restore finishes setup when the backup has accounts).
 - `seed.database.ts`: `seedDefaultCategories()` (only while the table has never had a row, so removed categories never come back), `seedSampleData(sample)` (once: skipped while live accounts exist), `clearLedgerData()` (soft-deletes accounts and transactions for "Set up accounts again"; categories stay), `ledgerCounts()`. Sync drizzle API (`.all()`, `.run()`, `db.transaction((tx) => …)`).
 - `seed-rows.database.ts` (pure, tested): `defaultCategoryRows` from `DEFAULT_CATEGORIES` (`src/lib/constants`), and `sampleRows`, which gives sample rows new UUIDs, rewrites from / to / parent links and reuses existing categories by kind + name. `mappers.database.ts` (tested): `rowToAccount` / `accountToRow` (savings details ↔ flat columns), `rowToCategory`, `rowToTransaction` and back.
@@ -139,7 +141,7 @@ New layers follow the same `src/lib/<layer>/*.<suffix>.ts(x)` shape with their o
 
 ## File naming
 
-- All filenames are kebab-case, with a suffix naming their layer: `*.screen.tsx`, `*.component.tsx`, `*.ui.tsx`, `*.hook.ts`, `*.constants.ts`, `*.schema.ts`, `*.types.ts`, `*.util.ts`, `*.mock.ts`, `*.database.ts`.
+- All filenames are kebab-case, with a suffix naming their layer: `*.screen.tsx`, `*.component.tsx`, `*.ui.tsx`, `*.hook.ts`, `*.constants.ts`, `*.schema.ts`, `*.types.ts`, `*.util.ts`, `*.mock.ts`, `*.database.ts`, `*.spreadsheet.ts`.
 - Unit tests sit next to the file as `*.test.ts` (not in barrels) and import `describe`/`it`/`expect` from `@jest/globals` (TypeScript 6 doesn't load `@types/jest` globals).
 - Platform variants keep the suffix before the platform extension: `use-color-scheme.hook.web.ts`.
 - Exceptions: `index.ts` barrels, `_layout.tsx` and route files in `src/app/`, and everything in `src/lib/gluestack-ui/` (the CLI's own `index.tsx` per component; don't rename).
@@ -165,7 +167,7 @@ New layers follow the same `src/lib/<layer>/*.<suffix>.ts(x)` shape with their o
 - Current routes:
   - Tabs: `(tabs)/index` (Transactions), `(tabs)/accounts`, `(tabs)/summary`, `(tabs)/settings`.
   - Pushed with the native header: `transaction/[id]`, `account/[id]`, `categories?kind=`. Screens set their title / Edit button with `<Stack.Screen options>`.
-  - Modals (own `ModalHeader`): `transaction-form?id=|parentId=|type=&fromId=&toId=` (the last is a quick-add preset), `account-form?id=|name=`, `category-form?id=|kind=`, `balance-check?accountId=`, `profile-form` (create / edit profile), `log-in`, `sign-up`.
+  - Modals (own `ModalHeader`): `transaction-form?id=|parentId=|type=&fromId=&toId=` (the last is a quick-add preset), `account-form?id=|name=`, `category-form?id=|kind=`, `balance-check?accountId=`, `import` (spreadsheet import), `profile-form` (create / edit profile), `log-in`, `sign-up`.
   - `setup`: first-time setup. The root `Stack` wraps the app in `<Stack.Protected guard={setupDone}>` and `setup` in `guard={!setupDone}`, so finishing (or resetting) setup switches screens automatically.
 - The root `src/app/_layout.tsx` imports `@/global.css` and owns `GluestackUIProvider` (outermost, `mode={themePreference}`), the react-navigation `ThemeProvider` (gluestack colours + Poppins fonts), the `StatusBar`, `DialogProvider` and the root `Stack`, wrapped in `DatabaseGate` (`src/lib/components`), which prepares the database first (migrations + default categories): spinner → error with Try again → app.
 
@@ -207,18 +209,23 @@ React Hook Form + Zod via `zodResolver` from `@hookform/resolvers/zod`.
 
 ## Spreadsheet import (CSV)
 
-The user tracked money in a spreadsheet before this app. Importing it must be supported. CSV columns (exported from the Transactions sheet):
+The user tracked money in a spreadsheet before this app, and other users keep theirs in other layouts, so the import (`import` route, `src/lib/screens/settings/import.screen.tsx`, logic in `src/lib/spreadsheet/`) reads **any layout**:
 
 ```
-ID, Date, Type, From, To/Category, Amount, Note, Linked to, Left from this (auto)
+Coinroot's own sheet:  ID, Date, Type, From, To/Category, Amount, Note, Linked to, Left from this (auto)
+A diary:               Date, Category, Account, Amount (minus = money out), Details
+A bank statement:      (title rows) Txn Date, Description, Debit, Credit, Balance
 ```
 
-- `Date` is `YYYY-MM-DD`; `Type` is `Income` / `Expense` / `Transfer`; `Amount` is taka (may have decimals) → convert to poisha.
-- `ID` is like `T1`, `T2`; `Linked to` references another row's ID → map to `parent_id`.
-- `From` / `To/Category` are names → match to accounts / categories, offer to create unknown ones.
-- Ignore `Left from this (auto)` (computed).
-- Opening balances come from the sheet's separate Accounts sheet (Account, Opening balance, As of date). Allow entering them manually during import.
-- Validate every row before importing anything, and show row-level errors ("Row 14: unknown category").
+- **Sources:** a picked CSV file, or **Paste a table**: rows copied from Excel, Google Sheets, Word, a PDF or notes arrive as tab-separated text. `.xlsx` / `.docx` / `.pdf` and other binary files aren't parsed; `unreadableFileReason` explains what to do (save as CSV, or copy the table and paste it). Separators (comma, semicolon, tab, `|`), quotes, a BOM and Bengali digits are handled.
+- **Steps:** source → **columns** (which row holds the column names, title rows above it skipped; each field picked from the columns, guessed from header names in English and Bengali, or from values when there are no names; computed columns like "Left from this (auto)" or "Balance" ignored; plus date order, an account for rows without one, and the type for rows with nothing saying so; live preview with row problems) → **names** (every account / category / income source name matched to the user's ignoring case; unknown ones are created, with a guessed account type and an opening balance before their first row, or mapped to an existing one) → **review** (counts, date range, rows already in the app skipped, rows with problems listed and left out) → one database transaction.
+- **Values:** amounts like `1,20,000`, `৳500`, `Tk 50.5`, `-75`, `75-`, `(200)` → poisha (more than 2 decimals is a problem); dates `YYYY-MM-DD`, `DD/MM/YYYY` or `MM/DD/YYYY` (guessed from the column: a first number over 12 means day first; day first when unclear, with a hint), month names (`5 Nov 2026`, `05-Nov-26`), times dropped, Excel day numbers; types as words (`Expense`, `dr`, `Paid`, `Credit`, `Transfer`, `খরচ`, `আয়`).
+- **Type when the sheet doesn't say:** money out / minus → expense, money in / plus (when the column has minus signs) → income, otherwise the chosen default; a category (or From / To) that is one of the accounts makes a transfer (e.g. an ATM withdrawal filed under "Cash"). Rows without a category go to "Other" / "Other Income". "Received from" on a non-income row is kept in the note.
+- **Row problems** name the sheet row ("Row 14: date "31/02/2024" isn't a date"): bad or future dates, bad / zero / two-sided amounts, unknown types, missing accounts, transfers to the same account, repeated IDs, links to a missing row or to an expense. "Total" rows are left out. Every row is checked before anything is saved; rows with problems are left out only after the user sees them on the button ("Import 120 rows, leave out 3").
+- **Linked to:** a `Row ID` column + `Linked to` column map to `parent_id`.
+- **Duplicates:** an entry with the same date, type, from, to and amount as one already recorded is skipped by default (each recorded entry matches once), so importing the same or an overlapping sheet again is safe; links to a skipped row point at the recorded one.
+- **Export:** Settings → Export to spreadsheet writes `coinroot-transactions-YYYY-MM-DD.csv` (UTF-8 with BOM for Excel) in Coinroot's columns (`ID, Date, Type, From, To/Category, Amount, Note, Received from, Linked to`; plain taka numbers) and opens the share sheet. An exported file imports back to the same entries (tested).
+- Opening balances of existing accounts aren't changed by an import; new accounts get theirs in the names step.
 
 ## Roadmap
 
@@ -238,7 +245,7 @@ Done in phase 1:
 4. ~~Paged queries~~ (done: screens read only what they show via `queries.database.ts`; measured with 51k transactions)
 
 Later:
-1. CSV import from the spreadsheet
+1. ~~CSV import from the spreadsheet~~ (done: Settings → Backup & data → Import from spreadsheet; any layout, CSV or pasted table, plus CSV export)
 2. ~~Backup / restore (JSON)~~ (done: Settings → Backup & data and Welcome → "Restore a backup")
 3. Money-tree view
 4. More charts, per-category budgets, recurring transactions, DPS details and reminders
@@ -266,7 +273,7 @@ Known small design items (deferred): content scrolls under the status bar on lon
   - `await dialog.alert({ title, message, tone: 'info' })` shows information with an OK button.
   - `dialog.show({ title, message, tone, icon, actions: [{ label, value, variant, onPress }] })` takes any buttons and resolves to the pressed `value` (or `null` if dismissed).
   - Tones: `default` (question), `info`, `success`, `warning`, `danger`. `message` can be any React node. `dismissible: false` blocks the back button and tapping outside. Dialogs queue, so only one shows at a time. The declarative `<Dialog open onClose>` is there for rare cases.
-- **Settings layout:** a simple profile card (avatar, nickname, email / phone, an outline "Edit profile" button; plus a "Log in or create account" row when signed out), then Preferences (Theme pills, Simple mode), Categories, Backup & data, then a red card with "Set up accounts again" and Log out, and the version as a small footer. Every row has an `IconBadge`; rows that remove data or sign out are `tone="danger"` (no chevron) and confirm first. Info-only rows (no `onPress`) aren't dimmed. Switches are purple on both platforms (`SwitchRow` sets track and thumb colours; Android's default thumb is green).
+- **Settings layout:** a simple profile card (avatar, nickname, email / phone, an outline "Edit profile" button; plus a "Log in or create account" row when signed out), then Preferences (Theme pills, Simple mode), Categories, Backup & data (back up, restore, import from / export to spreadsheet), then a red card with "Set up accounts again" and Log out, and the version as a small footer. Every row has an `IconBadge`; rows that remove data or sign out are `tone="danger"` (no chevron) and confirm first. Info-only rows (no `onPress`) aren't dimmed. Switches are purple on both platforms (`SwitchRow` sets track and thumb colours; Android's default thumb is green).
 - **Profile and greeting:** the Transactions tab header (`GreetingHeader`) says "Good Morning / Afternoon / Evening, Nickname" (5–12 / 12–17 / otherwise, rechecked every minute; just the greeting without a name) in `text-2xl`, with the month in small purple text below, and the avatar opens `profile-form`. The avatar shows the photo, else initials, else a person icon. Settings starts with the profile card and its "Edit profile" button. The profile is device-only (MMKV) for now; with Supabase it becomes a `profiles` row and the photo goes to Storage. "Set up accounts again" keeps it.
 - **Accounts are optional.** `useAuth()` returns the session or `null`. The app works fully without one; an account is for backup and sync later. Signed out, the Settings profile card has a "Log in or create account" row (opens `log-in`, which links to `sign-up`); signed in, the card shows the account email and Log out is the red row at the bottom (confirm dialog; local data stays). When Supabase lands, `authStore` becomes `supabase.auth` (`signUp`, `signInWithPassword`, `signOut`, `resetPasswordForEmail` for "Forgot password?", which is an info dialog for now).
 - **Profile validation** (`profile.schema.ts`, `auth.schema.ts`): nickname is required, one word, 2–15 characters, starting with a letter (any script); email is optional in the profile and required for an account; phone is optional, an 11-digit Bangladeshi mobile number (013–019), stored as `+8801XXXXXXXXX`; a new password needs 8+ characters with a letter and a number (log in only checks it's filled in). With an account the profile email is the sign-in email and read-only.
