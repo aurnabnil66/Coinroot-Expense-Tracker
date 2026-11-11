@@ -1,13 +1,13 @@
 import { router } from 'expo-router';
-import { useMemo } from 'react';
 
 import { LedgerPending } from '@/lib/components';
 import { ACCOUNT_TYPE_COLORS, ACCOUNT_TYPE_SECTIONS } from '@/lib/constants';
+import { getAccountBalances } from '@/lib/db';
 import { AddIcon } from '@/lib/gluestack-ui/icon';
 import { HStack } from '@/lib/gluestack-ui/hstack';
 import { Text } from '@/lib/gluestack-ui/text';
 import { VStack } from '@/lib/gluestack-ui/vstack';
-import { useCategoryColors, useLedger } from '@/lib/hooks';
+import { useCategoryColors, useLedger, useLedgerQuery } from '@/lib/hooks';
 import type { Account } from '@/lib/types';
 import {
   AmountText,
@@ -24,11 +24,13 @@ import {
   Skeleton,
   SkeletonCard,
 } from '@/lib/ui';
-import { accountBalances, formatFullDate } from '@/lib/utils';
+import { formatFullDate } from '@/lib/utils';
+
+const NO_BALANCES: ReadonlyMap<string, number> = new Map();
 
 export function AccountsScreen() {
-  const { status, error, accounts, transactions } = useLedger();
-  const balances = useMemo(() => accountBalances(accounts, transactions), [accounts, transactions]);
+  const { status, error, accounts } = useLedger();
+  const balances = useLedgerQuery(getAccountBalances, []) ?? NO_BALANCES;
   const palette = useCategoryColors();
 
   const active = accounts.filter((a) => !a.archived).sort((a, b) => a.sortOrder - b.sortOrder);

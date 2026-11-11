@@ -5,6 +5,7 @@
  * Earlier months get a generated history (before the accounts' opening date, so balances are
  * unaffected) to fill the 6-month chart and the paged transaction list.
  */
+import { DEFAULT_CATEGORIES } from '@/lib/constants';
 import type { Account, Category, Transaction } from '@/lib/types';
 import { addDays, addMonths, daysInMonth, todayKey, toMonthKey } from '@/lib/utils';
 
@@ -33,25 +34,17 @@ export const sampleAccounts: Account[] = [
   },
 ];
 
-const expenseNames = [
-  'Food', 'Groceries', 'Transport', 'Rent', 'Bills', 'Mobile & Internet', 'Shopping', 'Fitness',
-  'Bank Charges', 'Health', 'Education', 'Family', 'Entertainment', 'Gifts', 'Other',
-];
-const incomeNames = [
-  'Salary', 'Bonus', 'Office Payment', 'Client Payment', 'Interest/Profit', 'Freelance', 'Gift Received', 'Other Income',
-];
-const swatches = ['orange', 'lime', 'sky', 'violet', 'amber', 'cyan', 'pink', 'emerald', 'slate', 'red', 'indigo', 'rose', 'fuchsia', 'teal', 'zinc'];
-
 const slug = (name: string) => name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
 
-export const sampleCategories: Category[] = [
-  ...expenseNames.map((name, i): Category => ({
-    id: `cat-${slug(name)}`, name, kind: 'expense', icon: null, color: swatches[i % swatches.length], archived: false,
-  })),
-  ...incomeNames.map((name): Category => ({
-    id: `src-${slug(name)}`, name, kind: 'income_source', icon: null, color: 'emerald', archived: false,
-  })),
-];
+/** The default categories with readable ids (`cat-food`, `src-salary`) the sample entries use. */
+export const sampleCategories: Category[] = DEFAULT_CATEGORIES.map(({ name, kind, color }) => ({
+  id: `${kind === 'expense' ? 'cat' : 'src'}-${slug(name)}`,
+  name,
+  kind,
+  icon: null,
+  color,
+  archived: false,
+}));
 
 let seq = 0;
 const entry = (

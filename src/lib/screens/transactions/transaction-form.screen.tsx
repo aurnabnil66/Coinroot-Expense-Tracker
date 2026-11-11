@@ -13,11 +13,22 @@ import {
   TRANSACTION_TYPE_LABELS,
   TRANSFER_FEE_CATEGORY,
 } from '@/lib/constants';
+import {
+  countChildren,
+  db,
+  getAccountBalances,
+  getChildTotals,
+  getLinkableParents,
+  getPartyNames,
+  getTransaction,
+  ledgerStore,
+  type LedgerSnapshot,
+  remainingFrom,
+} from '@/lib/db';
 import { TrashIcon } from '@/lib/gluestack-ui/icon';
 import { Text } from '@/lib/gluestack-ui/text';
 import { VStack } from '@/lib/gluestack-ui/vstack';
-import { useCategoryColors, useLedger, useSimpleMode } from '@/lib/hooks';
-import { ledgerStore, type LedgerSnapshot } from '@/lib/mocks';
+import { useCategoryColors, useLedger, useLedgerQuery, useSimpleMode } from '@/lib/hooks';
 import {
   type TransactionFormInput,
   type TransactionFormValues,
@@ -39,17 +50,12 @@ import {
   useDialog,
 } from '@/lib/ui';
 import {
-  accountBalances,
-  childrenOf,
   deleteTransactionMessage,
   findCategoryByName,
   formatDayLabel,
   formatTaka,
   formatTakaInput,
-  linkableParents,
   nameLookup,
-  partySuggestions,
-  remainingOf,
 } from '@/lib/utils';
 
 const TYPE_OPTIONS = TRANSACTION_TYPES.map((value) => ({ value, label: TRANSACTION_TYPE_LABELS[value] }));
@@ -59,6 +65,9 @@ const SIGN_TONE: Record<TransactionType, string> = {
   income: 'text-income',
   transfer: 'text-transfer',
 };
+
+const NO_NAMES: string[] = [];
+const NO_BALANCES: ReadonlyMap<string, number> = new Map();
 
 type Side = 'from' | 'to';
 /** Which list each picker draws from, per transaction type. */
@@ -83,7 +92,7 @@ function initialValues(ledger: LedgerSnapshot, params: FormParams): TransactionF
     // Transfer charges default to the user's "Bank Charges" category, if they have one.
     feeCategoryId: findCategoryByName(ledger.categories, 'expense', TRANSFER_FEE_CATEGORY)?.id ?? null,
   };
-  const existing = params.id ? ledger.transactions.find((tx) => tx.id === params.id) : undefined;
+  const existing = params.id ? getTransaction(db, params.id) : null;
   if (existing) {
     return {
       ...defaults,
@@ -97,7 +106,7 @@ function initialValues(ledger: LedgerSnapshot, params: FormParams): TransactionF
       party: existing.party ?? '',
     };
   }
-  const parent = params.parentId ? ledger.transactions.find((tx) => tx.id === params.parentId) : undefined;
+  const parent = params.parentId ? getTransaction(db, params.parentId) : null;
   if (parent) {
     // Spending money that came from `parent`: it leaves the account the parent paid into.
     return { ...defaults, date: parent.date, fromId: parent.toId, parentId: parent.id };
@@ -128,9 +137,11 @@ function TransactionForm() {
   const ledger = useLedger();
   const simpleMode = useSimpleMode();
   const palette = useCategoryColors();
-  const { accounts, categories, transactions } = ledger;
+  const { accounts, categories } = ledger;
   const isEdit = Boolean(id);
 
+  // Read once: the entry being edited or the one it's linked to.
+  const [startValues] = useState(() => initialValues(ledger, params));
   const {
     control,
     handleSubmit,
@@ -139,7 +150,7 @@ function TransactionForm() {
     formState: { errors, isSubmitting },
   } = useForm<TransactionFormInput, unknown, TransactionFormValues>({
     resolver: zodResolver(transactionFormSchema),
-    defaultValues: initialValues(ledger, params),
+    defaultValues: startValues,
     mode: 'onTouched',
   });
   const [creatingCategory, setCreatingCategory] = useState(false);
@@ -147,8 +158,18 @@ function TransactionForm() {
   const [type, fromId, toId, linkedId, fee] = useWatch({ control, name: ['type', 'fromId', 'toId', 'parentId', 'fee'] });
 
   const nameOf = useMemo(() => nameLookup(accounts, categories), [accounts, categories]);
-  const parties = useMemo(() => partySuggestions(transactions), [transactions]);
-  const balances = useMemo(() => accountBalances(accounts, transactions), [accounts, transactions]);
+  const parties = useLedgerQuery(getPartyNames, []) ?? NO_NAMES;
+  const balances = useLedgerQuery(getAccountBalances, []) ?? NO_BALANCES;
+  // "Linked to": recent money into the account this entry spends from (Design B: ATM → Cash →
+  // expenses), plus the current link, and how much is left of each.
+  const linkable = useLedgerQuery(
+    (database) => {
+      if (type === 'income' || !fromId) return null;
+      const parents = getLinkableParents(database, fromId, { excludeId: id, keepId: linkedId });
+      return { parents, used: getChildTotals(database, parents.map((tx) => tx.id)) };
+    },
+    [type, fromId, id, linkedId]
+  );
 
   const optionsFor = (side: Side): SelectOption[] => {
     const source = SOURCES[type][side];
@@ -199,16 +220,12 @@ function TransactionForm() {
     }
   };
 
-  // "Linked to": money that went into the account this entry spends from (Design B: ATM → Cash → expenses).
-  const parentOptions: SelectOption[] =
-    type === 'income' || !fromId
-      ? []
-      : linkableParents(fromId, transactions, id).map((tx) => ({
-          value: tx.id,
-          label: transactionTitle(tx, nameOf),
-          description: [formatDayLabel(tx.date), formatTaka(tx.amount), tx.note].filter(Boolean).join(' · '),
-          trailing: `${formatTaka(remainingOf(tx, transactions))} left`,
-        }));
+  const parentOptions: SelectOption[] = (linkable?.parents ?? []).map((tx) => ({
+    value: tx.id,
+    label: transactionTitle(tx, nameOf),
+    description: [formatDayLabel(tx.date), formatTaka(tx.amount), tx.note].filter(Boolean).join(' · '),
+    trailing: `${formatTaka(remainingFrom(tx, linkable?.used ?? NO_BALANCES))} left`,
+  }));
 
   const changeType = (next: TransactionType) => {
     if (next === type) return;
@@ -250,7 +267,7 @@ function TransactionForm() {
     if (!id) return;
     const deleted = await dialog.confirm({
       title: 'Delete transaction?',
-      message: deleteTransactionMessage(childrenOf(id, transactions).length),
+      message: deleteTransactionMessage(countChildren(db, id)),
       tone: 'danger',
       icon: TrashIcon,
       confirmLabel: 'Delete',

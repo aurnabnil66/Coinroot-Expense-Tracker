@@ -8,7 +8,8 @@ import { BottomTabInset, MaxContentWidth } from '@/lib/constants';
 import { Box } from '@/lib/gluestack-ui/box';
 import { HStack } from '@/lib/gluestack-ui/hstack';
 import { Text } from '@/lib/gluestack-ui/text';
-import { useLedger, useSimpleMode } from '@/lib/hooks';
+import { countTransactions, getChildTotals, getRecentDays, getRecentTransactions, getTransactionsBetween, remainingFrom } from '@/lib/db';
+import { useLedger, useLedgerQuery, useSimpleMode } from '@/lib/hooks';
 import {
   AmountText,
   Button,
@@ -21,36 +22,38 @@ import {
   Skeleton,
   SkeletonCard,
 } from '@/lib/ui';
-import {
-  formatDayLabel,
-  formatTaka,
-  groupByDay,
-  monthlySummary,
-  nameLookup,
-  remainingOf,
-  takeDays,
-  todayKey,
-  toMonthKey,
-} from '@/lib/utils';
+import { daysInMonth, formatDayLabel, formatTaka, monthlySummary, nameLookup, todayKey, toMonthKey } from '@/lib/utils';
 
 /** Transactions shown per page; "Load more" adds another page (always whole days). */
 const PAGE_SIZE = 30;
 
 export function TransactionsScreen() {
   const insets = useSafeAreaInsets();
-  const { status, error, accounts, categories, transactions } = useLedger();
+  const { status, error, accounts, categories } = useLedger();
   const simpleMode = useSimpleMode();
   const nameOf = useMemo(() => nameLookup(accounts, categories), [accounts, categories]);
-  const allSections = useMemo(() => groupByDay(transactions), [transactions]);
   const [limit, setLimit] = useState(PAGE_SIZE);
-  const sections = useMemo(() => takeDays(allSections, limit), [allSections, limit]);
+  // Only the newest whole days holding `limit` entries are read; "Load more" raises the limit.
+  const page = useLedgerQuery(
+    (database) => {
+      const recent = getRecentDays(database, limit);
+      const ids = recent.days.flatMap((day) => day.data.map((tx) => tx.id));
+      return { ...recent, used: getChildTotals(database, ids), total: countTransactions(database) };
+    },
+    [limit]
+  );
+  const sections = page?.days ?? [];
   const shown = sections.reduce((count, section) => count + section.data.length, 0);
-  const hasMore = sections.length < allSections.length;
   // Rendering the next page runs as a transition, so the button can show a spinner meanwhile.
   const [loadingMore, startLoadingMore] = useTransition();
-  const parentIds = useMemo(() => new Set(transactions.map((tx) => tx.parentId)), [transactions]);
   const month = toMonthKey(todayKey());
-  const summary = useMemo(() => monthlySummary(month, transactions, accounts), [month, transactions, accounts]);
+  const monthRows = useLedgerQuery(
+    (database) => getTransactionsBetween(database, `${month}-01`, `${month}-${daysInMonth(month)}`),
+    [month]
+  );
+  const summary = useMemo(() => monthlySummary(month, monthRows ?? [], accounts), [month, monthRows, accounts]);
+  // Quick add looks at the newest 100 entries.
+  const recent = useLedgerQuery((database) => (simpleMode ? getRecentTransactions(database, 100) : []), [simpleMode]);
 
   if (status !== 'ready') {
     return (
@@ -99,7 +102,7 @@ export function TransactionsScreen() {
         sections={sections}
         keyExtractor={(tx) => tx.id}
         ListHeaderComponent={
-          simpleMode ? <QuickAdd accounts={accounts} categories={categories} transactions={transactions} /> : undefined
+          simpleMode ? <QuickAdd accounts={accounts} categories={categories} transactions={recent ?? []} /> : undefined
         }
         stickySectionHeadersEnabled={false}
         contentContainerStyle={{
@@ -128,14 +131,14 @@ export function TransactionsScreen() {
                 transaction={item}
                 nameOf={nameOf}
                 divider={!first}
-                remaining={parentIds.has(item.id) ? remainingOf(item, transactions) : undefined}
+                remaining={page?.used.has(item.id) ? remainingFrom(item, page.used) : undefined}
                 onPress={() => router.push({ pathname: '/transaction/[id]', params: { id: item.id } })}
               />
             </Box>
           );
         }}
         ListFooterComponent={
-          hasMore ? (
+          page?.hasMore ? (
             <Box className="items-center gap-2 pt-6">
               <Button
                 label="Load more"
@@ -146,7 +149,7 @@ export function TransactionsScreen() {
                 onPress={() => startLoadingMore(() => setLimit((current) => current + PAGE_SIZE))}
               />
               <Text className="text-xs text-muted-foreground">
-                Showing {shown} of {transactions.length}
+                Showing {shown} of {page?.total ?? shown}
               </Text>
             </Box>
           ) : undefined

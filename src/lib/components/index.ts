@@ -1,3 +1,5 @@
+export * from './backup-actions.component';
+export * from './database-gate.component';
 export * from './greeting-header.component';
 export * from './ledger-pending.component';
 export * from './quick-add.component';

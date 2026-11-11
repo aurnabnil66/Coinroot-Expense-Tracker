@@ -101,3 +101,33 @@ export const CATEGORY_COLORS_DARK: Record<string, string> = {
 };
 
 export const DEFAULT_CATEGORY_COLOR = 'zinc';
+
+/**
+ * Categories and income sources added on first launch (they're user data afterwards:
+ * renamed, archived or added to in Settings). `color` is a key of `CATEGORY_COLORS`.
+ */
+export const DEFAULT_CATEGORIES: readonly { name: string; kind: CategoryKind; color: string }[] = [
+  { name: 'Food', kind: 'expense', color: 'orange' },
+  { name: 'Groceries', kind: 'expense', color: 'lime' },
+  { name: 'Transport', kind: 'expense', color: 'sky' },
+  { name: 'Rent', kind: 'expense', color: 'violet' },
+  { name: 'Bills', kind: 'expense', color: 'amber' },
+  { name: 'Mobile & Internet', kind: 'expense', color: 'cyan' },
+  { name: 'Shopping', kind: 'expense', color: 'pink' },
+  { name: 'Fitness', kind: 'expense', color: 'emerald' },
+  { name: 'Bank Charges', kind: 'expense', color: 'slate' },
+  { name: 'Health', kind: 'expense', color: 'red' },
+  { name: 'Education', kind: 'expense', color: 'indigo' },
+  { name: 'Family', kind: 'expense', color: 'rose' },
+  { name: 'Entertainment', kind: 'expense', color: 'fuchsia' },
+  { name: 'Gifts', kind: 'expense', color: 'teal' },
+  { name: 'Other', kind: 'expense', color: 'zinc' },
+  { name: 'Salary', kind: 'income_source', color: 'emerald' },
+  { name: 'Bonus', kind: 'income_source', color: 'emerald' },
+  { name: 'Office Payment', kind: 'income_source', color: 'emerald' },
+  { name: 'Client Payment', kind: 'income_source', color: 'emerald' },
+  { name: 'Interest/Profit', kind: 'income_source', color: 'emerald' },
+  { name: 'Freelance', kind: 'income_source', color: 'emerald' },
+  { name: 'Gift Received', kind: 'income_source', color: 'emerald' },
+  { name: 'Other Income', kind: 'income_source', color: 'emerald' },
+];

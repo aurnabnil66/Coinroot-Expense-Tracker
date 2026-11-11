@@ -11,7 +11,7 @@ import { Pressable } from '@/lib/gluestack-ui/pressable';
 import { Text } from '@/lib/gluestack-ui/text';
 import { VStack } from '@/lib/gluestack-ui/vstack';
 import { useCategoryColors, useLedger } from '@/lib/hooks';
-import { ledgerStore } from '@/lib/mocks';
+import { ledgerStore } from '@/lib/db';
 import { type CategoryFormInput, type CategoryFormValues, categoryFormDefaults, categoryFormSchema } from '@/lib/schemas';
 import { Button, FieldShell, ModalHeader, ScreenContainer, SwitchRow, TextField } from '@/lib/ui';
 

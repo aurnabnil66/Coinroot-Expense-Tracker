@@ -1,11 +1,12 @@
 import { type ComponentProps, useState } from 'react';
-import { ScrollView, type TextInputProps } from 'react-native';
+import { Pressable as RNPressable, ScrollView, type TextInputInstance, type TextInputProps } from 'react-native';
 
 import { useGluestackColors } from '@/lib/gluestack-ui/gluestack-ui-provider';
 import { EyeIcon, EyeOffIcon, Icon, SearchIcon } from '@/lib/gluestack-ui/icon';
 import { Input, InputField, InputSlot } from '@/lib/gluestack-ui/input';
 import { Pressable } from '@/lib/gluestack-ui/pressable';
 import { Text } from '@/lib/gluestack-ui/text';
+import { focusInput, useAutoFocus } from '@/lib/hooks';
 
 import { FieldShell } from './field-shell.ui';
 
@@ -93,50 +94,58 @@ export function TextField({
   suggestionLimit = 6,
   size = 'md',
   className = '',
+  autoFocus,
   ...inputProps
 }: TextFieldProps) {
   const colors = useGluestackColors();
+  const inputRef = useAutoFocus<TextInputInstance>(autoFocus);
   const [revealed, setRevealed] = useState(false);
   const isPassword = type === 'password' || type === 'new-password';
   const leadingIcon = icon ?? (type === 'search' ? SearchIcon : undefined);
 
   const field = (
-    <Input
-      isInvalid={Boolean(error)}
-      isReadOnly={readOnly}
-      className={`rounded-2xl bg-card ${multiline ? 'h-28 items-start py-3' : SIZE_CLASS[size]} ${leadingIcon ? 'pl-3' : 'pl-4'} ${
-        isPassword ? 'pr-2' : 'pr-4'
-      } ${readOnly ? 'opacity-60' : ''} ${className}`}>
-      {leadingIcon ? (
-        <InputSlot>
-          <Icon as={leadingIcon} size="md" className="text-muted-foreground" />
-        </InputSlot>
-      ) : null}
-      <InputField
-        {...PRESETS[type]}
-        {...inputProps}
-        multiline={multiline}
-        secureTextEntry={isPassword && !revealed}
-        editable={!readOnly}
-        textAlignVertical={multiline ? 'top' : 'center'}
-        cursorColor={colors.primary}
-        selectionColor={`${colors.primary}55`}
-        selectionHandleColor={colors.primary}
-        // Android adds extra font padding above Poppins, which pushes single-line text up;
-        // without it (and the default vertical padding) the text sits in the middle of the box.
-        style={multiline ? undefined : { includeFontPadding: false, paddingVertical: 0 }}
-        className="text-base"
-      />
-      {isPassword ? (
-        <InputSlot
-          onPress={() => setRevealed((shown) => !shown)}
-          accessibilityRole="button"
-          accessibilityLabel={revealed ? 'Hide password' : 'Show password'}
-          className="h-10 w-10 rounded-full">
-          <Icon as={revealed ? EyeOffIcon : EyeIcon} size="md" className="text-muted-foreground" />
-        </InputSlot>
-      ) : null}
-    </Input>
+    // The box's padding and edges belong to the container, not the text input, so a tap
+    // there would do nothing; this focuses the input (and opens the keyboard) from anywhere.
+    <RNPressable onPress={() => focusInput(inputRef.current)} disabled={readOnly} accessible={false}>
+      <Input
+        isInvalid={Boolean(error)}
+        isReadOnly={readOnly}
+        className={`rounded-2xl bg-card ${multiline ? 'h-28 items-start py-3' : SIZE_CLASS[size]} ${leadingIcon ? 'pl-3' : 'pl-4'} ${
+          isPassword ? 'pr-2' : 'pr-4'
+        } ${readOnly ? 'opacity-60' : ''} ${className}`}>
+        {leadingIcon ? (
+          <InputSlot>
+            <Icon as={leadingIcon} size="md" className="text-muted-foreground" />
+          </InputSlot>
+        ) : null}
+        <InputField
+          // gluestack types InputField's ref as its props; it is the TextInput instance.
+          ref={inputRef as never}
+          {...PRESETS[type]}
+          {...inputProps}
+          multiline={multiline}
+          secureTextEntry={isPassword && !revealed}
+          editable={!readOnly}
+          textAlignVertical={multiline ? 'top' : 'center'}
+          cursorColor={colors.primary}
+          selectionColor={`${colors.primary}55`}
+          selectionHandleColor={colors.primary}
+          // Android adds extra font padding above Poppins, which pushes single-line text up;
+          // without it (and the default vertical padding) the text sits in the middle of the box.
+          style={multiline ? undefined : { includeFontPadding: false, paddingVertical: 0 }}
+          className="text-base"
+        />
+        {isPassword ? (
+          <InputSlot
+            onPress={() => setRevealed((shown) => !shown)}
+            accessibilityRole="button"
+            accessibilityLabel={revealed ? 'Hide password' : 'Show password'}
+            className="h-10 w-10 rounded-full">
+            <Icon as={revealed ? EyeOffIcon : EyeIcon} size="md" className="text-muted-foreground" />
+          </InputSlot>
+        ) : null}
+      </Input>
+    </RNPressable>
   );
 
   const chips = suggestions ? (

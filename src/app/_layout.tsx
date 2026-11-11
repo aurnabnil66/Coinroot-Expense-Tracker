@@ -3,6 +3,7 @@ import '@/global.css';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 
+import { DatabaseGate } from '@/lib/components';
 import { FontFamily } from '@/lib/constants';
 import { GluestackUIProvider, useGluestackColors } from '@/lib/gluestack-ui/gluestack-ui-provider';
 import { useColorScheme, useLedger, useThemePreference } from '@/lib/hooks';
@@ -48,25 +49,28 @@ export default function RootLayout() {
       <ThemeProvider value={navigationTheme}>
         <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
         <DialogProvider>
-          <Stack screenOptions={{ headerShown: false }}>
-            {/* First launch shows only setup; finishing it switches to the app. */}
-            <Stack.Protected guard={setupDone}>
-              <Stack.Screen name="(tabs)" />
-              <Stack.Screen name="transaction/[id]" options={pushed} />
-              <Stack.Screen name="account/[id]" options={pushed} />
-              <Stack.Screen name="categories" options={pushed} />
-              <Stack.Screen name="transaction-form" options={modal} />
-              <Stack.Screen name="account-form" options={modal} />
-              <Stack.Screen name="category-form" options={modal} />
-              <Stack.Screen name="balance-check" options={modal} />
-              <Stack.Screen name="profile-form" options={modal} />
-              <Stack.Screen name="log-in" options={modal} />
-              <Stack.Screen name="sign-up" options={modal} />
-            </Stack.Protected>
-            <Stack.Protected guard={!setupDone}>
-              <Stack.Screen name="setup" />
-            </Stack.Protected>
-          </Stack>
+          {/* Creates / updates the SQLite tables before any screen renders. */}
+          <DatabaseGate>
+            <Stack screenOptions={{ headerShown: false }}>
+              {/* First launch shows only setup; finishing it switches to the app. */}
+              <Stack.Protected guard={setupDone}>
+                <Stack.Screen name="(tabs)" />
+                <Stack.Screen name="transaction/[id]" options={pushed} />
+                <Stack.Screen name="account/[id]" options={pushed} />
+                <Stack.Screen name="categories" options={pushed} />
+                <Stack.Screen name="transaction-form" options={modal} />
+                <Stack.Screen name="account-form" options={modal} />
+                <Stack.Screen name="category-form" options={modal} />
+                <Stack.Screen name="balance-check" options={modal} />
+                <Stack.Screen name="profile-form" options={modal} />
+                <Stack.Screen name="log-in" options={modal} />
+                <Stack.Screen name="sign-up" options={modal} />
+              </Stack.Protected>
+              <Stack.Protected guard={!setupDone}>
+                <Stack.Screen name="setup" />
+              </Stack.Protected>
+            </Stack>
+          </DatabaseGate>
         </DialogProvider>
       </ThemeProvider>
     </GluestackUIProvider>

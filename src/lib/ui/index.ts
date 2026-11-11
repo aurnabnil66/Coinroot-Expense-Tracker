@@ -1,5 +1,6 @@
 export * from './amount-field.ui';
 export * from './amount-text.ui';
+export * from './app-icons.ui';
 export { default as AppTabs } from './app-tabs.ui';
 export * from './avatar-picker-field.ui';
 export * from './avatar.ui';
@@ -15,6 +16,7 @@ export * from './error-state.ui';
 export * from './fab.ui';
 export * from './field-shell.ui';
 export * from './gradient-card.ui';
+export * from './icon-badge.ui';
 export * from './icon-button.ui';
 export * from './initial-badge.ui';
 export * from './link-prompt.ui';

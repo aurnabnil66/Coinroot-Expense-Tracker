@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react';
 
-import { LedgerPending, SpendingChart } from '@/lib/components';
+import { LedgerPending, SPENDING_CHART_MONTHS, SpendingChart } from '@/lib/components';
 import { DEFAULT_CATEGORY_COLOR } from '@/lib/constants';
+import { getMonthlySpending, getTransactionsBetween } from '@/lib/db';
 import { Box } from '@/lib/gluestack-ui/box';
 import { HStack } from '@/lib/gluestack-ui/hstack';
 import { Text } from '@/lib/gluestack-ui/text';
 import { VStack } from '@/lib/gluestack-ui/vstack';
-import { useCategoryColors, useLedger } from '@/lib/hooks';
+import { useCategoryColors, useLedger, useLedgerQuery } from '@/lib/hooks';
 import {
   AmountText,
   Card,
@@ -22,15 +23,36 @@ import {
   Skeleton,
   SkeletonCard,
 } from '@/lib/ui';
-import { addMonths, formatMonthLabel, incomeByParty, monthlySummary, todayKey, toMonthKey } from '@/lib/utils';
+import type { Transaction } from '@/lib/types';
+import {
+  addMonths,
+  dailySpending,
+  daysInMonth,
+  formatMonthLabel,
+  incomeByParty,
+  monthlySummary,
+  todayKey,
+  toMonthKey,
+} from '@/lib/utils';
+
+const NO_ROWS: readonly Transaction[] = [];
 
 export function SummaryScreen() {
-  const { status, error, accounts, categories, transactions } = useLedger();
+  const { status, error, accounts, categories } = useLedger();
   const [month, setMonth] = useState(() => toMonthKey(todayKey()));
-  const summary = useMemo(() => monthlySummary(month, transactions, accounts), [month, transactions, accounts]);
+  // One month of entries (newest first) for the totals, categories, clients and daily bars;
+  // the six-month bars are totalled in SQL.
+  const monthRows = useLedgerQuery(
+    (database) => getTransactionsBetween(database, `${month}-01`, `${month}-${daysInMonth(month)}`),
+    [month]
+  );
+  const monthly = useLedgerQuery((database) => getMonthlySpending(database, month, SPENDING_CHART_MONTHS), [month]);
+  const rows = monthRows ?? NO_ROWS;
+  const summary = useMemo(() => monthlySummary(month, rows, accounts), [month, rows, accounts]);
+  const daily = useMemo(() => dailySpending(month, rows), [month, rows]);
   const categoryById = useMemo(() => new Map(categories.map((c) => [c.id, c])), [categories]);
   const palette = useCategoryColors();
-  const byClient = useMemo(() => incomeByParty(month, transactions), [month, transactions]);
+  const byClient = useMemo(() => incomeByParty(month, rows), [month, rows]);
 
   return (
     <ScreenContainer safeTop tabBar>
@@ -88,7 +110,7 @@ export function SummaryScreen() {
           </Card>
 
           <SectionHeader title="Spending over time" />
-          <SpendingChart month={month} transactions={transactions} />
+          <SpendingChart month={month} daily={daily} monthly={monthly ?? []} />
 
           <SectionHeader title="Spending by category" />
           {summary.byCategory.length === 0 ? (

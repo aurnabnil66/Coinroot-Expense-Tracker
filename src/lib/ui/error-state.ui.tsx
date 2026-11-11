@@ -1,7 +1,5 @@
-
-import { EmptyState } from './empty-state.ui';
-
 import { Button } from './button.ui';
+import { EmptyState } from './empty-state.ui';
 
 type ErrorStateProps = {
   title?: string;

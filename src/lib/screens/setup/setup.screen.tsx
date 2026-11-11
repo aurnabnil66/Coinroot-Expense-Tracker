@@ -4,7 +4,7 @@ import { Controller, useFieldArray, useForm } from 'react-hook-form';
 import { BackHandler, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { LedgerPending } from '@/lib/components';
+import { LedgerPending, useBackupActions } from '@/lib/components';
 import { ACCOUNT_TYPE_COLORS, SETUP_ACCOUNT_OPTIONS } from '@/lib/constants';
 import { Box } from '@/lib/gluestack-ui/box';
 import { useGluestackColors } from '@/lib/gluestack-ui/gluestack-ui-provider';
@@ -14,7 +14,7 @@ import { Pressable } from '@/lib/gluestack-ui/pressable';
 import { Text } from '@/lib/gluestack-ui/text';
 import { VStack } from '@/lib/gluestack-ui/vstack';
 import { useCategoryColors, useLedger } from '@/lib/hooks';
-import { ledgerStore } from '@/lib/mocks';
+import { ledgerStore } from '@/lib/db';
 import { LogInForm } from '@/lib/screens/auth/log-in.screen';
 import { SignUpForm } from '@/lib/screens/auth/sign-up.screen';
 import { ProfileForm } from '@/lib/screens/profile/profile-form.screen';
@@ -239,6 +239,7 @@ function Welcome({ onStart }: { onStart: (step: FirstStep) => void }) {
   const insets = useSafeAreaInsets();
   const colors = useGluestackColors();
   const [loadingSample, setLoadingSample] = useState(false);
+  const backup = useBackupActions();
 
   const exploreSample = async () => {
     setLoadingSample(true);
@@ -269,13 +270,25 @@ function Welcome({ onStart }: { onStart: (step: FirstStep) => void }) {
         <Button label="Create account" size="lg" disabled={loadingSample} onPress={() => onStart('sign-up')} />
         <Button label="Log in" variant="outline" size="lg" disabled={loadingSample} onPress={() => onStart('log-in')} />
         <Button label="Continue without an account" variant="link" className="mt-1" disabled={loadingSample} onPress={() => onStart('profile')} />
-        <Button
-          label="Explore with sample data"
-          variant="link"
-          color="muted"
-          loading={loadingSample}
-          onPress={() => void exploreSample()}
-        />
+        {/* A new phone can restore a backup file right away. */}
+        <HStack className="justify-center gap-4">
+          <Button
+            label="Explore with sample data"
+            variant="link"
+            color="muted"
+            loading={loadingSample}
+            disabled={backup.busy !== null}
+            onPress={() => void exploreSample()}
+          />
+          <Button
+            label="Restore a backup"
+            variant="link"
+            color="muted"
+            loading={backup.busy === 'restore'}
+            disabled={loadingSample}
+            onPress={() => void backup.restore()}
+          />
+        </HStack>
       </VStack>
     </View>
   );
