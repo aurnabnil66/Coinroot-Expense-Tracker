@@ -2,17 +2,12 @@ import '@/global.css';
 
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { LogBox } from 'react-native';
 
 import { DatabaseGate } from '@/lib/components';
 import { FontFamily } from '@/lib/constants';
 import { GluestackUIProvider, useGluestackColors } from '@/lib/gluestack-ui/gluestack-ui-provider';
 import { useColorScheme, useLedger, useThemePreference } from '@/lib/hooks';
 import { DialogProvider } from '@/lib/ui';
-
-// Dev-only toast from NativeWind's react-native-css-interop touching ImageBackground at
-// startup (not our code; release builds never show it). Remove once NativeWind stops.
-LogBox.ignoreLogs(['ImageBackground is deprecated']);
 
 export default function RootLayout() {
   const themePreference = useThemePreference();
