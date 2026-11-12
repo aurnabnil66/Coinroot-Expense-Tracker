@@ -147,7 +147,7 @@ export function SettingsScreen() {
           <VStack className="flex-1">
             <Text className="text-base font-medium text-foreground">Theme</Text>
             <Text className="text-sm text-muted-foreground">
-              Device follows your phone's theme
+              Device follows your phone’s theme
             </Text>
           </VStack>
         </HStack>
