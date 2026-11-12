@@ -64,6 +64,9 @@ const IGNORED_WORDS = ['leftfromthisauto', 'leftfromthis', 'balance', 'runningba
 
 const normalise = (text: string) => text.toLowerCase().replace(/[^\p{L}\p{M}\p{N}]/gu, '');
 
+/** A column the sheet calculates (e.g. "Left from this (auto)", "Balance"), never imported. */
+export const isComputedColumn = (name: string) => IGNORED_WORDS.includes(normalise(name));
+
 function fieldForHeader(cell: string): ImportField | 'ignore' | null {
   const word = normalise(cell);
   if (!word) return null;

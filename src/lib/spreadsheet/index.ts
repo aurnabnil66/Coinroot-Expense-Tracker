@@ -1,3 +1,4 @@
+export * from './assess.spreadsheet';
 export * from './columns.spreadsheet';
 export * from './export.spreadsheet';
 export * from './plan.spreadsheet';

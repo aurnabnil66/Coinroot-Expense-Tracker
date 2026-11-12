@@ -56,6 +56,16 @@ export const sameName = (a: string, b: string) => a.trim().toLowerCase() === b.t
 const key = (name: string) => name.trim().toLowerCase();
 const TOTAL_ROW = /^(grand\s*)?(sub\s*)?totals?:?$|^sum:?$|^মোট:?$/i;
 
+/** With one amount column, a minus anywhere means the plain amounts are money in. */
+export function amountsAreSigned(table: Table, { headerRow, columns }: Pick<ImportOptions, 'headerRow' | 'columns'>): boolean {
+  const index = columns.amount;
+  if (index === undefined) return false;
+  return table.slice(headerRow === null ? 0 : headerRow + 1).some((row) => {
+    const amount = parseAmountCell((row[index] ?? '').trim());
+    return amount !== null && amount !== 'empty' && amount.negative;
+  });
+}
+
 /** The sheet's data rows read as transactions. `accountNames`: the user's accounts, to spot transfers. */
 export function readRows(table: Table, options: ImportOptions, accountNames: readonly string[]): Draft {
   const { columns, dateOrder, defaultType, defaultAccount, today } = options;
@@ -69,13 +79,7 @@ export function readRows(table: Table, options: ImportOptions, accountNames: rea
     .map((row, i) => ({ row, line: start + i + 1 }))
     .filter(({ row }) => !isEmptyRow(row));
 
-  // With one amount column, a minus anywhere means the plain amounts are money in.
-  const signed =
-    columns.amount !== undefined &&
-    data.some(({ row }) => {
-      const amount = parseAmountCell(cell(row, 'amount'));
-      return amount !== null && amount !== 'empty' && amount.negative;
-    });
+  const signed = amountsAreSigned(table, options);
   // Names that are accounts: the user's, plus everything in the sheet's account column.
   const accounts = new Set(
     [...accountNames, ...data.map(({ row }) => cell(row, 'account')), defaultAccount ?? ''].map(key).filter(Boolean)

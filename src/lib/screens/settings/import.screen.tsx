@@ -7,19 +7,19 @@ import { ACCOUNT_TYPE_LABELS, CATEGORY_KIND_LABELS, TRANSACTION_TYPE_LABELS } fr
 import { db, getTransactionsBetween, ledgerStore, newId } from '@/lib/db';
 import { Box } from '@/lib/gluestack-ui/box';
 import { HStack } from '@/lib/gluestack-ui/hstack';
-import { AlertCircleIcon, ChevronLeftIcon, InfoIcon } from '@/lib/gluestack-ui/icon';
+import { AlertCircleIcon, CheckCircleIcon, ChevronLeftIcon, InfoIcon } from '@/lib/gluestack-ui/icon';
 import { Text } from '@/lib/gluestack-ui/text';
 import { VStack } from '@/lib/gluestack-ui/vstack';
 import { useLedger } from '@/lib/hooks';
 import {
+  assignColumn,
   buildImport,
-  columnLabel,
-  columnLetter,
   type ColumnMap,
   DATE_ORDER_LABELS,
   type DateOrder,
   defaultChoice,
   type Draft,
+  draftRowCount,
   findDuplicates,
   guessColumns,
   guessDateOrder,
@@ -27,17 +27,22 @@ import {
   IMPORT_FIELD_INFO,
   type ImportField,
   type ImportOptions,
+  importQuestions,
+  type ImportQuestions,
+  isConfident,
   type NameChoice,
   type NameNeed,
   neededNames,
+  notATableReason,
   parseTable,
   readRows,
+  sheetColumns,
   type Table,
   unreadableFileReason,
   withoutDuplicates,
 } from '@/lib/spreadsheet';
 import { pickSpreadsheetFile } from '@/lib/storage';
-import { ACCOUNT_TYPES, type AccountType } from '@/lib/types';
+import { ACCOUNT_TYPES, type AccountType, type TransactionType } from '@/lib/types';
 import {
   AmountText,
   Button,
@@ -67,8 +72,9 @@ const count = (n: number, one: string, many = `${one}s`) => `${n.toLocaleString(
 
 /**
  * Import transactions from a spreadsheet in any layout: pick a CSV or paste a table (copied from
- * Excel, Google Sheets or Word) → say which column is what → match names to accounts and
- * categories → check every row and import. Nothing is saved until the last step.
+ * Excel, Google Sheets or Word) → a summary of what was read (or, when the columns are unclear,
+ * which column is what, asking only what this sheet needs) → new names, only if there are any →
+ * check every row and import. Nothing is saved until the last step.
  */
 export function ImportScreen() {
   const { status, error } = useLedger();
@@ -85,47 +91,72 @@ function ImportFlow() {
   const [step, setStep] = useState<Step>('source');
   const [source, setSource] = useState<Source | null>(null);
   const [options, setOptions] = useState<ImportOptions | null>(null);
-  const [ambiguousDates, setAmbiguousDates] = useState(false);
+  // Decided once per file: a summary when the columns were read with confidence, else the mapping.
+  const [columnsView, setColumnsView] = useState<'summary' | 'mapping'>('mapping');
   const [choices, setChoices] = useState<Record<string, NameChoice>>({});
 
+  const accountNames = useMemo(() => accounts.map((a) => a.name), [accounts]);
   const draft = useMemo(
-    () => (source && options ? readRows(source.table, options, accounts.map((a) => a.name)) : null),
-    [source, options, accounts]
+    () => (source && options ? readRows(source.table, options, accountNames) : null),
+    [source, options, accountNames]
   );
   const needs = useMemo(() => (draft ? neededNames(draft.rows, accounts, categories) : []), [draft, accounts, categories]);
+  const ambiguousDates = useMemo(
+    () => (source && options ? guessDateOrder(dateCells(source.table, options.headerRow, options.columns)).ambiguous : false),
+    [source, options]
+  );
+
+  // "New names" only when the sheet has names the app doesn't.
+  const steps: Step[] = needs.some((need) => !need.existingId) ? STEPS : STEPS.filter((s) => s !== 'names');
+  const go = (by: 1 | -1) => setStep(steps[Math.min(steps.length - 1, Math.max(0, steps.indexOf(step) + by))]);
 
   const start = (next: Source) => {
     const headerRow = guessHeaderRow(next.table);
     const columns = guessColumns(next.table, headerRow);
     const dates = guessDateOrder(dateCells(next.table, headerRow, columns));
-    setSource(next);
-    setAmbiguousDates(dates.ambiguous);
-    setOptions({
+    const guessed: ImportOptions = {
       headerRow,
       columns,
       dateOrder: dates.order,
       defaultType: 'expense',
       defaultAccount: accounts.length === 1 ? accounts[0].name : null,
       today: todayKey(),
-    });
+    };
+    const questions = importQuestions(next.table, guessed, dates.ambiguous);
+    const confident = isConfident(readRows(next.table, guessed, accountNames), guessed, questions);
+    setSource(next);
+    setOptions(guessed);
+    setColumnsView(confident ? 'summary' : 'mapping');
     setChoices({});
     setStep('columns');
   };
 
-  const back = () => setStep(STEPS[Math.max(0, STEPS.indexOf(step) - 1)]);
+  const changeOptions = (next: Partial<ImportOptions>) => {
+    if (!source || !options) return;
+    const merged = { ...options, ...next };
+    // A different date column (or header row) may write dates the other way round.
+    const dateColumnChanged = next.columns !== undefined && next.columns.date !== options.columns.date;
+    if (next.dateOrder === undefined && (dateColumnChanged || next.headerRow !== undefined)) {
+      merged.dateOrder = guessDateOrder(dateCells(source.table, merged.headerRow, merged.columns)).order;
+    }
+    setOptions(merged);
+  };
 
   return (
     <ScreenContainer>
-      {step !== 'source' ? <StepHeader step={STEPS.indexOf(step)} onBack={back} /> : null}
+      {step !== 'source' ? <StepHeader step={step} steps={steps} onBack={() => go(-1)} /> : null}
       {step === 'source' ? <SourceStep onTable={start} /> : null}
-      {step === 'columns' && source && options && draft ? (
+      {step === 'columns' && source && options && draft && columnsView === 'summary' ? (
+        <SummaryStep source={source} options={options} draft={draft} onChangeColumns={() => setColumnsView('mapping')} onNext={() => go(1)} />
+      ) : null}
+      {step === 'columns' && source && options && draft && columnsView === 'mapping' ? (
         <ColumnsStep
           source={source}
           options={options}
-          ambiguousDates={ambiguousDates}
+          questions={importQuestions(source.table, options, ambiguousDates)}
           draft={draft}
-          onChange={(next) => setOptions({ ...options, ...next })}
-          onNext={() => setStep('names')}
+          onChange={changeOptions}
+          onNext={() => go(1)}
         />
       ) : null}
       {step === 'names' && draft ? (
@@ -133,7 +164,7 @@ function ImportFlow() {
           needs={needs}
           choices={choices}
           onChoose={(key, choice) => setChoices({ ...choices, [key]: choice })}
-          onNext={() => setStep('review')}
+          onNext={() => go(1)}
         />
       ) : null}
       {step === 'review' && draft ? <ReviewStep draft={draft} needs={needs} choices={choices} /> : null}
@@ -144,19 +175,25 @@ function ImportFlow() {
 const dateCells = (table: Table, headerRow: number | null, columns: ColumnMap) =>
   columns.date === undefined ? [] : table.slice((headerRow ?? -1) + 1).map((row) => row[columns.date!] ?? '');
 
-function StepHeader({ step, onBack }: { step: number; onBack: () => void }) {
-  const total = STEPS.length - 1;
+const STEP_LABELS: Record<Step, string> = { source: 'Source', columns: 'Your sheet', names: 'New names', review: 'Import' };
+
+function StepHeader({ step, steps, onBack }: { step: Step; steps: Step[]; onBack: () => void }) {
+  const total = steps.length - 1;
+  const current = steps.indexOf(step);
   return (
     <HStack className="items-center justify-between pb-2 pt-3">
       <IconButton icon={ChevronLeftIcon} variant="ghost" onPress={onBack} accessibilityLabel="Back" />
-      <HStack className="gap-1.5">
-        {Array.from({ length: total }, (_, i) => i + 1).map((n) => (
-          <Box key={n} className={`h-1.5 rounded-full ${n === step ? 'w-6 bg-primary' : 'w-1.5 bg-border'}`} />
-        ))}
-      </HStack>
-      <Text className="w-10 text-right text-xs font-medium text-muted-foreground">
-        {step}/{total}
-      </Text>
+      <VStack className="items-center gap-1.5">
+        <HStack className="gap-1.5">
+          {Array.from({ length: total }, (_, i) => i + 1).map((n) => (
+            <Box key={n} className={`h-1.5 rounded-full ${n === current ? 'w-6 bg-primary' : n < current ? 'w-1.5 bg-primary/50' : 'w-1.5 bg-border'}`} />
+          ))}
+        </HStack>
+        <Text className="text-xs font-medium text-muted-foreground">
+          Step {current} of {total} · {STEP_LABELS[step]}
+        </Text>
+      </VStack>
+      <Box className="w-10" />
     </HStack>
   );
 }
@@ -189,6 +226,11 @@ function SourceStep({ onTable }: { onTable: (source: Source) => void }) {
       await dialog.alert({ title: 'No rows found', message: 'The file or text is empty.', tone: 'info' });
       return;
     }
+    const notATable = notATableReason(table);
+    if (notATable) {
+      await dialog.alert({ title: "This isn't a list of transactions", message: notATable, tone: 'info' });
+      return;
+    }
     onTable({ name, table });
   };
 
@@ -208,7 +250,7 @@ function SourceStep({ onTable }: { onTable: (source: Source) => void }) {
     <VStack className="gap-4 pt-4">
       <StepTitle
         title="Bring in your history"
-        subtitle="Any layout works: you'll say which column is what. Nothing is saved until you check it and tap Import."
+        subtitle="Any layout works: the columns are read for you. Nothing is saved until you check it and tap Import."
       />
       <Button label="Choose a CSV file" icon={UploadIcon} size="lg" loading={picking} onPress={() => void pick()} />
       <Button label="Paste a table" variant="outline" size="lg" onPress={() => setPasting(true)} />
@@ -253,30 +295,112 @@ function Help({ label, text }: { label: string; text: string }) {
   );
 }
 
-// ─── 2. Columns ─────────────────────────────────────────────────────────────
+// ─── 2. Your sheet: a summary, or which column is what ──────────────────────
 
-const FIELD_GROUPS: { title: string; fields: ImportField[] }[] = [
-  { title: 'Date and amount', fields: ['date', 'amount', 'moneyOut', 'moneyIn'] },
-  { title: 'What and where', fields: ['type', 'account', 'category', 'from', 'to'] },
-  { title: 'Details', fields: ['note', 'party', 'id', 'linkedTo'] },
-];
+const typeCounts = (rows: readonly { type: TransactionType }[]) => {
+  const byType = { income: 0, expense: 0, transfer: 0 };
+  rows.forEach((row) => (byType[row.type] += 1));
+  return byType;
+};
+
+/** Shown when the columns were read with confidence: what will come in, with a way to change it. */
+function SummaryStep({
+  source,
+  options,
+  draft,
+  onChangeColumns,
+  onNext,
+}: {
+  source: Source;
+  options: ImportOptions;
+  draft: Draft;
+  onChangeColumns: () => void;
+  onNext: () => void;
+}) {
+  const columns = sheetColumns(source.table, options.headerRow, options.columns);
+  const used = columns.filter((column) => column.field);
+  const unused = columns.filter((column) => !column.field);
+  const byType = typeCounts(draft.rows);
+  const dates = draft.rows.map((row) => row.date).sort();
+  const problemRows = draftRowCount(draft) - draft.rows.length;
+
+  return (
+    <VStack className="gap-1 pt-2">
+      <StepTitle title="Your sheet looks good" subtitle={`${source.name}. Check a few rows; nothing is saved yet.`} />
+      <Card>
+        <HStack className="items-start gap-3 p-4">
+          <IconBadge icon={CheckCircleIcon} tone="income" />
+          <VStack className="flex-1 gap-0.5">
+            <Text className="text-2xl font-semibold leading-[34px] text-foreground">{count(draft.rows.length, 'entry', 'entries')}</Text>
+            {dates.length > 0 ? (
+              <Text className="text-sm text-muted-foreground">
+                {formatFullDate(dates[0])} – {formatFullDate(dates[dates.length - 1])}
+              </Text>
+            ) : null}
+            <Text className="pt-1 text-sm text-foreground">
+              {count(byType.expense, 'expense')} · {count(byType.income, 'income', 'income')} · {count(byType.transfer, 'transfer')}
+            </Text>
+          </VStack>
+        </HStack>
+      </Card>
+
+      <SectionHeader title="First rows" className="pb-2" />
+      <PreviewRows draft={draft} />
+
+      <SectionHeader title="Columns" className="pb-2" />
+      <Card>
+        <VStack className="gap-1.5 p-4">
+          <Text className="text-sm text-foreground">
+            <Text className="text-sm font-semibold text-foreground">Reading: </Text>
+            {used.map((column) => column.name).join(' · ')}
+          </Text>
+          {unused.length > 0 ? (
+            <Text className="text-sm text-muted-foreground">
+              <Text className="text-sm font-semibold text-muted-foreground">Not used: </Text>
+              {unused.map((column) => (column.computed ? `${column.name} (calculated)` : column.name)).join(' · ')}
+            </Text>
+          ) : null}
+        </VStack>
+      </Card>
+
+      {problemRows > 0 ? (
+        <>
+          <SectionHeader title={`${count(problemRows, 'row')} with problems, left out`} className="pb-2" />
+          <Problems draft={draft} limit={3} />
+        </>
+      ) : null}
+
+      <Button label="Continue" size="lg" className="mt-6" onPress={onNext} />
+      <Button label="Something wrong? Change columns" variant="link" className="mt-3 self-center" onPress={onChangeColumns} />
+    </VStack>
+  );
+}
+
+const FIELD_ORDER: ImportField[] = ['date', 'amount', 'moneyOut', 'moneyIn', 'type', 'from', 'to', 'account', 'category', 'note', 'party', 'id', 'linkedTo'];
+
+const FIELD_OPTIONS: SelectOption[] = FIELD_ORDER.map((field) => ({
+  value: field,
+  label: IMPORT_FIELD_INFO[field].label,
+  description: IMPORT_FIELD_INFO[field].hint,
+}));
 
 const DATE_ORDER_OPTIONS: SelectOption[] = (Object.keys(DATE_ORDER_LABELS) as DateOrder[]).map((value) => ({
   value,
   label: DATE_ORDER_LABELS[value],
 }));
 
+/** One card per column of the sheet: its examples and what it holds. Extra questions only when needed. */
 function ColumnsStep({
   source,
   options,
-  ambiguousDates,
+  questions,
   draft,
   onChange,
   onNext,
 }: {
   source: Source;
   options: ImportOptions;
-  ambiguousDates: boolean;
+  questions: ImportQuestions;
   draft: Draft;
   onChange: (next: Partial<ImportOptions>) => void;
   onNext: () => void;
@@ -284,128 +408,124 @@ function ColumnsStep({
   const { accounts } = useLedger();
   const { table, name } = source;
   const { headerRow, columns } = options;
-  const width = table[0]?.length ?? 0;
-  const firstData = table.slice((headerRow ?? -1) + 1).find((row) => row.some(Boolean)) ?? [];
+  const sheet = sheetColumns(table, headerRow, columns);
 
-  const columnOptions: SelectOption[] = Array.from({ length: width }, (_, i) => ({
-    value: String(i),
-    label: columnLabel(table, headerRow, i, columnLetter(i)),
-    description: firstData[i] ? `e.g. ${firstData[i]}` : undefined,
-  }));
   const headerOptions: SelectOption[] = [
-    { value: 'none', label: 'No column names', description: 'The first row is data' },
+    { value: 'none', label: 'No column names', description: 'The first row is already an entry' },
     ...table.slice(0, 10).map((row, i) => ({
       value: String(i),
       label: `Row ${i + 1}`,
       description: row.filter(Boolean).slice(0, 4).join(', '),
     })),
   ];
-
-  const setColumn = (field: ImportField, value: string | null) => {
-    const next: ColumnMap = { ...columns };
-    if (value === null) delete next[field];
-    else {
-      const index = Number(value);
-      // One column, one meaning.
-      (Object.keys(next) as ImportField[]).forEach((other) => {
-        if (next[other] === index) delete next[other];
-      });
-      next[field] = index;
-    }
-    onChange({ columns: next });
-  };
-
   const setHeader = (value: string | null) => {
     const row = value === null || value === 'none' ? null : Number(value);
-    const guessed = guessColumns(table, row);
-    onChange({ headerRow: row, columns: guessed, dateOrder: guessDateOrder(dateCells(table, row, guessed)).order });
+    onChange({ headerRow: row, columns: guessColumns(table, row) });
   };
 
   const hasAmount = columns.amount !== undefined || columns.moneyIn !== undefined || columns.moneyOut !== undefined;
-  const missing = columns.date === undefined ? 'Choose the Date column.' : !hasAmount ? 'Choose the Amount column (or Money in / Money out).' : null;
-  const needsType = columns.type === undefined && columns.moneyIn === undefined && columns.moneyOut === undefined;
-  const dataRows = draft.rows.length + new Set(draft.problems.map((p) => p.line)).size;
+  const missing =
+    columns.date === undefined
+      ? 'Which column has the date? Choose “Date” on it.'
+      : !hasAmount
+        ? 'Which column has the amount? Choose “Amount” on it (or “Money out” / “Money in” for two columns).'
+        : null;
+  const extraQuestions = questions.dateOrder || questions.account || questions.type;
 
   return (
     <VStack className="gap-1 pt-2">
-      <StepTitle title="Which column is what?" subtitle={`${name}: ${count(dataRows, 'row')}. Columns were guessed from their names; check them.`} />
-
-      <SelectField
-        label="Column names are in"
-        value={headerRow === null ? 'none' : String(headerRow)}
-        options={headerOptions}
-        onChange={setHeader}
+      <StepTitle
+        title="Which column is what?"
+        subtitle={`${name}: ${count(draftRowCount(draft), 'row')}. Check what each column holds; skip the ones you don't need.`}
       />
 
-      {FIELD_GROUPS.map((group) => (
-        <VStack key={group.title} className="gap-3">
-          <SectionHeader title={group.title} className="pb-0" />
-          {group.fields.map((field) => (
-            <SelectField
-              key={field}
-              label={IMPORT_FIELD_INFO[field].label}
-              hint={IMPORT_FIELD_INFO[field].hint}
-              value={columns[field] === undefined ? null : String(columns[field])}
-              options={columnOptions}
-              noneLabel="Not in the file"
-              placeholder="Not in the file"
-              onChange={(value) => setColumn(field, value)}
-            />
-          ))}
-        </VStack>
-      ))}
-
-      <SectionHeader title="For rows that don't say" className="pb-0" />
-      <VStack className="gap-3">
-        {columns.date !== undefined ? (
-          <SelectField
-            label="Dates are written as"
-            value={options.dateOrder}
-            options={DATE_ORDER_OPTIONS}
-            hint={ambiguousDates ? 'Dates like 05/03 could be 5 March or 3 May; check this.' : undefined}
-            onChange={(value) => value && onChange({ dateOrder: value as DateOrder })}
-          />
-        ) : null}
+      {questions.headerRow ? (
         <SelectField
-          label="Account"
-          value={options.defaultAccount}
-          options={accounts.filter((a) => !a.archived).map((a) => ({ value: a.name, label: a.name }))}
-          noneLabel="None"
-          placeholder="None"
-          hint="Used for rows without an account (e.g. a statement from one bank)"
-          onChange={(value) => onChange({ defaultAccount: value })}
+          label="Column names are in"
+          hint="Title rows above the column names are skipped"
+          value={headerRow === null ? 'none' : String(headerRow)}
+          options={headerOptions}
+          onChange={setHeader}
         />
-        {needsType ? (
-          <VStack className="gap-2">
-            <Text className="text-sm font-medium text-foreground">Rows without a type or minus sign are</Text>
-            <SegmentedControl
-              options={[
-                { value: 'expense', label: 'Expenses' },
-                { value: 'income', label: 'Income' },
-              ]}
-              value={options.defaultType}
-              onChange={(value) => onChange({ defaultType: value })}
-            />
-          </VStack>
-        ) : null}
+      ) : null}
+
+      <VStack className="gap-3 pt-3">
+        {sheet.map((column) => (
+          <Card key={column.index}>
+            <VStack className="gap-2 p-4">
+              <VStack className="gap-0.5">
+                <Text numberOfLines={1} className="text-base font-semibold text-foreground">
+                  {column.name}
+                </Text>
+                <Text numberOfLines={1} className="text-xs text-muted-foreground">
+                  {column.samples.length > 0 ? column.samples.join(' · ') : 'Empty'}
+                </Text>
+              </VStack>
+              <SelectField
+                label="This is"
+                value={column.field}
+                options={FIELD_OPTIONS}
+                sheetTitle={column.name}
+                noneLabel="Skip this column"
+                placeholder={column.computed ? 'Skipped (calculated in the sheet)' : 'Skip this column'}
+                onChange={(value) => onChange({ columns: assignColumn(columns, column.index, value as ImportField | null) })}
+              />
+            </VStack>
+          </Card>
+        ))}
       </VStack>
+
+      {extraQuestions ? (
+        <>
+          <SectionHeader title="A few more questions" className="pb-2" />
+          <VStack className="gap-3">
+            {questions.dateOrder ? (
+              <SelectField
+                label="Dates are written as"
+                value={options.dateOrder}
+                options={DATE_ORDER_OPTIONS}
+                hint="Dates like 05/03 could be 5 March or 3 May"
+                onChange={(value) => value && onChange({ dateOrder: value as DateOrder })}
+              />
+            ) : null}
+            {questions.account ? (
+              <SelectField
+                label="Which account are these from?"
+                value={options.defaultAccount}
+                options={accounts.filter((a) => !a.archived).map((a) => ({ value: a.name, label: a.name }))}
+                noneLabel="None"
+                placeholder="Choose an account"
+                hint="The sheet doesn't say, e.g. a statement from one bank"
+                onChange={(value) => onChange({ defaultAccount: value })}
+              />
+            ) : null}
+            {questions.type ? (
+              <VStack className="gap-2">
+                <Text className="text-sm font-medium text-foreground">The sheet doesn’t say; these rows are</Text>
+                <SegmentedControl
+                  options={[
+                    { value: 'expense', label: 'Expenses' },
+                    { value: 'income', label: 'Income' },
+                  ]}
+                  value={options.defaultType}
+                  onChange={(value) => onChange({ defaultType: value })}
+                />
+              </VStack>
+            ) : null}
+          </VStack>
+        </>
+      ) : null}
 
       <SectionHeader title="Preview" className="pb-0" />
       {missing ? <Notice tone="warning" text={missing} /> : <Preview draft={draft} />}
 
-      <Button
-        label="Continue"
-        size="lg"
-        className="mt-6"
-        disabled={missing !== null || draft.rows.length === 0}
-        onPress={onNext}
-      />
+      <Button label="Continue" size="lg" className="mt-6" disabled={missing !== null || draft.rows.length === 0} onPress={onNext} />
     </VStack>
   );
 }
 
 function Preview({ draft }: { draft: Draft }) {
-  const problemRows = new Set(draft.problems.map((p) => p.line)).size;
+  const problemRows = draftRowCount(draft) - draft.rows.length;
   return (
     <VStack className="gap-3 pt-2">
       <Text className="text-sm text-muted-foreground">
@@ -413,32 +533,38 @@ function Preview({ draft }: { draft: Draft }) {
         {problemRows > 0 ? `, ${count(problemRows, 'row')} with problems` : ''}
         {draft.skipped > 0 ? `, ${count(draft.skipped, 'total row')} left out` : ''}.
       </Text>
-      {draft.rows.length > 0 ? (
-        <Card>
-          {draft.rows.slice(0, 3).map((row, i) => (
-            <HStack key={row.line} className={`items-center gap-3 px-4 py-3 ${i > 0 ? 'border-t border-border/70' : ''}`}>
-              <VStack className="flex-1">
-                <Text numberOfLines={1} className="text-sm font-medium text-foreground">
-                  {row.fromName} → {row.toName}
-                </Text>
-                <Text numberOfLines={1} className="text-xs text-muted-foreground">
-                  Row {row.line} · {TRANSACTION_TYPE_LABELS[row.type]} · {formatFullDate(row.date)}
-                  {row.note ? ` · ${row.note}` : ''}
-                </Text>
-              </VStack>
-              <AmountText
-                amount={row.amount}
-                tone={row.type === 'income' ? 'income' : 'default'}
-                signed={row.type === 'income'}
-                outflow={row.type === 'expense'}
-                className="text-sm"
-              />
-            </HStack>
-          ))}
-        </Card>
-      ) : null}
+      <PreviewRows draft={draft} />
       {draft.problems.length > 0 ? <Problems draft={draft} limit={5} /> : null}
     </VStack>
+  );
+}
+
+/** The first rows as they will be saved. */
+function PreviewRows({ draft }: { draft: Draft }) {
+  if (draft.rows.length === 0) return null;
+  return (
+    <Card>
+      {draft.rows.slice(0, 3).map((row, i) => (
+        <HStack key={row.line} className={`items-center gap-3 px-4 py-3 ${i > 0 ? 'border-t border-border/70' : ''}`}>
+          <VStack className="flex-1">
+            <Text numberOfLines={1} className="text-sm font-medium text-foreground">
+              {row.fromName} → {row.toName}
+            </Text>
+            <Text numberOfLines={1} className="text-xs text-muted-foreground">
+              Row {row.line} · {TRANSACTION_TYPE_LABELS[row.type]} · {formatFullDate(row.date)}
+              {row.note ? ` · ${row.note}` : ''}
+            </Text>
+          </VStack>
+          <AmountText
+            amount={row.amount}
+            tone={row.type === 'income' ? 'income' : 'default'}
+            signed={row.type === 'income'}
+            outflow={row.type === 'expense'}
+            className="text-sm"
+          />
+        </HStack>
+      ))}
+    </Card>
   );
 }
 
@@ -489,30 +615,50 @@ function NamesStep({
   onChoose: (key: string, choice: NameChoice) => void;
   onNext: () => void;
 }) {
+  const [showMatched, setShowMatched] = useState(false);
   const unknown = needs.filter((need) => !need.existingId);
+  const newAccounts = unknown.filter((need) => need.role === 'account');
+  const newCategories = unknown.filter((need) => need.role !== 'account');
   const matched = needs.filter((need) => need.existingId);
+  const row = (need: NameNeed) => (
+    <NameRow key={need.key} need={need} choice={choices[need.key] ?? defaultChoice(need)} onChoose={(c) => onChoose(need.key, c)} />
+  );
 
   return (
     <VStack className="gap-1 pt-2">
       <StepTitle
         title="New names"
-        subtitle={
-          unknown.length > 0
-            ? `${count(unknown.length, 'name')} in the sheet ${unknown.length === 1 ? "isn't" : "aren't"} in the app yet. Create ${unknown.length === 1 ? 'it' : 'them'}, or use one you have.`
-            : 'Every name in the sheet is already in the app.'
-        }
+        subtitle={`${count(unknown.length, 'name')} in the sheet ${unknown.length === 1 ? "isn't" : "aren't"} in the app yet. Each is created, or pick one you have.`}
       />
-      <VStack className="gap-3 pt-2">
-        {unknown.map((need) => (
-          <NameRow key={need.key} need={need} choice={choices[need.key] ?? defaultChoice(need)} onChoose={(c) => onChoose(need.key, c)} />
-        ))}
-      </VStack>
-      {matched.length > 0 ? (
+
+      {newAccounts.length > 0 ? (
         <>
-          <SectionHeader title="Already in the app" />
-          <Text className="text-sm text-muted-foreground">{matched.map((need) => need.name).join(', ')}</Text>
+          <SectionHeader title={`New accounts · ${newAccounts.length}`} className="pb-1" />
+          <Text className="pb-3 text-sm text-muted-foreground">Check the type and enter the balance it had before its first entry.</Text>
+          <VStack className="gap-3">{newAccounts.map(row)}</VStack>
         </>
       ) : null}
+
+      {newCategories.length > 0 ? (
+        <>
+          <SectionHeader title={`New categories · ${newCategories.length}`} className="pb-3" />
+          <VStack className="gap-3">{newCategories.map(row)}</VStack>
+        </>
+      ) : null}
+
+      {matched.length > 0 ? (
+        <Card className="mt-6">
+          <VStack className="gap-2 p-4">
+            <HStack className="items-center gap-3">
+              <IconBadge icon={CheckCircleIcon} tone="income" />
+              <Text className="flex-1 text-sm font-medium text-foreground">{count(matched.length, 'name')} already in the app</Text>
+              <Button label={showMatched ? 'Hide' : 'Show'} variant="link" onPress={() => setShowMatched(!showMatched)} />
+            </HStack>
+            {showMatched ? <Text className="text-sm text-muted-foreground">{matched.map((need) => need.name).join(', ')}</Text> : null}
+          </VStack>
+        </Card>
+      ) : null}
+
       <Button label="Continue" size="lg" className="mt-8" onPress={onNext} />
     </VStack>
   );
