@@ -1,6 +1,7 @@
 export * from './backup.database';
 export * from './client.database';
 export * from './id.database';
+export * from './import.database';
 export * from './ledger-store.database';
 export * from './mappers.database';
 export * from './queries.database';
