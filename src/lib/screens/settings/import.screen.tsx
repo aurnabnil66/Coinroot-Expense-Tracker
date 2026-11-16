@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
-import { useMemo, useState } from 'react';
-import { View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { BackHandler, View } from 'react-native';
 
 import { LedgerPending } from '@/lib/components';
 import { ACCOUNT_TYPE_LABELS, CATEGORY_KIND_LABELS, TRANSACTION_TYPE_LABELS } from '@/lib/constants';
@@ -35,6 +35,7 @@ import {
   neededNames,
   notATableReason,
   parseTable,
+  plainTaka,
   readRows,
   sheetColumns,
   type Table,
@@ -93,6 +94,7 @@ function ImportFlow() {
   const [options, setOptions] = useState<ImportOptions | null>(null);
   // Decided once per file: a summary when the columns were read with confidence, else the mapping.
   const [columnsView, setColumnsView] = useState<'summary' | 'mapping'>('mapping');
+  const [hasSummary, setHasSummary] = useState(false);
   const [choices, setChoices] = useState<Record<string, NameChoice>>({});
 
   const accountNames = useMemo(() => accounts.map((a) => a.name), [accounts]);
@@ -109,6 +111,21 @@ function ImportFlow() {
   // "New names" only when the sheet has names the app doesn't.
   const steps: Step[] = needs.some((need) => !need.existingId) ? STEPS : STEPS.filter((s) => s !== 'names');
   const go = (by: 1 | -1) => setStep(steps[Math.min(steps.length - 1, Math.max(0, steps.indexOf(step) + by))]);
+  // From "Change columns", back returns to the summary first.
+  const back = () => {
+    if (step === 'columns' && columnsView === 'mapping' && hasSummary) setColumnsView('summary');
+    else go(-1);
+  };
+
+  // Android's back button steps back too, instead of closing the import and losing the choices.
+  useEffect(() => {
+    if (step === 'source') return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      back();
+      return true;
+    });
+    return () => sub.remove();
+  });
 
   const start = (next: Source) => {
     const headerRow = guessHeaderRow(next.table);
@@ -127,6 +144,7 @@ function ImportFlow() {
     setSource(next);
     setOptions(guessed);
     setColumnsView(confident ? 'summary' : 'mapping');
+    setHasSummary(confident);
     setChoices({});
     setStep('columns');
   };
@@ -144,7 +162,7 @@ function ImportFlow() {
 
   return (
     <ScreenContainer>
-      {step !== 'source' ? <StepHeader step={step} steps={steps} onBack={() => go(-1)} /> : null}
+      {step !== 'source' ? <StepHeader step={step} steps={steps} onBack={back} /> : null}
       {step === 'source' ? <SourceStep onTable={start} /> : null}
       {step === 'columns' && source && options && draft && columnsView === 'summary' ? (
         <SummaryStep source={source} options={options} draft={draft} onChangeColumns={() => setColumnsView('mapping')} onNext={() => go(1)} />
@@ -616,12 +634,29 @@ function NamesStep({
   onNext: () => void;
 }) {
   const [showMatched, setShowMatched] = useState(false);
+  // What was typed in each new account's balance field (by need key).
+  const [balanceTexts, setBalanceTexts] = useState<Record<string, string>>({});
   const unknown = needs.filter((need) => !need.existingId);
   const newAccounts = unknown.filter((need) => need.role === 'account');
   const newCategories = unknown.filter((need) => need.role !== 'account');
   const matched = needs.filter((need) => need.existingId);
+  const choiceFor = (need: NameNeed) => choices[need.key] ?? defaultChoice(need);
+  const balanceTextFor = (need: NameNeed) => {
+    const choice = choiceFor(need);
+    return balanceTexts[need.key] ?? (choice.action === 'create' && choice.openingBalance > 0 ? plainTaka(choice.openingBalance) : '');
+  };
+  const badBalance = newAccounts.some(
+    (need) => choiceFor(need).action === 'create' && balanceTextFor(need).trim() !== '' && parseTaka(balanceTextFor(need)) === null
+  );
   const row = (need: NameNeed) => (
-    <NameRow key={need.key} need={need} choice={choices[need.key] ?? defaultChoice(need)} onChoose={(c) => onChoose(need.key, c)} />
+    <NameRow
+      key={need.key}
+      need={need}
+      choice={choiceFor(need)}
+      balanceText={balanceTextFor(need)}
+      onBalanceText={(text) => setBalanceTexts({ ...balanceTexts, [need.key]: text })}
+      onChoose={(c) => onChoose(need.key, c)}
+    />
   );
 
   return (
@@ -659,16 +694,25 @@ function NamesStep({
         </Card>
       ) : null}
 
-      <Button label="Continue" size="lg" className="mt-8" onPress={onNext} />
+      <Button label="Continue" size="lg" className="mt-8" disabled={badBalance} onPress={onNext} />
     </VStack>
   );
 }
 
-function NameRow({ need, choice, onChoose }: { need: NameNeed; choice: NameChoice; onChoose: (choice: NameChoice) => void }) {
+function NameRow({
+  need,
+  choice,
+  balanceText,
+  onBalanceText,
+  onChoose,
+}: {
+  need: NameNeed;
+  choice: NameChoice;
+  balanceText: string;
+  onBalanceText: (text: string) => void;
+  onChoose: (choice: NameChoice) => void;
+}) {
   const { accounts, categories } = useLedger();
-  const [balanceText, setBalanceText] = useState(
-    choice.action === 'create' && choice.openingBalance > 0 ? String(choice.openingBalance / 100) : ''
-  );
   const isAccount = need.role === 'account';
   const existing = isAccount
     ? accounts.filter((a) => !a.archived).map((a) => ({ id: a.id, name: a.name }))
@@ -679,7 +723,8 @@ function NameRow({ need, choice, onChoose }: { need: NameNeed; choice: NameChoic
     : [{ value: 'create:', label: `New ${ROLE_LABELS[need.role].toLowerCase()}` }];
   const options = [...createOptions, ...existing.map((item) => ({ value: `use:${item.id}`, label: `Use “${item.name}”` }))];
   const value = choice.action === 'use' ? `use:${choice.id}` : isAccount ? `create:${choice.accountType}` : 'create:';
-  const openingBalance = choice.action === 'create' ? choice.openingBalance : 0;
+  // Taken from the field, so switching to "Use …" and back keeps what it shows.
+  const openingBalance = parseTaka(balanceText) ?? 0;
 
   const choose = (next: string | null) => {
     if (!next) return;
@@ -709,7 +754,7 @@ function NameRow({ need, choice, onChoose }: { need: NameNeed; choice: NameChoic
             hint="Its first row in the sheet is on this day; leave empty for 0"
             error={balanceText.trim() && parseTaka(balanceText) === null ? 'Enter an amount like 1,500 or 1500.50' : undefined}
             onChangeText={(text) => {
-              setBalanceText(text);
+              onBalanceText(text);
               onChoose({ ...choice, openingBalance: parseTaka(text) ?? 0 });
             }}
           />
@@ -723,6 +768,7 @@ function NameRow({ need, choice, onChoose }: { need: NameNeed; choice: NameChoic
 
 function ReviewStep({ draft, needs, choices }: { draft: Draft; needs: NameNeed[]; choices: Record<string, NameChoice> }) {
   const dialog = useDialog();
+  const { accounts } = useLedger();
   const [skipDuplicates, setSkipDuplicates] = useState(true);
   const [saving, setSaving] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -740,6 +786,14 @@ function ReviewStep({ draft, needs, choices }: { draft: Draft; needs: NameNeed[]
   final.transactions.forEach((tx) => (byType[tx.type] += 1));
   const dates = final.transactions.map((tx) => tx.date).sort();
   const problemRows = new Set(draft.problems.map((p) => p.line)).size;
+  // New accounts open on their first row, so only existing ones can have earlier rows.
+  const openingDates = new Map(accounts.map((a) => [a.id, a.openingDate]));
+  const beforeOpening = final.transactions.filter((tx) =>
+    [tx.fromId, tx.toId].some((id) => {
+      const opened = openingDates.get(id);
+      return opened !== undefined && tx.date < opened;
+    })
+  ).length;
 
   const save = async () => {
     setSaving(true);
@@ -806,6 +860,13 @@ function ReviewStep({ draft, needs, choices }: { draft: Draft; needs: NameNeed[]
             Fix them in the sheet and import it again later; rows already imported are found and skipped.
           </Text>
         </>
+      ) : null}
+
+      {beforeOpening > 0 ? (
+        <Notice
+          tone="info"
+          text={`${count(beforeOpening, 'row')} ${beforeOpening === 1 ? 'is' : 'are'} dated before the opening date of an account ${beforeOpening === 1 ? 'it uses' : 'they use'}. They're kept in your history and totals, but don't change that account's balance.`}
+        />
       ) : null}
 
       {failed ? <Notice tone="warning" text="Couldn't import. Nothing was changed; please try again." /> : null}

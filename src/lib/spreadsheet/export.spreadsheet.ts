@@ -18,6 +18,14 @@ export function plainTaka(poisha: number): string {
   return fraction === 0 ? String(whole) : `${whole}.${String(fraction).padStart(2, '0').replace(/0$/, '')}`;
 }
 
+/**
+ * Text that Excel would run as a formula ("=…", "+…", "-…", "@…") gets a leading apostrophe, which
+ * Excel shows as plain text; the import removes it again (`parseTable`).
+ */
+export function safeCell(text: string): string {
+  return /^[=+\-@]/.test(text) ? `'${text}` : text;
+}
+
 /** The CSV text: a header row, then every transaction oldest first with IDs T1, T2, … */
 export function transactionsToCsv(
   accounts: readonly Account[],
@@ -31,11 +39,11 @@ export function transactionsToCsv(
     refs.get(tx.id)!,
     tx.date,
     TRANSACTION_TYPE_LABELS[tx.type],
-    nameOf(tx.fromId),
-    nameOf(tx.toId),
+    safeCell(nameOf(tx.fromId)),
+    safeCell(nameOf(tx.toId)),
     plainTaka(tx.amount),
-    tx.note,
-    tx.party ?? '',
+    safeCell(tx.note),
+    safeCell(tx.party ?? ''),
     tx.parentId ? (refs.get(tx.parentId) ?? '') : '',
   ]);
   return toCsv([EXPORT_COLUMNS, ...rows]);

@@ -220,7 +220,10 @@ export function readRows(table: Table, options: ImportOptions, accountNames: rea
   return { rows: rows.filter((row) => !badLines.has(row.line)), problems, skipped };
 }
 
-/** IDs used twice, links to IDs that aren't in the sheet, and links to expenses. */
+/**
+ * IDs used twice, links to IDs that aren't in the sheet, and links to expenses. A row linked to a
+ * row that is left out is left out too (and so on down the tree), so no link is dropped silently.
+ */
 function linkProblems(rows: readonly DraftRow[]): RowProblem[] {
   const problems: RowProblem[] = [];
   const byRef = new Map<string, DraftRow>();
@@ -230,13 +233,23 @@ function linkProblems(rows: readonly DraftRow[]): RowProblem[] {
     if (seen) problems.push({ line: row.line, message: `ID "${row.ref}" is also used on row ${seen.line}` });
     else byRef.set(key(row.ref), row);
   }
-  for (const row of rows) {
-    if (!row.linkedRef) continue;
-    const parent = byRef.get(key(row.linkedRef));
-    if (!parent) problems.push({ line: row.line, message: `linked to "${row.linkedRef}", which isn't in the file (or has a problem)` });
-    else if (parent === row) problems.push({ line: row.line, message: 'linked to itself' });
-    else if (parent.type === 'expense')
-      problems.push({ line: row.line, message: `linked to an expense (row ${parent.line}); link to income or a transfer` });
+  const bad = new Set(problems.map((p) => p.line));
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const row of rows) {
+      if (!row.linkedRef || bad.has(row.line)) continue;
+      const parent = byRef.get(key(row.linkedRef));
+      let message: string | null = null;
+      if (!parent || bad.has(parent.line)) message = `linked to "${row.linkedRef}", which isn't in the file (or has a problem)`;
+      else if (parent === row) message = 'linked to itself';
+      else if (parent.type === 'expense') message = `linked to an expense (row ${parent.line}); link to income or a transfer`;
+      if (message) {
+        problems.push({ line: row.line, message });
+        bad.add(row.line);
+        changed = true;
+      }
+    }
   }
   return problems;
 }

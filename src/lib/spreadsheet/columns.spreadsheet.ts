@@ -67,14 +67,32 @@ const normalise = (text: string) => text.toLowerCase().replace(/[^\p{L}\p{M}\p{N
 /** A column the sheet calculates (e.g. "Left from this (auto)", "Balance"), never imported. */
 export const isComputedColumn = (name: string) => IGNORED_WORDS.includes(normalise(name));
 
-function fieldForHeader(cell: string): ImportField | 'ignore' | null {
-  const word = normalise(cell);
-  if (!word) return null;
+/** "Withdrawal Amt." → "withdrawal", "Debit Amount (Tk)" → "debit": the name without an amount / currency ending. */
+const AMOUNT_ENDING = /(amount|amt|taka|tk|bdt)+$/;
+
+function fieldForWord(word: string): ImportField | 'ignore' | null {
   if (IGNORED_WORDS.includes(word)) return 'ignore';
   for (const field of IMPORT_FIELDS) {
     if (HEADER_WORDS[field].includes(word)) return field;
   }
   return null;
+}
+
+function fieldForHeader(cell: string): ImportField | 'ignore' | null {
+  const word = normalise(cell);
+  if (!word) return null;
+  const exact = fieldForWord(word);
+  if (exact) return exact;
+  const short = word.replace(AMOUNT_ENDING, '');
+  return short && short !== word ? fieldForWord(short) : null;
+}
+
+/** 1, 2, 3… (or counting down): a serial-number column, never the amount. */
+function isCounting(cells: readonly string[]): boolean {
+  if (cells.length < 2 || !cells.every((cell) => /^\d+$/.test(cell))) return false;
+  const numbers = cells.map(Number);
+  const step = numbers[1] - numbers[0];
+  return Math.abs(step) === 1 && numbers.every((n, i) => i === 0 || n - numbers[i - 1] === step);
 }
 
 /**
@@ -105,9 +123,12 @@ export function guessHeaderRow(table: Table): number | null {
 export function guessColumns(table: Table, headerRow: number | null): ColumnMap {
   const columns: ColumnMap = {};
   const header = headerRow === null ? [] : table[headerRow];
+  // Calculated columns (a running balance) are never guessed as the amount either.
+  const ignored: number[] = [];
   header.forEach((cell, index) => {
     const field = fieldForHeader(cell);
-    if (field && field !== 'ignore' && columns[field] === undefined) columns[field] = index;
+    if (field === 'ignore') ignored.push(index);
+    else if (field && columns[field] === undefined) columns[field] = index;
   });
 
   // A sheet with both "From" and a separate "Account" is unusual; prefer the Coinroot layout.
@@ -121,9 +142,10 @@ export function guessColumns(table: Table, headerRow: number | null): ColumnMap 
   // Without names (or unknown ones), look at the values.
   const data = table.slice(headerRow === null ? 0 : headerRow + 1, (headerRow ?? -1) + 31);
   const width = table[0]?.length ?? 0;
-  const used = new Set(Object.values(columns));
+  const used = new Set([...Object.values(columns), ...ignored]);
+  const filledCells = (index: number) => data.map((row) => row[index] ?? '').filter(Boolean);
   const share = (index: number, test: (cell: string) => boolean) => {
-    const filled = data.map((row) => row[index] ?? '').filter(Boolean);
+    const filled = filledCells(index);
     return filled.length === 0 ? 0 : filled.filter(test).length / filled.length;
   };
   if (columns.date === undefined) {
@@ -137,7 +159,7 @@ export function guessColumns(table: Table, headerRow: number | null): ColumnMap 
   }
   if (columns.amount === undefined && columns.moneyIn === undefined && columns.moneyOut === undefined) {
     for (let i = 0; i < width; i++) {
-      if (used.has(i)) continue;
+      if (used.has(i) || isCounting(filledCells(i))) continue;
       const isAmount = (cell: string) => {
         const parsed = parseAmountCell(cell);
         return parsed !== null && parsed !== 'empty';

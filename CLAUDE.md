@@ -228,7 +228,7 @@ A bank statement:      (title rows) Txn Date, Description, Debit, Credit, Balanc
 - **Row problems** name the sheet row ("Row 14: date "31/02/2024" isn't a date"): bad or future dates, bad / zero / two-sided amounts, unknown types, missing accounts, transfers to the same account, repeated IDs, links to a missing row or to an expense. "Total" rows are left out. Every row is checked before anything is saved; rows with problems are left out only after the user sees them on the button ("Import 120 rows, leave out 3").
 - **Linked to:** a `Row ID` column + `Linked to` column map to `parent_id`.
 - **Duplicates:** an entry with the same date, type, from, to and amount as one already recorded is skipped by default (each recorded entry matches once), so importing the same or an overlapping sheet again is safe; links to a skipped row point at the recorded one.
-- **Export:** Settings → Export to spreadsheet writes `coinroot-transactions-YYYY-MM-DD.csv` (UTF-8 with BOM for Excel) in Coinroot's columns (`ID, Date, Type, From, To/Category, Amount, Note, Received from, Linked to`; plain taka numbers) and opens the share sheet. An exported file imports back to the same entries (tested).
+- **Export:** Settings → Export to spreadsheet writes `coinroot-transactions-YYYY-MM-DD.csv` (UTF-8 with BOM for Excel) in Coinroot's columns (`ID, Date, Type, From, To/Category, Amount, Note, Received from, Linked to`; plain taka numbers; text starting with `=`, `+`, `-` or `@` gets a leading `'` so Excel doesn't run it as a formula, and the import removes it) and opens the share sheet. An exported file imports back to the same entries (tested).
 - Opening balances of existing accounts aren't changed by an import; new accounts get theirs in the names step.
 
 ## Roadmap

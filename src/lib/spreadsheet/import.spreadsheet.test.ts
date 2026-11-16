@@ -8,7 +8,7 @@ import { describe, expect, it } from '@jest/globals';
 import type { Account, Category, Transaction } from '@/lib/types';
 
 import { guessColumns, guessHeaderRow } from './columns.spreadsheet';
-import { plainTaka, transactionsToCsv } from './export.spreadsheet';
+import { plainTaka, safeCell, transactionsToCsv } from './export.spreadsheet';
 import { buildImport, defaultChoice, findDuplicates, guessAccountType, neededNames, withoutDuplicates } from './plan.spreadsheet';
 import { type ImportOptions, readRows } from './rows.spreadsheet';
 import { parseTable, unreadableFileReason } from './table.spreadsheet';
@@ -230,6 +230,43 @@ describe('a table pasted from Word or a spreadsheet (tab-separated)', () => {
   });
 });
 
+describe('guessing the amount column', () => {
+  it('a serial-number column (1, 2, 3…) is not the amount', () => {
+    const { options, draft } = importSheet('1,05/03/2026,Food,500\n2,06/03/2026,Food,900\n3,07/03/2026,Food,300', {
+      defaultAccount: 'Cash',
+    });
+    expect(options.columns.amount).toBe(3);
+    expect(draft.rows.map((row) => row.amount)).toEqual([50_000, 90_000, 30_000]);
+  });
+
+  it('reads "Withdrawal Amt." / "Deposit Amt." as money out / in', () => {
+    const sheet = ['Txn Date,Details,Withdrawal Amt.,Deposit Amt.,Balance', '05/03/2026,ATM,,500,1500', '06/03/2026,Shop,200,,1300'].join('\n');
+    const { options, draft } = importSheet(sheet, { defaultAccount: 'Main Bank' });
+    expect(options.columns).toEqual({ date: 0, note: 1, moneyOut: 2, moneyIn: 3 });
+    expect(draft.rows.map((row) => row.type)).toEqual(['income', 'expense']);
+  });
+
+  it('never guesses a calculated balance column as the amount', () => {
+    const { options } = importSheet('Date,Details,Balance,Figure\n05/03/2026,ATM,1500,500\n06/03/2026,Shop,1300,200');
+    expect(options.columns.amount).toBe(3);
+  });
+});
+
+describe('links two levels down', () => {
+  it('a row linked to a left-out row is left out too, with its row named', () => {
+    const sheet = [
+      'ID,Date,Type,From,To/Category,Amount,Linked to',
+      'T1,2026-11-03,Expense,Cash,Food,100,',
+      'T2,2026-11-03,Transfer,Main Bank,Cash,5000,T1',
+      'T3,2026-11-03,Expense,Cash,Food,220,T2',
+    ].join('\n');
+    const { draft } = importSheet(sheet);
+    expect(draft.rows.map((row) => row.ref)).toEqual(['T1']);
+    expect(draft.problems.map((p) => p.line)).toEqual([3, 4]);
+    expect(draft.problems[1].message).toMatch(/linked to "T2"/);
+  });
+});
+
 describe('files that are not tables', () => {
   it('explains what to do with Excel, Word and binary files', () => {
     expect(unreadableFileReason('money.xlsx', 'PK…')).toMatch(/Save it as CSV/);
@@ -295,6 +332,15 @@ describe('export', () => {
     expect(plan.transactions.map(strip)).toEqual(transactions.map(strip));
     expect(plan.transactions[2].parentId).toBe(plan.transactions[1].id);
   });
+});
+
+it('export keeps text Excel would run as a formula as plain text, and imports it back unchanged', () => {
+  expect(safeCell('=SUM(A1)')).toBe("'=SUM(A1)");
+  expect(safeCell('Lunch')).toBe('Lunch');
+  const tx: Transaction = { id: 'x1', date: '2026-11-01', type: 'expense', fromId: 'a-cash', toId: 'c-food', amount: 10_000, note: '=HYPERLINK("x")', parentId: null, party: null, createdAt: '', updatedAt: '' };
+  const csv = transactionsToCsv(ACCOUNTS, CATEGORIES, [tx]);
+  expect(csv).toContain("'=HYPERLINK");
+  expect(importSheet(csv).draft.rows[0].note).toBe('=HYPERLINK("x")');
 });
 
 it('guessAccountType and defaultChoice', () => {

@@ -109,6 +109,8 @@ export function parseDateCell(cell: string, order: DateOrder): string | null {
   if (parts.length !== 3 || !parts.every((p) => /^\d+$/.test(p))) return null;
   const [a, b, c] = parts.map(Number);
   if (parts[0].length === 4) return toKey(a, b, c);
+  // "26/03/05" when the user said dates are year first.
+  if (order === 'ymd') return parts[0].length === 2 ? toKey(a, b, c) : null;
   if (parts[2].length !== 4 && parts[2].length !== 2) return null;
   return order === 'mdy' ? toKey(c, a, b) : toKey(c, b, a);
 }
