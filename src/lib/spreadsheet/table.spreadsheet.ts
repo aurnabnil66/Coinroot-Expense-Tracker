@@ -37,13 +37,14 @@ export function unreadableFileReason(name: string, text: string): string | null 
 
 /**
  * Splits text into rows and cells. The separator (comma, semicolon or tab) is detected,
- * quotes are handled and cells trimmed. Empty rows stay (so "Row 14" matches the sheet's row
+ * quotes are handled, cells trimmed and a formula-guarding apostrophe ("'=…") removed. Empty rows stay (so "Row 14" matches the sheet's row
  * numbers) except at the end; every row gets the same number of cells.
  */
 export function parseTable(text: string): Table {
   const clean = text.replace(/^\uFEFF/, '');
   const result = Papa.parse<string[]>(clean, { delimitersToGuess: ['\t', ',', ';', '|'] });
-  const rows = result.data.map((row) => row.map((cell) => (cell ?? '').trim()));
+  // "'=…": text the export (or the user) kept from being read as a formula; the apostrophe isn't part of it.
+  const rows = result.data.map((row) => row.map((cell) => (cell ?? '').trim().replace(/^'(?=[=+\-@])/, '')));
   while (rows.length > 0 && rows[rows.length - 1].every((cell) => cell === '')) rows.pop();
   const width = rows.reduce((max, row) => Math.max(max, row.length), 0);
   return rows.map((row) => [...row, ...Array<string>(width - row.length).fill('')]);

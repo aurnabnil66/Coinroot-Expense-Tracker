@@ -41,6 +41,8 @@ describe('parseDateCell', () => {
     ['5/3/2026 9:15 AM', 'dmy', '2026-03-05'],
     ['46086', 'dmy', '2026-03-05'],
     ['০৫/০৩/২০২৬', 'dmy', '2026-03-05'],
+    ['26/03/05', 'ymd', '2026-03-05'],
+    ['26-3-5', 'ymd', '2026-03-05'],
   ] as const)('%s (%s)', (cell, order, expected) => {
     expect(parseDateCell(cell, order)).toBe(expected);
   });
