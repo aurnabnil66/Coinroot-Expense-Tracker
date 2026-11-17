@@ -1,0 +1,51 @@
+name: Claude PR review
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+concurrency:
+  group: claude-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number }}
+
+            Review this pull request before it is merged into main.
+            Read CLAUDE.md and AGENTS.md first and check the change against their rules
+            (domain rules, money as integer poisha, folder structure, file naming, barrels,
+            styling, forms, loading states, dialogs).
+
+            Focus on:
+            - Bugs and logic errors (especially balances, transfers vs. expenses, parent links)
+            - Data safety: migrations, soft deletes, backup / restore and import correctness
+            - Missing or weak tests for changed logic in utils / db / spreadsheet
+            - Security issues and hard-coded personal data
+            - Code that clearly breaks the project conventions
+
+            Use `gh pr diff` and `gh pr view` to read the change.
+            Post inline comments for specific lines with the inline comment tool, and finish
+            with one summary comment via `gh pr comment` that says whether the PR looks
+            ready to merge. Be concise; skip nitpicks and praise.
+          claude_args: |
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Read,Glob,Grep"
