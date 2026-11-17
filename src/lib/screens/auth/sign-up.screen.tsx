@@ -5,10 +5,10 @@ import { View } from 'react-native';
 
 import { Text } from '@/lib/gluestack-ui/text';
 import { VStack } from '@/lib/gluestack-ui/vstack';
-import { AuthError, authStore } from '@/lib/mocks';
 import { NICKNAME_MAX, PASSWORD_MIN, type SignUpFormInput, type SignUpFormValues, signUpFormDefaults, signUpFormSchema } from '@/lib/schemas';
 import { saveProfile } from '@/lib/storage';
-import { AvatarPickerField, Button, LinkPrompt, ModalHeader, ScreenContainer, TextField } from '@/lib/ui';
+import { AuthError, authStore } from '@/lib/supabase';
+import { AvatarPickerField, Button, LinkPrompt, ModalHeader, ScreenContainer, TextField, useDialog } from '@/lib/ui';
 
 /** "Create account" opened from Settings (after setup). */
 export function SignUpScreen() {
@@ -31,6 +31,7 @@ type SignUpFormProps = {
 
 /** Nickname, email, password and optional phone; creates the account and saves the profile. */
 export function SignUpForm({ onDone, onLogIn }: SignUpFormProps) {
+  const dialog = useDialog();
   const {
     control,
     handleSubmit,
@@ -45,14 +46,23 @@ export function SignUpForm({ onDone, onLogIn }: SignUpFormProps) {
 
   const onSubmit = async ({ password, ...profile }: SignUpFormValues) => {
     try {
-      await authStore.signUp({ email: profile.email, password });
+      const { session } = await authStore.signUp({ email: profile.email, password });
       await saveProfile(profile);
-      onDone();
+      if (!session) {
+        // The project asks for email confirmation: the emailed link finishes signing in.
+        await dialog.alert({
+          title: 'Check your email',
+          message: `We sent a link to ${profile.email}. Open it on this phone to finish creating your account. You can keep using Coinroot meanwhile.`,
+          tone: 'info',
+        });
+      }
     } catch (e) {
       setError('root', {
         message: e instanceof AuthError ? e.message : 'Could not create your account. Please try again.',
       });
+      return;
     }
+    onDone();
   };
 
   return (

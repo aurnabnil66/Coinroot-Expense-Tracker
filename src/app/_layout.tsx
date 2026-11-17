@@ -70,6 +70,8 @@ export default function RootLayout() {
               <Stack.Protected guard={!setupDone}>
                 <Stack.Screen name="setup" />
               </Stack.Protected>
+              {/* Email links (confirm sign-up, reset password) can open during setup too. */}
+              <Stack.Screen name="auth-callback" options={modal} />
             </Stack>
           </DatabaseGate>
         </DialogProvider>

@@ -28,7 +28,7 @@ import {
   useThemePreference,
 } from "@/lib/hooks";
 import { ledgerStore } from "@/lib/db";
-import { authStore } from "@/lib/mocks";
+import { authStore } from "@/lib/supabase";
 import { formatBdPhone, formatFullDate } from "@/lib/utils";
 import {
   Avatar,

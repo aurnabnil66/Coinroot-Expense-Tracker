@@ -1,0 +1,49 @@
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { AppState, type AppStateStatus, Platform } from 'react-native';
+
+import { supabaseConfig } from './config.supabase';
+import { authSessionStorage } from './session-storage.supabase';
+
+let client: SupabaseClient | null | undefined;
+
+/**
+ * The one Supabase client, created on first use. `null` when this build has no Supabase
+ * settings (the app then works fully offline, without sign-in).
+ *
+ * Email links (confirm sign-up, reset password) use the implicit flow: the link opens
+ * `coinroot://auth-callback#access_token=…&refresh_token=…&type=…`, which the
+ * `auth-callback` route reads. It needs no code verifier, so it works from any mail app.
+ */
+export function getSupabase(): SupabaseClient | null {
+  if (client !== undefined) return client;
+  if (!supabaseConfig) {
+    client = null;
+    return client;
+  }
+
+  const native = Platform.OS !== 'web';
+  const supabase = createClient(supabaseConfig.url, supabaseConfig.publishableKey, {
+    auth: {
+      // Web uses the browser's localStorage (Supabase's default); nothing to keep on the server render.
+      storage: native ? authSessionStorage : undefined,
+      persistSession: native || typeof window !== 'undefined',
+      autoRefreshToken: true,
+      detectSessionInUrl: false,
+      flowType: 'implicit',
+    },
+  });
+
+  if (native) {
+    // React Native has no tab visibility events: refresh tokens only while the app is open.
+    const sync = (state: AppStateStatus | null | undefined) => {
+      if (state === 'active' || state == null) void supabase.auth.startAutoRefresh();
+      else void supabase.auth.stopAutoRefresh();
+    };
+    AppState.addEventListener('change', sync);
+    // `currentState` can be unknown this early: the app is in the foreground while it starts.
+    sync(AppState.currentState as AppStateStatus | null);
+  }
+
+  client = supabase;
+  return client;
+}
