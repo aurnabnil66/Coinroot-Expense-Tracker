@@ -1,3 +1,4 @@
+export * from './account-profile.supabase';
 export * from './auth-link.supabase';
 export * from './auth-messages.supabase';
 export * from './auth-store.supabase';

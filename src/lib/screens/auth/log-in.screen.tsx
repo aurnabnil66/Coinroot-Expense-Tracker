@@ -6,7 +6,6 @@ import { View } from 'react-native';
 import { Text } from '@/lib/gluestack-ui/text';
 import { VStack } from '@/lib/gluestack-ui/vstack';
 import { emailSchema, type LogInFormInput, type LogInFormValues, logInFormDefaults, logInFormSchema } from '@/lib/schemas';
-import { profileSetting, saveProfile } from '@/lib/storage';
 import { AuthError, authStore, isCloudConfigured } from '@/lib/supabase';
 import { Button, LinkPrompt, ModalHeader, ScreenContainer, TextField, useDialog } from '@/lib/ui';
 
@@ -46,9 +45,8 @@ export function LogInForm({ onDone, onSignUp }: LogInFormProps) {
 
   const onSubmit = async (values: LogInFormValues) => {
     try {
-      const session = await authStore.signIn(values);
-      // The account's email becomes the profile email.
-      await saveProfile({ ...profileSetting.get(), email: session.email });
+      // Also brings the account's nickname and phone to this phone.
+      await authStore.signIn(values);
       onDone();
     } catch (e) {
       setError('root', { message: e instanceof AuthError ? e.message : 'Could not log in. Please try again.' });

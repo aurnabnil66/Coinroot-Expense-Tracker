@@ -67,7 +67,7 @@ export function SettingsScreen() {
   const lastBackupAt = useLastBackupAt();
   const colors = useGluestackColors();
   const dialog = useDialog();
-  const email = profile.email || session?.email;
+  const email = session?.email || profile.email;
   const profileSubtitle = profile.nickname
     ? [email, profile.phone ? formatBdPhone(profile.phone) : null]
         .filter(Boolean)
@@ -77,7 +77,7 @@ export function SettingsScreen() {
   const logOut = () =>
     dialog.confirm({
       title: "Log out?",
-      message: "Your data stays on this phone. You can log in again any time.",
+      message: "Your profile (nickname, email, phone, photo) is removed from this phone. Your accounts and transactions stay. You can log in again any time.",
       tone: "warning",
       icon: LogOutIcon,
       confirmLabel: "Log out",
@@ -264,7 +264,7 @@ export function SettingsScreen() {
             tone="danger"
             leading={<IconBadge icon={LogOutIcon} tone="danger" />}
             title="Log out"
-            subtitle="Your data stays on this phone"
+            subtitle="Removes your profile from this phone"
             onPress={() => void logOut()}
           />
         ) : null}

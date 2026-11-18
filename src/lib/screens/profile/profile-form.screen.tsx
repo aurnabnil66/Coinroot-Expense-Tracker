@@ -8,6 +8,7 @@ import { VStack } from '@/lib/gluestack-ui/vstack';
 import { useAuth, useProfile } from '@/lib/hooks';
 import { NICKNAME_MAX, type ProfileFormInput, type ProfileFormValues, profileFormSchema } from '@/lib/schemas';
 import { saveProfile } from '@/lib/storage';
+import { authStore } from '@/lib/supabase';
 import { AvatarPickerField, Button, ModalHeader, ScreenContainer, TextField } from '@/lib/ui';
 import { formatBdPhone } from '@/lib/utils';
 
@@ -58,7 +59,9 @@ export function ProfileForm({ submitLabel, onDone }: ProfileFormProps) {
 
   const onSubmit = async (values: ProfileFormValues) => {
     try {
+      // Signed in, the email is the sign-in email (read-only).
       await saveProfile({ ...values, email: session?.email ?? values.email });
+      void authStore.updateAccountProfile({ nickname: values.nickname, phone: values.phone });
       onDone();
     } catch {
       setError('root', { message: 'Could not save your profile. Please try again.' });

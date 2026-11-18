@@ -1,8 +1,9 @@
 import type { Session, SupabaseClient } from '@supabase/supabase-js';
 import * as Linking from 'expo-linking';
 
-import { createSetting } from '@/lib/storage';
+import { createSetting, profileSetting, saveProfile } from '@/lib/storage';
 
+import { type AccountProfile, EMPTY_PROFILE, profileFromAccount, readAccountProfile } from './account-profile.supabase';
 import { AUTH_MESSAGES, authErrorMessage } from './auth-messages.supabase';
 import type { AuthLink } from './auth-link.supabase';
 import { getSupabase } from './client.supabase';
@@ -92,6 +93,19 @@ async function run<R extends { data: unknown; error: unknown }>(fallback: string
   return result.data;
 }
 
+/**
+ * After logging in, the profile on the phone becomes the account's: nickname, sign-in email
+ * and phone, blank where the account has none. Never fails the log-in.
+ */
+async function applyAccountProfile(session: Session) {
+  const account = readAccountProfile(session.user.user_metadata);
+  try {
+    await saveProfile(profileFromAccount(profileSetting.get(), account, session.user.email ?? ''));
+  } catch {
+    // Keep the profile already on the phone.
+  }
+}
+
 /** Where email links send the user back to: `coinroot://auth-callback` (the `auth-callback` route). */
 const authRedirectUrl = () => Linking.createURL('auth-callback');
 
@@ -107,9 +121,9 @@ export const authStore = {
    * Creates the account. When the project asks for email confirmation there is no session
    * yet (`session: null`): the user opens the emailed link, then is signed in.
    */
-  async signUp({ email, password }: { email: string; password: string }): Promise<{ session: AuthSession | null }> {
+  async signUp({ email, password, profile }: { email: string; password: string; profile: AccountProfile }): Promise<{ session: AuthSession | null }> {
     const data = await run('Could not create your account. Please try again.', () =>
-      client().auth.signUp({ email, password, options: { emailRedirectTo: authRedirectUrl() } })
+      client().auth.signUp({ email, password, options: { emailRedirectTo: authRedirectUrl(), data: profile } })
     );
     // With confirmation on, an email that is already registered comes back as a user with no identities.
     if (data.user && data.user.identities?.length === 0) throw new AuthError(AUTH_MESSAGES.accountExists);
@@ -118,23 +132,28 @@ export const authStore = {
     return { session };
   },
 
+  /** Logs in; the account's nickname, email and phone become the profile on this phone. */
   async signIn({ email, password }: { email: string; password: string }): Promise<AuthSession> {
-    const data = await run('Could not log in. Please try again.', () =>
-      client().auth.signInWithPassword({ email, password })
-    );
+    const supabase = client();
+    const data = await run('Could not log in. Please try again.', () => supabase.auth.signInWithPassword({ email, password }));
     const session = toAuthSession(data.session);
-    if (!session) throw new AuthError('Could not log in. Please try again.');
+    if (!data.session || !session) throw new AuthError('Could not log in. Please try again.');
+    await applyAccountProfile(data.session);
     remember(session);
     return session;
   },
 
-  /** Signs out on this phone only (other devices stay signed in). Local data stays. */
+  /**
+   * Signs out on this phone only (other devices stay signed in) and clears the profile
+   * (nickname, email, phone, photo), which belongs to the account.
+   */
   async signOut(): Promise<void> {
     await run('Could not log out. Please try again.', async () => {
       const { error } = await client().auth.signOut({ scope: 'local' });
       return { data: null, error };
     });
     remember(null);
+    await saveProfile(EMPTY_PROFILE).catch(() => profileSetting.set(EMPTY_PROFILE));
   },
 
   /** Emails a link that opens the app's "New password" step. */
@@ -146,13 +165,29 @@ export const authStore = {
 
   /** Signs in from an email link (confirm sign-up or reset password). */
   async openLink(link: Extract<AuthLink, { kind: 'session' }>): Promise<AuthSession> {
+    const supabase = client();
     const data = await run("This link didn't work. Ask for a new one.", () =>
-      client().auth.setSession({ access_token: link.accessToken, refresh_token: link.refreshToken })
+      supabase.auth.setSession({ access_token: link.accessToken, refresh_token: link.refreshToken })
     );
     const session = toAuthSession(data.session);
-    if (!session) throw new AuthError("This link didn't work. Ask for a new one.");
+    if (!data.session || !session) throw new AuthError("This link didn't work. Ask for a new one.");
+    await applyAccountProfile(data.session);
     remember(session);
     return session;
+  },
+
+  /**
+   * Saves an edited nickname / phone on the account while signed in. Best effort: the
+   * profile is already saved on the phone, and the next edit or log-in sends it again.
+   */
+  async updateAccountProfile(profile: AccountProfile): Promise<void> {
+    const supabase = getSupabase();
+    if (!supabase || !sessionSetting.get()) return;
+    try {
+      await supabase.auth.updateUser({ data: profile });
+    } catch {
+      // Offline: kept on the phone.
+    }
   },
 
   /** Sets a new password for the signed-in account (after a reset link). */

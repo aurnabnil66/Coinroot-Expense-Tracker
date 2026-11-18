@@ -14,7 +14,6 @@ import {
   type NewPasswordFormValues,
   PASSWORD_MIN,
 } from '@/lib/schemas';
-import { profileSetting, saveProfile } from '@/lib/storage';
 import { AuthError, authLinkParams, authStore, readAuthLink } from '@/lib/supabase';
 import { Button, EmptyState, ErrorState, LoadingState, ModalHeader, ScreenContainer, TextField, useDialog } from '@/lib/ui';
 
@@ -57,9 +56,7 @@ export function AuthCallbackScreen() {
     if (!accessToken || !refreshToken || !purpose || opened.has(refreshToken)) return;
     opened.add(refreshToken);
     authStore.openLink({ kind: 'session', accessToken, refreshToken, purpose }).then(
-      async (session) => {
-        // The account's email becomes the profile email, as when logging in.
-        await saveProfile({ ...profileSetting.get(), email: session.email }).catch(() => undefined);
+      (session) => {
         setResult({ step: purpose === 'recovery' ? 'new-password' : 'confirmed', email: session.email });
       },
       (e: unknown) =>

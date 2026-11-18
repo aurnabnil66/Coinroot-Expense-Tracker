@@ -46,7 +46,11 @@ export function SignUpForm({ onDone, onLogIn }: SignUpFormProps) {
 
   const onSubmit = async ({ password, ...profile }: SignUpFormValues) => {
     try {
-      const { session } = await authStore.signUp({ email: profile.email, password });
+      const { session } = await authStore.signUp({
+        email: profile.email,
+        password,
+        profile: { nickname: profile.nickname, phone: profile.phone },
+      });
       await saveProfile(profile);
       if (!session) {
         // The project asks for email confirmation: the emailed link finishes signing in.
