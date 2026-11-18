@@ -8,7 +8,7 @@ import { AddIcon, TrashIcon } from '@/lib/gluestack-ui/icon';
 import { Text } from '@/lib/gluestack-ui/text';
 import { getChildren, getChildTotals, getTransaction, ledgerStore, remainingFrom } from '@/lib/db';
 import { useLedger, useLedgerQuery } from '@/lib/hooks';
-import { AmountText, Button, Card, EmptyState, ListRow, ScreenContainer, SectionHeader, useDialog } from '@/lib/ui';
+import { AmountText, Button, Card, EmptyState, IconBadge, ListRow, ScreenContainer, SectionHeader, TreeIcon, useDialog } from '@/lib/ui';
 import { deleteTransactionMessage, formatFullDate, nameLookup } from '@/lib/utils';
 
 export function TransactionDetailScreen() {
@@ -102,6 +102,17 @@ export function TransactionDetailScreen() {
         <ListRow divider title="Date" trailing={formatFullDate(tx.date)} />
         {tx.note ? <ListRow divider title="Note" subtitle={tx.note} /> : null}
       </Card>
+
+      {parent || children.length > 0 ? (
+        <Card className="mt-4">
+          <ListRow
+            leading={<IconBadge icon={TreeIcon} tone="primary" />}
+            title="Money tree"
+            subtitle="Where this money came from and where it went"
+            onPress={() => router.push({ pathname: '/money-tree/[id]', params: { id: tx.id } })}
+          />
+        </Card>
+      ) : null}
 
       {parent ? (
         <>

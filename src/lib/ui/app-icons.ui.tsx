@@ -88,3 +88,16 @@ export const CloudIcon = createIcon({
     </>
   ),
 });
+
+/** Lucide "git-branch": the money tree. */
+export const TreeIcon = createIcon({
+  viewBox: '0 0 24 24',
+  path: (
+    <>
+      <Path d="M6 3v12" {...stroke} />
+      <Path d="M15 6a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" {...stroke} />
+      <Path d="M3 18a3 3 0 1 0 6 0a3 3 0 1 0 -6 0" {...stroke} />
+      <Path d="M18 9a9 9 0 0 1 -9 9" {...stroke} />
+    </>
+  ),
+});

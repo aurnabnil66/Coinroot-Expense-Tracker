@@ -8,11 +8,14 @@ import {
   dailySpending,
   deleteTransactionMessage,
   findCategoryByName,
+  flattenMoneyTree,
   groupByDay,
   incomeByPayer,
   linkableParents,
   monthlySpending,
   monthlySummary,
+  MONEY_TREE_MAX_NODES,
+  moneyTree,
   receivedFromSuggestions,
   quickPresets,
   remainingOf,
@@ -203,5 +206,82 @@ describe('balanceAdjustment', () => {
     expect(balanceAdjustment(50000, 50000)).toBeNull();
     expect(balanceAdjustment(50000, 38000)).toEqual({ type: 'expense', amount: 12000 });
     expect(balanceAdjustment(50000, 52000)).toEqual({ type: 'income', amount: 2000 });
+  });
+});
+
+describe('moneyTree', () => {
+  // Salary → office → primary → ATM → cash spending, plus a DPS installment and an unlinked expense.
+  const salary = tx({ id: 'salary', type: 'income', fromId: 'src-salary', toId: 'office', amount: 8_500_000, date: '2026-11-01' });
+  const toPrimary = tx({ id: 'to-primary', type: 'transfer', fromId: 'office', toId: 'primary', amount: 7_000_000, date: '2026-11-02', parentId: 'salary' });
+  const atm = tx({ id: 'atm', type: 'transfer', fromId: 'primary', toId: 'cash', amount: 1_000_000, date: '2026-11-03', parentId: 'to-primary' });
+  const dps = tx({ id: 'dps', type: 'transfer', fromId: 'primary', toId: 'dps-acc', amount: 500_000, date: '2026-11-10', parentId: 'to-primary' });
+  const lunch = tx({ id: 'lunch', type: 'expense', fromId: 'cash', toId: 'food', amount: 120_050, date: '2026-11-04', parentId: 'atm' });
+  const cng = tx({ id: 'cng', type: 'expense', fromId: 'cash', toId: 'transport', amount: 35_000, date: '2026-11-03', parentId: 'atm' });
+  const unlinked = tx({ id: 'unlinked', type: 'expense', fromId: 'cash', toId: 'food', amount: 999 });
+  const all = [salary, toPrimary, atm, dps, lunch, cng, unlinked];
+
+  it('walks up to the root and down through everything paid from it, oldest first', () => {
+    const tree = moneyTree('lunch', all)!;
+    expect(tree.path.map((t) => t.id)).toEqual(['salary', 'to-primary', 'atm', 'lunch']);
+    expect(flattenMoneyTree(tree.root).map((n) => `${'  '.repeat(n.depth)}${n.tx.id}`)).toEqual([
+      'salary',
+      '  to-primary',
+      '    atm',
+      '      cng',
+      '      lunch',
+      '    dps',
+    ]);
+    expect(tree.size).toBe(6);
+    expect(tree.truncated).toBe(false);
+  });
+
+  it("says what's left at each step, what was spent, and they add up to the root", () => {
+    const tree = moneyTree('salary', all)!;
+    const leftOf = new Map(flattenMoneyTree(tree.root).map((n) => [n.tx.id, n.left]));
+    expect(leftOf.get('salary')).toBe(1_500_000); // still in the office account
+    expect(leftOf.get('to-primary')).toBe(5_500_000); // after the ATM and the DPS installment
+    expect(leftOf.get('atm')).toBe(844_950); // cash left after CNG and lunch
+    expect(leftOf.get('dps')).toBe(500_000);
+    expect(leftOf.get('lunch')).toBe(0);
+    expect(tree.spent).toBe(155_050);
+    expect(tree.spent + tree.left).toBe(salary.amount);
+  });
+
+  it('is just the entry when nothing is linked', () => {
+    const tree = moneyTree('unlinked', all)!;
+    expect(tree).toMatchObject({ path: [unlinked], size: 1, spent: 999, left: 0 });
+    expect(tree.root.children).toEqual([]);
+  });
+
+  it('stops at a link to a missing entry, and returns null for an unknown id', () => {
+    const orphan = tx({ id: 'orphan', type: 'expense', fromId: 'cash', toId: 'food', amount: 10, parentId: 'deleted-atm' });
+    expect(moneyTree('orphan', [orphan])!.path.map((t) => t.id)).toEqual(['orphan']);
+    expect(moneyTree('nope', all)).toBeNull();
+  });
+
+  it('survives a link loop', () => {
+    const a = tx({ id: 'loop-a', type: 'transfer', fromId: 'x', toId: 'y', amount: 100, parentId: 'loop-b' });
+    const b = tx({ id: 'loop-b', type: 'transfer', fromId: 'y', toId: 'x', amount: 100, parentId: 'loop-a' });
+    const tree = moneyTree('loop-a', [a, b])!;
+    expect(tree.path.map((t) => t.id)).toEqual(['loop-b', 'loop-a']);
+    expect(flattenMoneyTree(tree.root).map((n) => n.tx.id)).toEqual(['loop-b', 'loop-a']);
+  });
+
+  it('cuts off very large trees, keeping the levels nearest the root, with honest totals', () => {
+    const big = tx({ id: 'big', type: 'income', fromId: 'src', toId: 'cash', amount: 10_000_000 });
+    const spends = Array.from({ length: MONEY_TREE_MAX_NODES + 20 }, (_, i) =>
+      tx({ id: `s${String(i).padStart(4, '0')}`, type: 'expense', fromId: 'cash', toId: 'food', amount: 100, parentId: 'big' })
+    );
+    const tree = moneyTree('big', [big, ...spends])!;
+    expect(tree.truncated).toBe(true);
+    expect(tree.size).toBe(MONEY_TREE_MAX_NODES);
+    expect(tree.root.left).toBe(10_000_000 - spends.length * 100);
+    expect(tree.spent).toBe(spends.length * 100);
+    expect(tree.spent + tree.left).toBe(big.amount);
+  });
+
+  it('hides the children of collapsed nodes when flattened', () => {
+    const tree = moneyTree('salary', all)!;
+    expect(flattenMoneyTree(tree.root, new Set(['to-primary'])).map((n) => n.tx.id)).toEqual(['salary', 'to-primary']);
   });
 });

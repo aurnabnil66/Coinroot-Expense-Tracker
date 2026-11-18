@@ -10,6 +10,7 @@ import {
   accountBalances,
   addMonths,
   childrenOf,
+  moneyTree,
   compareNewestFirst,
   dailySpending,
   daysInMonth,
@@ -34,6 +35,7 @@ import {
   getAccountTransactions,
   getChildren,
   getChildTotals,
+  getMoneyTree,
   getLinkableParents,
   getMonthlySpending,
   getReceivedFromNames,
@@ -96,7 +98,8 @@ beforeAll(() => {
       } else {
         const [fromId, toId] = [pick(accountIds), pick(accountIds)];
         if (fromId === toId) continue;
-        extra.push({ ...base, type: 'transfer', fromId, toId });
+        // Some transfers move money that came in by an earlier one: chains several levels deep.
+        extra.push({ ...base, type: 'transfer', fromId, toId, parentId: rand() < 0.5 ? parentId : null });
         parentId = base.id;
       }
       if (rand() < 0.05) extra[extra.length - 1].deletedAt = createdAt;
@@ -114,6 +117,15 @@ beforeAll(() => {
 });
 
 describe('ledger queries match the JS calculations on the full list', () => {
+  it('money trees (up to the root, then everything below it)', () => {
+    const linked = all.filter((tx) => tx.parentId !== null);
+    expect(linked.length).toBeGreaterThan(100);
+    const deepest = Math.max(...all.map((tx) => moneyTree(tx.id, all)!.path.length));
+    expect(deepest).toBeGreaterThanOrEqual(4); // the data really has deep chains
+    for (const tx of all) expect(getMoneyTree(db, tx.id)).toEqual(moneyTree(tx.id, all));
+    expect(getMoneyTree(db, 'missing')).toBeNull();
+  });
+
   it('has a realistic amount of data, including deleted rows', () => {
     expect(all.length).toBeGreaterThan(1500);
     expect(countTransactions(db)).toBe(all.length);

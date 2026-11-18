@@ -282,3 +282,122 @@ export function nameLookup(
   for (const item of [...accounts, ...categories]) names.set(item.id, item.name);
   return (id) => names.get(id) ?? 'Unknown';
 }
+
+/** One entry in a money tree, with everything paid from its money below it (oldest first). */
+export type MoneyTreeNode = {
+  tx: Transaction;
+  /** 0 for the root. */
+  depth: number;
+  children: MoneyTreeNode[];
+  /**
+   * What's still left of this money where it landed: amount − what's linked to it. Expenses
+   * have nothing left (the money is gone), so it's 0 for them.
+   */
+  left: number;
+};
+
+export type MoneyTree = {
+  root: MoneyTreeNode;
+  /** The chain from the root down to the entry asked about (root first, the entry last). */
+  path: Transaction[];
+  /** Every expense in the tree (also past a cut-off): money that actually left. */
+  spent: number;
+  /** Every non-expense entry's `left` (also past a cut-off): money still sitting in accounts. */
+  left: number;
+  /** Nodes in the tree. */
+  size: number;
+  /** More nodes exist than `MONEY_TREE_MAX_NODES`; the tree shows the first ones (by level, oldest first). */
+  truncated: boolean;
+};
+
+/** Links followed up or down at most (a guard against very long or looping chains). */
+export const MONEY_TREE_MAX_DEPTH = 30;
+/** Nodes shown at most. */
+export const MONEY_TREE_MAX_NODES = 500;
+
+/** Oldest first: date, then when it was entered, then id (the reverse of `compareNewestFirst`). */
+export function compareOldestFirst(a: Transaction, b: Transaction): number {
+  return -compareNewestFirst(a, b);
+}
+
+/**
+ * The money tree of an entry: walks "Linked to" up to the entry whose money started the chain
+ * (e.g. the salary), then down through everything paid from it. Only live entries count; a
+ * link to a missing (deleted) entry ends the chain there. Safe against link loops.
+ * `null` if the entry isn't in `transactions`.
+ */
+export function moneyTree(id: string, transactions: readonly Transaction[]): MoneyTree | null {
+  const byId = new Map(transactions.map((tx) => [tx.id, tx]));
+  const entry = byId.get(id);
+  if (!entry) return null;
+
+  const path = [entry];
+  const seen = new Set([entry.id]);
+  for (let parent = entry.parentId ? byId.get(entry.parentId) : undefined; parent && !seen.has(parent.id) && path.length <= MONEY_TREE_MAX_DEPTH; parent = parent.parentId ? byId.get(parent.parentId) : undefined) {
+    path.unshift(parent);
+    seen.add(parent.id);
+  }
+
+  const childrenOfId = new Map<string, Transaction[]>();
+  for (const tx of transactions) {
+    if (!tx.parentId) continue;
+    const list = childrenOfId.get(tx.parentId);
+    if (list) list.push(tx);
+    else childrenOfId.set(tx.parentId, [tx]);
+  }
+
+  // Breadth first, so a cut-off tree keeps the levels nearest the root.
+  const root: MoneyTreeNode = { tx: path[0], depth: 0, children: [], left: 0 };
+  const placed = new Set([root.tx.id]);
+  const queue = [root];
+  let size = 1;
+  let truncated = false;
+  for (let i = 0; i < queue.length; i += 1) {
+    const node = queue[i];
+    if (node.depth >= MONEY_TREE_MAX_DEPTH) continue;
+    const children = [...(childrenOfId.get(node.tx.id) ?? [])].sort(compareOldestFirst);
+    for (const child of children) {
+      if (placed.has(child.id)) continue;
+      if (size >= MONEY_TREE_MAX_NODES) {
+        truncated = true;
+        break;
+      }
+      placed.add(child.id);
+      const childNode: MoneyTreeNode = { tx: child, depth: node.depth + 1, children: [], left: 0 };
+      node.children.push(childNode);
+      queue.push(childNode);
+      size += 1;
+    }
+  }
+
+  const linkedTo = (txId: string) => (childrenOfId.get(txId) ?? []).reduce((sum, child) => sum + child.amount, 0);
+  // "Left" counts every linked entry, also ones a cut-off hides, so the numbers stay true.
+  for (const node of queue) if (node.tx.type !== 'expense') node.left = node.tx.amount - linkedTo(node.tx.id);
+
+  // Totals over the whole tree, not only the shown part.
+  let spent = 0;
+  let left = 0;
+  const counted = new Set<string>();
+  const stack: [Transaction, number][] = [[root.tx, 0]];
+  while (stack.length > 0) {
+    const [tx, depth] = stack.pop()!;
+    if (counted.has(tx.id)) continue;
+    counted.add(tx.id);
+    if (tx.type === 'expense') spent += tx.amount;
+    else left += tx.amount - linkedTo(tx.id);
+    if (depth < MONEY_TREE_MAX_DEPTH) for (const child of childrenOfId.get(tx.id) ?? []) stack.push([child, depth + 1]);
+  }
+
+  return { root, path, spent, left, size, truncated };
+}
+
+/** The tree's nodes top to bottom as a list (each node before its children), skipping the children of `collapsed` ids. */
+export function flattenMoneyTree(root: MoneyTreeNode, collapsed: ReadonlySet<string> = new Set()): MoneyTreeNode[] {
+  const rows: MoneyTreeNode[] = [];
+  const visit = (node: MoneyTreeNode) => {
+    rows.push(node);
+    if (!collapsed.has(node.tx.id)) node.children.forEach(visit);
+  };
+  visit(root);
+  return rows;
+}
