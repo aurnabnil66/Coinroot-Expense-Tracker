@@ -1,6 +1,7 @@
 import { describe, expect, it } from '@jest/globals';
 import { and, eq, isNull } from 'drizzle-orm';
 
+import { readBackup, restoreBackup } from './backup.database';
 import { accountToRow, transactionToRow } from './mappers.database';
 import type { LedgerDatabase } from './queries.database';
 import { accounts, categories, transactions } from './schema.database';
@@ -425,6 +426,44 @@ describe('syncLedger', () => {
     await b.sync(server);
     expect(getTx(b.db, id)?.updatedAt).toBe(original);
     expect(server.live('transactions')[0].updated_at).toBe(pgTime(original));
+  });
+});
+
+describe('restoring a backup on a signed-in phone', () => {
+  it('uploads the restored rows, so the cloud matches the backup too', async () => {
+    const server = new FakeServer();
+    const a = phone();
+    const cash = addAccount(a.db, 'Cash');
+    const kept = addExpense(a.db, cash, 'Food', 1000, 'Lunch');
+    const removed = addExpense(a.db, cash, 'Transport', 300, 'CNG');
+    await a.sync(server);
+    const backup = readBackup(a.db, stamp());
+
+    // After the backup: one entry edited, one deleted, one added, all synced.
+    editTx(a.db, kept, { amount: 9999 });
+    const gone = stamp();
+    a.db.update(transactions).set({ deletedAt: gone, updatedAt: gone }).where(eq(transactions.id, removed)).run();
+    const later = addExpense(a.db, cash, 'Food', 50, 'Added later');
+    await a.sync(server);
+    expect(server.live('transactions').map((row) => row.id).sort()).toEqual([kept, later].sort());
+
+    tick += 60_000; // the restore happens later than those edits
+    restoreBackup(a.db, backup, stamp());
+    expect(pendingCount(a.db)).toBeGreaterThan(0);
+    const result = await a.sync(server);
+    expect(result.overwritten).toBe(0);
+    expect(pendingCount(a.db)).toBe(0);
+
+    // The cloud now matches the backup: the edit undone, the deleted entry back, the later one deleted.
+    const live = new Map(server.live('transactions').map((row) => [row.id, row]));
+    expect([...live.keys()].sort()).toEqual([kept, removed].sort());
+    expect(live.get(kept)).toMatchObject({ amount: 1000, note: 'Lunch' });
+    expect(live.get(removed)).toMatchObject({ amount: 300, note: 'CNG', deleted_at: null });
+
+    // And a second phone gets the same.
+    const b = phone(false);
+    await b.sync(server);
+    expect(b.db.select().from(transactions).where(isNull(transactions.deletedAt)).all().map((t) => t.id).sort()).toEqual([kept, removed].sort());
   });
 });
 
