@@ -279,13 +279,12 @@ export function countChildren(database: LedgerDatabase, parentId: string): numbe
 
 /** Ids per `IN (…)` lookup, well under SQLite's limit on bound values. */
 const ID_CHUNK = 500;
-/** Rows read below a root at most; far more than the tree shows (`MONEY_TREE_MAX_NODES`). */
-const MONEY_TREE_ROW_LIMIT = 5000;
 
 /**
  * `moneyTree` for one entry, reading only that tree: the chain up through "Linked to" (one
  * lookup per step), then every live entry below the root in one recursive query (one level
  * deeper than the tree goes, so "left" at the deepest level still counts what's linked to it).
+ * No row limit: the totals count the whole tree, and `moneyTree` itself caps what's shown.
  */
 export function getMoneyTree(database: LedgerDatabase, id: string): MoneyTree | null {
   const entry = getTransaction(database, id);
@@ -310,7 +309,6 @@ export function getMoneyTree(database: LedgerDatabase, id: string): MoneyTree | 
       WHERE t.deleted_at IS NULL AND tree.depth <= ${MONEY_TREE_MAX_DEPTH}
     )
     SELECT DISTINCT id FROM tree WHERE id <> ${root.id}
-    LIMIT ${MONEY_TREE_ROW_LIMIT}
   `);
   const ids = below.map((row) => row.id).filter((rowId) => !seen.has(rowId));
   const rows: Transaction[] = [...chain];

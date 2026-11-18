@@ -219,3 +219,28 @@ describe('ledger queries match the JS calculations on the full list', () => {
     expect(getTransaction(db, deleted!.id)).toBeNull();
   });
 });
+
+describe('a very large money tree', () => {
+  it('reads every entry under the root, so totals and the cut-off match the full list', () => {
+    const big = createTestDatabase();
+    const stamp = (i: number) => `2026-11-01T00:00:${String(i % 60).padStart(2, '0')}.${String(i).padStart(6, '0').slice(-3)}Z`;
+    const base = { date: '2026-11-01', note: '', createdAt: stamp(0), updatedAt: stamp(0) };
+    const rows: (typeof transactions.$inferInsert)[] = [
+      { ...base, id: 'salary', type: 'income', fromId: 'src', toId: 'office', amount: 100_000_000 },
+      { ...base, id: 'atm', type: 'transfer', fromId: 'office', toId: 'cash', amount: 60_000_000, parentId: 'salary' },
+    ];
+    // More entries than one read used to return (5000), spread over two levels.
+    for (let i = 0; i < 5100; i++) {
+      const parentId = i % 3 === 0 ? 'salary' : 'atm';
+      const fromId = parentId === 'salary' ? 'office' : 'cash';
+      rows.push({ ...base, id: `e${String(i).padStart(5, '0')}`, createdAt: stamp(i + 1), updatedAt: stamp(i + 1), type: 'expense', fromId, toId: 'food', amount: 100 + (i % 7), parentId });
+    }
+    for (let i = 0; i < rows.length; i += 100) big.insert(transactions).values(rows.slice(i, i + 100)).run();
+    const everything = big.select().from(transactions).all().map(rowToTransaction);
+
+    const tree = getMoneyTree(big, 'e05099');
+    expect(tree).toEqual(moneyTree('e05099', everything));
+    expect(tree!.truncated).toBe(true);
+    expect(tree!.spent + tree!.left).toBe(100_000_000);
+  });
+});
