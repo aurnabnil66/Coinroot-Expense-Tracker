@@ -205,6 +205,29 @@ describe('syncLedger', () => {
     expect(getTx(b.db, second)?.toId).toBe(categoryId(a.db, 'Food'));
   });
 
+  it('merges a twin used only by a deleted entry, without uploading that entry', async () => {
+    const server = new FakeServer();
+    const a = phone();
+    await a.sync(server);
+
+    const b = phone(false);
+    const cash = addAccount(b.db, 'Cash');
+    b.db.insert(categories).values({ id: 'food-local', name: 'Food', kind: 'expense' }).run();
+    const gone = stamp();
+    b.db.insert(transactions)
+      .values(transactionToRow({ id: 'deleted-lunch', date: '2026-11-05', type: 'expense', fromId: cash, toId: 'food-local', amount: 900, note: '', parentId: null, receivedFrom: null, createdAt: gone, updatedAt: gone }))
+      .run();
+    b.db.update(transactions).set({ deletedAt: gone }).where(eq(transactions.id, 'deleted-lunch')).run();
+
+    await b.sync(server);
+
+    const foods = b.db.select().from(categories).all().filter((c) => c.kind === 'expense' && c.name === 'Food');
+    expect(foods.map((c) => c.id)).toEqual([categoryId(a.db, 'Food')]);
+    expect(getTx(b.db, 'deleted-lunch')).toMatchObject({ toId: categoryId(a.db, 'Food'), deletedAt: gone });
+    expect([...server.rows.transactions.values()].map((row) => row.id)).not.toContain('deleted-lunch');
+    expect(pendingCount(b.db)).toBe(0);
+  });
+
   it("keeps a never-synced twin's colour and icon where the cloud row has none, and uploads them", async () => {
     const server = new FakeServer();
     const a = phone(false);
