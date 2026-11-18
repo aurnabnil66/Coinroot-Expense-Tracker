@@ -125,6 +125,18 @@ describe('checkBackup', () => {
     }
   });
 
+  it('reads a format 1 row with no party key as no payer', () => {
+    const current = valid();
+    const old = {
+      ...current,
+      format: 1,
+      transactions: current.transactions.map(({ receivedFrom: _r, ...row }) => row),
+    };
+    const check = checkBackup(JSON.stringify(old));
+    expect(check.ok).toBe(true);
+    if (check.ok) expect(check.backup.transactions.every((t) => t.receivedFrom === null)).toBe(true);
+  });
+
   it('names the row and field that is wrong', () => {
     const backup = valid();
     backup.transactions[13] = { ...backup.transactions[13], amount: 0 };

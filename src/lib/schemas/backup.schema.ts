@@ -116,8 +116,9 @@ export function upgradeBackup(json: unknown): unknown {
   if (file.format !== 1) return json;
   const transactions = Array.isArray(file.transactions)
     ? file.transactions.map((row: unknown) => {
-        if (!row || typeof row !== 'object' || !('party' in row)) return row;
-        const { party, ...rest } = row as Record<string, unknown>;
+        if (!row || typeof row !== 'object' || 'receivedFrom' in row) return row;
+        // A row without `party` (hand-edited, or written by a lenient tool) means no payer.
+        const { party = null, ...rest } = row as Record<string, unknown>;
         return { ...rest, receivedFrom: party };
       })
     : file.transactions;
