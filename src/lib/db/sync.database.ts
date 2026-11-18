@@ -413,9 +413,13 @@ export function pendingCount(database: LedgerDatabase): number {
 /**
  * Before another account syncs on this phone (only allowed once it holds no money records):
  * drops the previous account's deleted rows for good and marks what's left (its categories)
- * as never synced, so they're matched by name or uploaded to the new account.
+ * as never synced, so they're matched by name or uploaded to the new account. Refuses (throws)
+ * while live accounts or transactions remain, whoever calls it.
  */
 export function prepareForNewAccount(database: LedgerDatabase): void {
+  if (hasLedgerData(database)) {
+    throw new Error("This phone still has another account's records; remove them (Set up accounts again) first.");
+  }
   database.transaction((tx) => {
     for (const name of SYNC_TABLES) {
       const table = TABLES[name];

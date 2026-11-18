@@ -506,6 +506,13 @@ describe('account change on a phone', () => {
     expect(hasLedgerData(a.db)).toBe(false);
   });
 
+  it('refuses to prepare for another account while money records remain', () => {
+    const a = phone();
+    addAccount(a.db, 'Cash');
+    expect(() => prepareForNewAccount(a.db)).toThrow(/another account's records/);
+    expect(a.db.select().from(accounts).all()).toHaveLength(1);
+  });
+
   it("drops the previous account's deleted rows and re-uploads the categories for the new one", async () => {
     const server = new FakeServer();
     const a = phone();
