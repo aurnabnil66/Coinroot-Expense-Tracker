@@ -14,7 +14,12 @@ const CHUNK = 100;
 
 /** Every live account, category and transaction, oldest first, as a backup. */
 export function readBackup(database: LedgerDatabase, exportedAt = new Date().toISOString()): Backup {
-  const withoutDeletedAt = <T extends { deletedAt: string | null }>({ deletedAt: _deletedAt, ...row }: T) => row;
+  // Backups hold the ledger only: no soft-delete or sync bookkeeping.
+  const withoutDeletedAt = <T extends { deletedAt: string | null; syncedUpdatedAt: string | null }>({
+    deletedAt: _deletedAt,
+    syncedUpdatedAt: _syncedUpdatedAt,
+    ...row
+  }: T) => row;
   return {
     app: BACKUP_APP,
     format: BACKUP_FORMAT,
@@ -55,7 +60,9 @@ function takeIncoming(table: LedgerTable) {
  * ready for sync. Returns how many rows of each kind were restored.
  */
 export function restoreBackup(database: LedgerDatabase, backup: Backup, now = new Date().toISOString()) {
-  const keyed = <T extends Record<string, unknown>>(rows: T[]) => rows.map((row) => ({ ...row, updatedAt: now, deletedAt: null }));
+  // A fresh `updated_at` and no `synced_updated_at`: restored rows upload on the next sync.
+  const keyed = <T extends Record<string, unknown>>(rows: T[]) =>
+    rows.map((row) => ({ ...row, updatedAt: now, deletedAt: null, syncedUpdatedAt: null }));
   database.transaction((tx) => {
     for (const table of [transactions, accounts, categories]) {
       tx.update(table).set({ deletedAt: now, updatedAt: now }).where(isNull(table.deletedAt)).run();

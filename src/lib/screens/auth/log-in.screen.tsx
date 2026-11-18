@@ -24,7 +24,8 @@ export function LogInScreen() {
 }
 
 type LogInFormProps = {
-  onDone: () => void;
+  /** Awaited, with the button still loading (setup waits for the first sync here). */
+  onDone: () => void | Promise<void>;
   onSignUp: () => void;
 };
 
@@ -47,10 +48,11 @@ export function LogInForm({ onDone, onSignUp }: LogInFormProps) {
     try {
       // Also brings the account's nickname and phone to this phone.
       await authStore.signIn(values);
-      onDone();
     } catch (e) {
       setError('root', { message: e instanceof AuthError ? e.message : 'Could not log in. Please try again.' });
+      return;
     }
+    await onDone();
   };
 
   const forgotPassword = async () => {

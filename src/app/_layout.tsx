@@ -2,11 +2,13 @@ import '@/global.css';
 
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect } from 'react';
 
 import { DatabaseGate } from '@/lib/components';
 import { FontFamily } from '@/lib/constants';
 import { GluestackUIProvider, useGluestackColors } from '@/lib/gluestack-ui/gluestack-ui-provider';
 import { useColorScheme, useLedger, useThemePreference } from '@/lib/hooks';
+import { syncStore } from '@/lib/supabase';
 import { DialogProvider } from '@/lib/ui';
 
 export default function RootLayout() {
@@ -16,6 +18,9 @@ export default function RootLayout() {
   const colorScheme = themePreference === 'system' ? deviceScheme : themePreference;
   const colors = useGluestackColors();
   const base = colorScheme === 'dark' ? DarkTheme : DefaultTheme;
+
+  // Cloud sync for the signed-in account (does nothing while signed out).
+  useEffect(() => syncStore.start(), []);
   const navigationTheme = {
     ...base,
     colors: {

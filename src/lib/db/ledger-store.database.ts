@@ -161,6 +161,15 @@ export const ledgerStore = {
       setupStateSetting.set('none');
     }),
 
+  /**
+   * Re-reads the lists after cloud sync changed the database, so screens and queries update.
+   * Returns the new `version` (the sync ignores this bump when deciding whether to sync again).
+   */
+  refreshAfterSync(): number {
+    refresh();
+    return snapshot.version;
+  },
+
   /** Every live row as a backup (reads the whole database, so only for an explicit backup). */
   async exportBackup(): Promise<Backup> {
     await whenDatabaseReady();

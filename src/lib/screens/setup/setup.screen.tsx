@@ -19,7 +19,8 @@ import { LogInForm } from '@/lib/screens/auth/log-in.screen';
 import { SignUpForm } from '@/lib/screens/auth/sign-up.screen';
 import { ProfileForm } from '@/lib/screens/profile/profile-form.screen';
 import { type SetupFormInput, type SetupFormValues, setupFormDefaults, setupFormSchema } from '@/lib/schemas';
-import { profileSetting } from '@/lib/storage';
+import { profileSetting, setupStateSetting } from '@/lib/storage';
+import { syncStore } from '@/lib/supabase';
 import type { AccountType } from '@/lib/types';
 import { Button, Card, IconButton, InitialBadge, ScreenContainer, SectionHeader, TextField } from '@/lib/ui';
 import { todayKey } from '@/lib/utils';
@@ -108,8 +109,15 @@ function SetupFlow() {
   }
 
   if (step === 'log-in') {
-    // A profile without a nickname (e.g. a new phone) is filled in next.
-    const afterLogIn = () => (profileSetting.get().nickname ? setStep('types') : start('profile'));
+    const afterLogIn = async () => {
+      // A new phone: the account's records come down with the first sync and finish setup by
+      // themselves (the root layout then shows the app). Waits at most 15 s.
+      await syncStore.syncWithin(15_000);
+      if (setupStateSetting.get() !== 'none') return;
+      // A profile without a nickname is filled in next.
+      if (profileSetting.get().nickname) setStep('types');
+      else start('profile');
+    };
     return (
       <FirstStepScreen title="Welcome back" subtitle="Log in with the email you signed up with." onBack={() => setStep('welcome')}>
         <LogInForm onDone={afterLogIn} onSignUp={() => start('sign-up')} />

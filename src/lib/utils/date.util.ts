@@ -98,3 +98,17 @@ export function weekdayLabels(weekStartsOn = 0): string[] {
     fromDateKey(`2026-11-0${1 + ((weekStartsOn + i) % 7)}`).toLocaleDateString('en-GB', { weekday: 'short' })
   );
 }
+
+/**
+ * When something happened, for status lines: "today at 10:42 am", "yesterday at 9:05 pm",
+ * else "3 Nov 2026 at 8:00 am" (local time).
+ */
+export function formatSyncedAt(iso: string, now: Date = new Date()): string {
+  const date = new Date(iso);
+  const time = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase();
+  const day = toDateKey(date);
+  const today = toDateKey(now);
+  if (day === today) return `today at ${time}`;
+  if (day === addDays(today, -1)) return `yesterday at ${time}`;
+  return `${formatFullDate(day)} at ${time}`;
+}

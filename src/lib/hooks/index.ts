@@ -8,4 +8,5 @@ export * from './use-ledger.hook';
 export * from './use-profile.hook';
 export * from './use-ripple.hook';
 export * from './use-simple-mode.hook';
+export * from './use-sync-status.hook';
 export * from './use-theme-preference.hook';

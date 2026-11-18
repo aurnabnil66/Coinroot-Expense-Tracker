@@ -25,16 +25,18 @@ import {
   useLedger,
   useProfile,
   useSimpleMode,
+  useSyncStatus,
   useThemePreference,
 } from "@/lib/hooks";
 import { ledgerStore } from "@/lib/db";
-import { authStore } from "@/lib/supabase";
-import { formatBdPhone, formatFullDate } from "@/lib/utils";
+import { authStore, type SyncSnapshot, syncStore } from "@/lib/supabase";
+import { formatBdPhone, formatFullDate, formatSyncedAt } from "@/lib/utils";
 import {
   Avatar,
   BanknoteIcon,
   Button,
   Card,
+  CloudIcon,
   IconBadge,
   ListRow,
   PaletteIcon,
@@ -57,12 +59,34 @@ const THEME_OPTIONS: { value: ThemePreference; label: string }[] = [
   { value: "system", label: "Device" },
 ];
 
+/** The Cloud sync row's second line. */
+function syncSubtitle(sync: SyncSnapshot): string {
+  switch (sync.status) {
+    case "syncing":
+      return "Syncing…";
+    case "error":
+      return `Couldn't sync. ${sync.error ?? ""} Tap to try again.`.replace(/\s+/g, " ");
+    case "blocked":
+      return "Paused: this phone has another account's records";
+    case "off":
+      return sync.offReason === "sample"
+        ? "Off while exploring sample data"
+        : "Off";
+    default: {
+      if (!sync.lastSyncedAt) return "Not synced yet";
+      const waiting = sync.pending > 0 ? ` · ${sync.pending} waiting` : "";
+      return `Synced ${formatSyncedAt(sync.lastSyncedAt)}${waiting}`;
+    }
+  }
+}
+
 export function SettingsScreen() {
   const { status, categories } = useLedger();
   const themePreference = useThemePreference();
   const simpleMode = useSimpleMode();
   const profile = useProfile();
   const session = useAuth();
+  const sync = useSyncStatus();
   const backup = useBackupActions();
   const lastBackupAt = useLastBackupAt();
   const colors = useGluestackColors();
@@ -81,14 +105,39 @@ export function SettingsScreen() {
       tone: "warning",
       icon: LogOutIcon,
       confirmLabel: "Log out",
-      onConfirm: () => authStore.signOut(),
+      onConfirm: async () => {
+        // Upload the latest changes first (waits a few seconds at most).
+        await syncStore.syncWithin(10_000);
+        await authStore.signOut();
+      },
     });
+
+  const syncPressed = () => {
+    if (sync.status === "blocked") {
+      return dialog.alert({
+        title: "Sync is paused",
+        message:
+          "This phone still has the records of the account that synced here before. To sync this account, back them up if you need them, then use Set up accounts again. Or log out and log in with the other account.",
+        tone: "warning",
+      });
+    }
+    if (sync.status === "off" && sync.offReason === "sample") {
+      return dialog.alert({
+        title: "Sync is off",
+        message:
+          "Sample data never goes to the cloud. Sync starts once you set up your own accounts (Set up accounts again).",
+        tone: "info",
+      });
+    }
+    return syncStore.syncNow();
+  };
 
   const startOver = () =>
     dialog.confirm({
       title: "Start over?",
-      message:
-        "This removes all accounts and transactions and opens first-time setup again. Your profile is kept.",
+      message: session
+        ? "This removes all accounts and transactions, here and from your cloud account (so from every phone that syncs with it), and opens first-time setup again. Your profile is kept."
+        : "This removes all accounts and transactions and opens first-time setup again. Your profile is kept.",
       tone: "warning",
       icon: RepeatIcon,
       confirmLabel: "Start over",
@@ -198,7 +247,21 @@ export function SettingsScreen() {
 
       <SectionHeader title="Backup & data" />
       <Card>
+        {session ? (
+          <ListRow
+            leading={<IconBadge icon={CloudIcon} tone="primary" />}
+            title="Cloud sync"
+            subtitle={syncSubtitle(sync)}
+            trailing={
+              sync.status === "syncing" ? (
+                <ActivityIndicator color={colors.primary} />
+              ) : undefined
+            }
+            onPress={() => void syncPressed()}
+          />
+        ) : null}
         <ListRow
+          divider={Boolean(session)}
           leading={<IconBadge icon={UploadIcon} tone="sky" />}
           title="Back up to a file"
           subtitle={
