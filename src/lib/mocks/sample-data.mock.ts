@@ -53,7 +53,7 @@ const entry = (
 ): Transaction => {
   seq += 1;
   const createdAt = new Date(Date.now() - days * 86_400_000 + seq * 1000).toISOString();
-  return { id: `tx-${seq}`, date: daysAgo(days), note: '', parentId: null, party: null, createdAt, updatedAt: createdAt, ...fields };
+  return { id: `tx-${seq}`, date: daysAgo(days), note: '', parentId: null, receivedFrom: null, createdAt, updatedAt: createdAt, ...fields };
 };
 
 const salary = entry(4, { type: 'income', fromId: 'src-salary', toId: 'acc-salary', amount: 5000000, note: 'Monthly salary' });
@@ -68,8 +68,8 @@ const recharge = entry(0, { type: 'expense', fromId: 'acc-wallet', toId: 'cat-mo
 const groceries = entry(0, { type: 'expense', fromId: 'acc-main', toId: 'cat-groceries', amount: 87550, note: 'Card payment, supermarket' });
 const lunch = entry(0, { type: 'expense', fromId: 'acc-cash', toId: 'cat-food', amount: 22000, note: 'Lunch', parentId: atm.id });
 // Side income from invented clients, to show "Received from" and Income by client.
-const clientA = entry(2, { type: 'income', fromId: 'src-client-payment', toId: 'acc-wallet', amount: 1500000, note: 'Website work', party: 'Client A' });
-const clientB = entry(1, { type: 'income', fromId: 'src-client-payment', toId: 'acc-cash', amount: 600000, note: 'Design fix', party: 'Client B' });
+const clientA = entry(2, { type: 'income', fromId: 'src-client-payment', toId: 'acc-wallet', amount: 1500000, note: 'Website work', receivedFrom: 'Client A' });
+const clientB = entry(1, { type: 'income', fromId: 'src-client-payment', toId: 'acc-cash', amount: 600000, note: 'Design fix', receivedFrom: 'Client B' });
 
 const HISTORY_MONTHS = 5;
 
@@ -83,7 +83,7 @@ const historyMonth = (monthsAgo: number): Transaction[] => {
     seq += 1;
     const date = `${month}-${String(Math.min(day, lastDay)).padStart(2, '0')}`;
     const createdAt = `${date}T09:00:${String(seq % 60).padStart(2, '0')}.000Z`;
-    return { id: `tx-${seq}`, date, note: '', parentId: null, party: null, createdAt, updatedAt: createdAt, ...fields };
+    return { id: `tx-${seq}`, date, note: '', parentId: null, receivedFrom: null, createdAt, updatedAt: createdAt, ...fields };
   };
 
   const atm = on(5, { type: 'transfer', fromId: 'acc-main', toId: 'acc-cash', amount: 300000, note: 'ATM withdrawal' });
@@ -103,7 +103,7 @@ const historyMonth = (monthsAgo: number): Transaction[] => {
   ];
   return [
     on(1, { type: 'income', fromId: 'src-salary', toId: 'acc-salary', amount: 5000000, note: 'Monthly salary' }),
-    on(10, { type: 'income', fromId: 'src-client-payment', toId: 'acc-wallet', amount: vary(1200000, 7), party: monthsAgo % 2 ? 'Client A' : 'Client C' }),
+    on(10, { type: 'income', fromId: 'src-client-payment', toId: 'acc-wallet', amount: vary(1200000, 7), receivedFrom: monthsAgo % 2 ? 'Client A' : 'Client C' }),
     on(1, { type: 'transfer', fromId: 'acc-salary', toId: 'acc-main', amount: 4000000, note: 'Salary transfer' }),
     on(3, { type: 'transfer', fromId: 'acc-main', toId: 'acc-dps', amount: 500000, note: 'DPS installment' }),
     atm,

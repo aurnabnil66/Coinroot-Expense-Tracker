@@ -15,6 +15,13 @@
       "when": 1794994303115,
       "tag": "0001_whole_viper",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1794996870047,
+      "tag": "0002_rename_party_to_received_from",
+      "breakpoints": true
     }
   ]
 }

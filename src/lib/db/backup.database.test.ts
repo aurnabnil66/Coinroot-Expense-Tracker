@@ -98,6 +98,23 @@ describe('checkBackup', () => {
     expect(errorsOf({ ...valid(), format: 99 })[0]).toContain('newer version of Coinroot');
   });
 
+  it('reads a format 1 file, where "Received from" was called party', () => {
+    const current = valid();
+    const withPayer = current.transactions.findIndex((t) => t.receivedFrom);
+    expect(withPayer).toBeGreaterThanOrEqual(0);
+    const old = {
+      ...current,
+      format: 1,
+      transactions: current.transactions.map(({ receivedFrom, ...row }) => ({ ...row, party: receivedFrom })),
+    };
+    const check = checkBackup(JSON.stringify(old));
+    expect(check.ok).toBe(true);
+    if (check.ok) {
+      expect(check.backup.format).toBe(2);
+      expect(check.backup.transactions).toEqual(current.transactions);
+    }
+  });
+
   it('names the row and field that is wrong', () => {
     const backup = valid();
     backup.transactions[13] = { ...backup.transactions[13], amount: 0 };

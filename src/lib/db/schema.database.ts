@@ -102,7 +102,7 @@ export const transactions = sqliteTable(
     /** The transaction this money came from (the money tree). */
     parentId: text('parent_id'),
     /** Income only: who paid ("Received from"). */
-    party: text('party'),
+    receivedFrom: text('received_from'),
   },
   (table) => [
     check('transactions_type_check', oneOf('type', TRANSACTION_TYPES)),

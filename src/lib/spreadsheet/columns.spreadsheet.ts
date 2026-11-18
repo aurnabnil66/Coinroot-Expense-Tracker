@@ -17,7 +17,7 @@ export const IMPORT_FIELDS = [
   'from',
   'to',
   'note',
-  'party',
+  'receivedFrom',
   'id',
   'linkedTo',
 ] as const;
@@ -37,7 +37,7 @@ export const IMPORT_FIELD_INFO: Record<ImportField, { label: string; hint: strin
   from: { label: 'From', hint: 'Coinroot layout: account, or income source' },
   to: { label: 'To / Category', hint: 'Coinroot layout: category, or account' },
   note: { label: 'Note', hint: 'Description, details, shop' },
-  party: { label: 'Received from', hint: 'Who paid (income)' },
+  receivedFrom: { label: 'Received from', hint: 'Who paid (income)' },
   id: { label: 'Row ID', hint: 'Only needed for "Linked to"' },
   linkedTo: { label: 'Linked to', hint: 'ID of the row this money came from' },
 };
@@ -54,7 +54,7 @@ const HEADER_WORDS: Record<ImportField, readonly string[]> = {
   from: ['from'],
   to: ['to', 'tocategory', 'categoryto'],
   note: ['note', 'notes', 'description', 'desc', 'details', 'detail', 'memo', 'remarks', 'remark', 'narration', 'particulars', 'comment', 'comments', 'item', 'items', 'reason', 'বিবরণ'],
-  party: ['receivedfrom', 'party', 'client', 'payer', 'customer', 'fromwhom'],
+  receivedFrom: ['receivedfrom', 'party', 'client', 'payer', 'customer', 'fromwhom'],
   id: ['id', 'no', 'sl', 'slno', 'serial', 'ref', 'reference', 'refno'],
   linkedTo: ['linkedto', 'linked', 'parent', 'parentid'],
 };

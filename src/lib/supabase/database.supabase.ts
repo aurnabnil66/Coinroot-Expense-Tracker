@@ -123,7 +123,7 @@ export type Database = {
           id: string
           note: string
           parent_id: string | null
-          party: string | null
+          received_from: string | null
           server_updated_at: string
           to_id: string
           type: string
@@ -139,7 +139,7 @@ export type Database = {
           id: string
           note?: string
           parent_id?: string | null
-          party?: string | null
+          received_from?: string | null
           server_updated_at?: string
           to_id: string
           type: string
@@ -155,7 +155,7 @@ export type Database = {
           id?: string
           note?: string
           parent_id?: string | null
-          party?: string | null
+          received_from?: string | null
           server_updated_at?: string
           to_id?: string
           type?: string

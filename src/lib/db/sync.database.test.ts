@@ -104,7 +104,7 @@ function addExpense(db: LedgerDatabase, accountId: string, categoryName: string,
   const id = uid('tx');
   const now = stamp();
   db.insert(transactions)
-    .values(transactionToRow({ id, date: '2026-11-05', type: 'expense', fromId: accountId, toId: categoryId(db, categoryName), amount, note, parentId: null, party: null, createdAt: now, updatedAt: now }))
+    .values(transactionToRow({ id, date: '2026-11-05', type: 'expense', fromId: accountId, toId: categoryId(db, categoryName), amount, note, parentId: null, receivedFrom: null, createdAt: now, updatedAt: now }))
     .run();
   return id;
 }

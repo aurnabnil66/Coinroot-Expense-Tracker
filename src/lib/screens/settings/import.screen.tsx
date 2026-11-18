@@ -394,7 +394,7 @@ function SummaryStep({
   );
 }
 
-const FIELD_ORDER: ImportField[] = ['date', 'amount', 'moneyOut', 'moneyIn', 'type', 'from', 'to', 'account', 'category', 'note', 'party', 'id', 'linkedTo'];
+const FIELD_ORDER: ImportField[] = ['date', 'amount', 'moneyOut', 'moneyIn', 'type', 'from', 'to', 'account', 'category', 'note', 'receivedFrom', 'id', 'linkedTo'];
 
 const FIELD_OPTIONS: SelectOption[] = FIELD_ORDER.map((field) => ({
   value: field,

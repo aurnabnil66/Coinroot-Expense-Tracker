@@ -5,9 +5,12 @@ import { isDateKey } from '@/lib/utils';
 
 /**
  * The backup file: every live account, category and transaction as JSON. `format` goes up
- * when the shape changes, so an older app can refuse a newer file instead of misreading it.
+ * when the shape changes, so an older app can refuse a newer file instead of misreading it,
+ * and this app upgrades older files before checking them (`upgradeBackup`).
+ * - 1: transactions had `party` ("Received from")
+ * - 2: renamed to `receivedFrom`
  */
-export const BACKUP_FORMAT = 1;
+export const BACKUP_FORMAT = 2;
 export const BACKUP_APP = 'coinroot';
 
 const id = z.string().min(1).max(100);
@@ -52,7 +55,7 @@ const transactionRow = z.object({
   amount: poisha.positive(),
   note: z.string().max(1000),
   parentId: id.nullable(),
-  party: z.string().max(200).nullable(),
+  receivedFrom: z.string().max(200).nullable(),
   createdAt: timestamp,
   updatedAt: timestamp,
 });
@@ -97,13 +100,28 @@ export function checkBackup(text: string): BackupCheck {
     return { ok: false, errors: ['This backup was made by a newer version of Coinroot. Update the app, then try again.'] };
   }
 
-  const parsed = backupSchema.safeParse(json);
+  const parsed = backupSchema.safeParse(upgradeBackup(json));
   if (!parsed.success) {
     return { ok: false, errors: summarise(parsed.error.issues.map(describeIssue)) };
   }
 
   const errors = referenceErrors(parsed.data);
   return errors.length > 0 ? { ok: false, errors: summarise(errors) } : { ok: true, backup: parsed.data };
+}
+
+/** Brings an older backup file's JSON to the current format (anything unexpected is left for the checks). */
+export function upgradeBackup(json: unknown): unknown {
+  if (!json || typeof json !== 'object') return json;
+  const file = json as Record<string, unknown>;
+  if (file.format !== 1) return json;
+  const transactions = Array.isArray(file.transactions)
+    ? file.transactions.map((row: unknown) => {
+        if (!row || typeof row !== 'object' || !('party' in row)) return row;
+        const { party, ...rest } = row as Record<string, unknown>;
+        return { ...rest, receivedFrom: party };
+      })
+    : file.transactions;
+  return { ...file, format: 2, transactions };
 }
 
 const TABLE_LABELS: Record<string, string> = { accounts: 'Account', categories: 'Category', transactions: 'Transaction' };

@@ -156,7 +156,7 @@ export function buildImport(
       amount: row.amount,
       note: row.note,
       parentId: row.linkedRef ? (byRef.get(row.linkedRef.trim().toLowerCase()) ?? null) : null,
-      party: row.party,
+      receivedFrom: row.receivedFrom,
       createdAt: stamp,
       updatedAt: stamp,
     };

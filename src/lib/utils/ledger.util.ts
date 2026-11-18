@@ -202,18 +202,18 @@ export function findCategoryByName(
   return categories.find((c) => c.kind === kind && !c.archived && c.name.trim().toLowerCase() === wanted);
 }
 
-export type PartyTotal = {
-  party: string;
+export type PayerTotal = {
+  receivedFrom: string;
   amount: number;
 };
 
 /** Income per "Received from" name in a month, largest first. Entries without a name are left out. */
-export function incomeByParty(monthKey: string, transactions: readonly Transaction[]): PartyTotal[] {
-  const totals = new Map<string, PartyTotal>();
+export function incomeByPayer(monthKey: string, transactions: readonly Transaction[]): PayerTotal[] {
+  const totals = new Map<string, PayerTotal>();
   for (const tx of transactions) {
-    if (tx.type !== 'income' || !tx.party || toMonthKey(tx.date) !== monthKey) continue;
-    const key = tx.party.trim().toLowerCase();
-    const total = totals.get(key) ?? { party: tx.party.trim(), amount: 0 };
+    if (tx.type !== 'income' || !tx.receivedFrom || toMonthKey(tx.date) !== monthKey) continue;
+    const key = tx.receivedFrom.trim().toLowerCase();
+    const total = totals.get(key) ?? { receivedFrom: tx.receivedFrom.trim(), amount: 0 };
     total.amount += tx.amount;
     totals.set(key, total);
   }
@@ -221,11 +221,11 @@ export function incomeByParty(monthKey: string, transactions: readonly Transacti
 }
 
 /** "Received from" names used before, most recent first, without duplicates. */
-export function partySuggestions(transactions: readonly Transaction[]): string[] {
+export function receivedFromSuggestions(transactions: readonly Transaction[]): string[] {
   const seen = new Set<string>();
   const names: string[] = [];
   for (const tx of [...transactions].sort(compareNewestFirst)) {
-    const name = tx.party?.trim();
+    const name = tx.receivedFrom?.trim();
     if (!name || seen.has(name.toLowerCase())) continue;
     seen.add(name.toLowerCase());
     names.push(name);

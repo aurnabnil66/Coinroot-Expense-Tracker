@@ -9,11 +9,11 @@ import {
   deleteTransactionMessage,
   findCategoryByName,
   groupByDay,
-  incomeByParty,
+  incomeByPayer,
   linkableParents,
   monthlySpending,
   monthlySummary,
-  partySuggestions,
+  receivedFromSuggestions,
   quickPresets,
   remainingOf,
   takeDays,
@@ -39,7 +39,7 @@ const tx = (overrides: Partial<Transaction> & Pick<Transaction, 'type' | 'fromId
     date: '2026-11-02',
     note: '',
     parentId: null,
-    party: null,
+    receivedFrom: null,
     createdAt: `2026-11-02T00:00:${String(seq).padStart(2, '0')}Z`,
     updatedAt: '',
     ...overrides,
@@ -172,21 +172,21 @@ describe('findCategoryByName', () => {
   });
 });
 
-describe('incomeByParty and partySuggestions', () => {
-  const fromA = tx({ type: 'income', fromId: 'src-client', toId: 'cash', amount: 100000, party: 'Client A', date: '2026-11-03' });
-  const fromB = tx({ type: 'income', fromId: 'src-client', toId: 'cash', amount: 50000, party: 'Client B', date: '2026-11-04' });
-  const fromA2 = tx({ type: 'income', fromId: 'src-client', toId: 'cash', amount: 30000, party: 'client a ', date: '2026-11-05' });
+describe('incomeByPayer and receivedFromSuggestions', () => {
+  const fromA = tx({ type: 'income', fromId: 'src-client', toId: 'cash', amount: 100000, receivedFrom: 'Client A', date: '2026-11-03' });
+  const fromB = tx({ type: 'income', fromId: 'src-client', toId: 'cash', amount: 50000, receivedFrom: 'Client B', date: '2026-11-04' });
+  const fromA2 = tx({ type: 'income', fromId: 'src-client', toId: 'cash', amount: 30000, receivedFrom: 'client a ', date: '2026-11-05' });
   const list = [...all, fromA, fromB, fromA2];
 
   it('totals income per name for the month, largest first', () => {
-    expect(incomeByParty('2026-11', list)).toEqual([
-      { party: 'Client A', amount: 130000 },
-      { party: 'Client B', amount: 50000 },
+    expect(incomeByPayer('2026-11', list)).toEqual([
+      { receivedFrom: 'Client A', amount: 130000 },
+      { receivedFrom: 'Client B', amount: 50000 },
     ]);
   });
 
   it('suggests names used before, newest first, once each', () => {
-    expect(partySuggestions(list)).toEqual(['client a', 'Client B']);
+    expect(receivedFromSuggestions(list)).toEqual(['client a', 'Client B']);
   });
 });
 

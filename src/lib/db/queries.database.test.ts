@@ -14,11 +14,11 @@ import {
   dailySpending,
   daysInMonth,
   groupByDay,
-  incomeByParty,
+  incomeByPayer,
   linkableParents,
   monthlySpending,
   monthlySummary,
-  partySuggestions,
+  receivedFromSuggestions,
   quickPresets,
   remainingOf,
   takeDays,
@@ -36,7 +36,7 @@ import {
   getChildTotals,
   getLinkableParents,
   getMonthlySpending,
-  getPartyNames,
+  getReceivedFromNames,
   getRecentDays,
   getRecentTransactions,
   getTransaction,
@@ -78,7 +78,7 @@ beforeAll(() => {
   const incomeIds = rows.categories.filter((c) => c.kind === 'income_source').map((c) => c.id);
   const rand = random(42);
   const pick = <T,>(list: readonly T[]) => list[Math.floor(rand() * list.length)];
-  const parties = ['Client A', 'client a', '  Client B ', 'Client C', null, null];
+  const payers = ['Client A', 'client a', '  Client B ', 'Client C', null, null];
   const today = todayKey();
   const extra: (typeof transactions.$inferInsert)[] = [];
   let parentId: string | null = null;
@@ -92,7 +92,7 @@ beforeAll(() => {
         const fromId = pick(accountIds);
         extra.push({ ...base, type: 'expense', fromId, toId: pick(expenseIds), parentId: rand() < 0.3 ? parentId : null });
       } else if (r < 0.8) {
-        extra.push({ ...base, type: 'income', fromId: pick(incomeIds), toId: pick(accountIds), party: pick(parties) });
+        extra.push({ ...base, type: 'income', fromId: pick(incomeIds), toId: pick(accountIds), receivedFrom: pick(payers) });
       } else {
         const [fromId, toId] = [pick(accountIds), pick(accountIds)];
         if (fromId === toId) continue;
@@ -138,7 +138,7 @@ describe('ledger queries match the JS calculations on the full list', () => {
       expect(monthlySummary(month, rows, liveAccounts)).toEqual(monthlySummary(month, all, liveAccounts));
       expect(dailySpending(month, rows)).toEqual(dailySpending(month, all));
       // Screens pass rows newest first; the client's spelling comes from the first one seen.
-      expect(incomeByParty(month, rows)).toEqual(incomeByParty(month, [...all].sort(compareNewestFirst)));
+      expect(incomeByPayer(month, rows)).toEqual(incomeByPayer(month, [...all].sort(compareNewestFirst)));
     }
   });
 
@@ -162,7 +162,7 @@ describe('ledger queries match the JS calculations on the full list', () => {
   });
 
   it('"Received from" suggestions', () => {
-    expect(getPartyNames(db)).toEqual(partySuggestions(all));
+    expect(getReceivedFromNames(db)).toEqual(receivedFromSuggestions(all));
   });
 
   it('linked entries, what is left of each parent, and the delete count', () => {

@@ -37,7 +37,7 @@ export type DraftRow = {
   /** Poisha, positive. */
   amount: number;
   note: string;
-  party: string | null;
+  receivedFrom: string | null;
   /** The row's own ID (e.g. "T12") and the ID it's linked to, for "Linked to". */
   ref: string | null;
   linkedRef: string | null;
@@ -189,11 +189,11 @@ export function readRows(table: Table, options: ImportOptions, accountNames: rea
     }
 
     let note = cell(row, 'note');
-    let party: string | null = cell(row, 'party') || null;
-    if (party && type !== 'income') {
+    let receivedFrom: string | null = cell(row, 'receivedFrom') || null;
+    if (receivedFrom && type !== 'income') {
       // "Received from" only applies to income; keep the name in the note instead of losing it.
-      note = [note, party].filter(Boolean).join(' · ');
-      party = null;
+      note = [note, receivedFrom].filter(Boolean).join(' · ');
+      receivedFrom = null;
     }
 
     if (issues.length > 0 || !type || !date) {
@@ -208,7 +208,7 @@ export function readRows(table: Table, options: ImportOptions, accountNames: rea
       toName,
       amount,
       note,
-      party,
+      receivedFrom,
       ref: cell(row, 'id') || null,
       linkedRef: cell(row, 'linkedTo') || null,
     });

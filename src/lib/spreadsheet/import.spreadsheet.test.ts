@@ -287,7 +287,7 @@ describe('duplicates', () => {
       amount: 500_000,
       note: '',
       parentId: null,
-      party: null,
+      receivedFrom: null,
       createdAt: '',
       updatedAt: '',
     };
@@ -316,9 +316,9 @@ describe('export', () => {
 
   it('an exported file imports back to the same entries', () => {
     const transactions: Transaction[] = [
-      { id: 'x1', date: '2026-11-01', type: 'income', fromId: 's-salary', toId: 'a-bank', amount: 5_000_000, note: 'Nov, "full"', parentId: null, party: 'Office', createdAt: '2026-11-01T09:00:00Z', updatedAt: '' },
-      { id: 'x2', date: '2026-11-02', type: 'transfer', fromId: 'a-bank', toId: 'a-cash', amount: 500_000, note: '', parentId: null, party: null, createdAt: '2026-11-02T09:00:00Z', updatedAt: '' },
-      { id: 'x3', date: '2026-11-02', type: 'expense', fromId: 'a-cash', toId: 'c-food', amount: 15_050, note: 'Lunch', parentId: 'x2', party: null, createdAt: '2026-11-02T10:00:00Z', updatedAt: '' },
+      { id: 'x1', date: '2026-11-01', type: 'income', fromId: 's-salary', toId: 'a-bank', amount: 5_000_000, note: 'Nov, "full"', parentId: null, receivedFrom: 'Office', createdAt: '2026-11-01T09:00:00Z', updatedAt: '' },
+      { id: 'x2', date: '2026-11-02', type: 'transfer', fromId: 'a-bank', toId: 'a-cash', amount: 500_000, note: '', parentId: null, receivedFrom: null, createdAt: '2026-11-02T09:00:00Z', updatedAt: '' },
+      { id: 'x3', date: '2026-11-02', type: 'expense', fromId: 'a-cash', toId: 'c-food', amount: 15_050, note: 'Lunch', parentId: 'x2', receivedFrom: null, createdAt: '2026-11-02T10:00:00Z', updatedAt: '' },
     ];
     const csv = transactionsToCsv(ACCOUNTS, CATEGORIES, transactions);
     expect(csv.split('\r\n')[0]).toBe('ID,Date,Type,From,To/Category,Amount,Note,Received from,Linked to');
@@ -328,7 +328,7 @@ describe('export', () => {
     const needs = neededNames(draft.rows, ACCOUNTS, CATEGORIES);
     expect(needs.every((n) => n.existingId)).toBe(true);
     const plan = buildImport(draft.rows, needs, {}, counter());
-    const strip = (tx: Transaction) => [tx.date, tx.type, tx.fromId, tx.toId, tx.amount, tx.note, tx.party];
+    const strip = (tx: Transaction) => [tx.date, tx.type, tx.fromId, tx.toId, tx.amount, tx.note, tx.receivedFrom];
     expect(plan.transactions.map(strip)).toEqual(transactions.map(strip));
     expect(plan.transactions[2].parentId).toBe(plan.transactions[1].id);
   });
@@ -337,7 +337,7 @@ describe('export', () => {
 it('export keeps text Excel would run as a formula as plain text, and imports it back unchanged', () => {
   expect(safeCell('=SUM(A1)')).toBe("'=SUM(A1)");
   expect(safeCell('Lunch')).toBe('Lunch');
-  const tx: Transaction = { id: 'x1', date: '2026-11-01', type: 'expense', fromId: 'a-cash', toId: 'c-food', amount: 10_000, note: '=HYPERLINK("x")', parentId: null, party: null, createdAt: '', updatedAt: '' };
+  const tx: Transaction = { id: 'x1', date: '2026-11-01', type: 'expense', fromId: 'a-cash', toId: 'c-food', amount: 10_000, note: '=HYPERLINK("x")', parentId: null, receivedFrom: null, createdAt: '', updatedAt: '' };
   const csv = transactionsToCsv(ACCOUNTS, CATEGORIES, [tx]);
   expect(csv).toContain("'=HYPERLINK");
   expect(importSheet(csv).draft.rows[0].note).toBe('=HYPERLINK("x")');
