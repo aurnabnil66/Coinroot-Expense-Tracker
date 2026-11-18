@@ -69,6 +69,25 @@ Accounts, categories and income sources are **user data in the database**, never
 - Backup / restore: a JSON file of every live row, shared to any cloud storage or file app and restored from a picked file (done). Spreadsheet import (CSV or a pasted table, any layout) and CSV export are done too.
 - Cloud backup / sync (done) is optional, with Supabase (Auth + Postgres with RLS), mirroring the local tables: see **Cloud sync** and **Cloud tables** under Conventions. Signing in stays optional; signed out, nothing leaves the phone.
 
+## Features (what the app does today)
+
+Everything below works offline; cloud sync is optional. Details are in the sections and **Conventions** entries named in brackets.
+
+- **Transactions** (Transactions tab): add / edit / delete income, expenses and transfers; list grouped by day with Load more; calendar date picker with Today / Yesterday; note; "Received from" on income with suggestions; optional Charge on a transfer (saved as its own Bank Charges expense); "Linked to" an earlier entry, with "Left from this" on the entry the money came from; greeting header with the month.
+- **Money tree**: from any linked entry, the whole chain from where the money started (e.g. the salary) down to every expense paid from it, with what's left at each step and Spent / Still in accounts totals [**Money tree**].
+- **Simple mode** (Settings → Preferences): Quick add with your 4 most used entries, fewer fields in the form [**Simple mode**].
+- **Accounts** (Accounts tab): bank, cash, mobile wallet and savings / DPS accounts; add / edit (name, type, opening balance and date) / archive; derived balances; total, available and in savings; each account's history (50 at a time, Load more); Count cash / Check balance saves the difference as a Balance adjustment [**Count cash / Check balance**]. Savings details (installment, maturity, rate) are stored but have no form yet.
+- **Summary** (Summary tab): the month's income, expenses and moved to savings; spending over time (daily / 6 months); spending by category; income by client.
+- **Categories and income sources** (Settings → Categories): add, rename, recolour, archive; created inline from any picker.
+- **First-time setup**: Welcome (create account, log in, continue without an account, explore with sample data, restore a backup) → profile → which kinds of accounts → name them with today's balance [**First-time setup**].
+- **Profile**: nickname, photo, email, phone; greeting by name; kept on the account when signed in [**Profile and greeting**].
+- **Accounts (sign-in), optional**: create account with email confirmation, log in, log out, forgot password by email link; PKCE email links [**Accounts are optional**, routes → `auth-callback`].
+- **Cloud sync** (signed in): two-way sync with Supabase on start, after changes and on demand; merges on the first sync; blocks another account's records; shows last sync, changes waiting and rows left out (Settings → Backup & data → Cloud sync) [**Cloud sync**, **Cloud tables**].
+- **Backup / restore**: back up to a JSON file and share it anywhere; restore from a file, also on a new phone [**Backup file**, **Backup / restore UI**].
+- **Spreadsheet import / export**: import any layout (CSV or a table pasted from Excel, Sheets, Word or a PDF) with column guessing, new-name review and duplicate skipping; export all entries as CSV [**Spreadsheet import (CSV)**].
+- **Look and feel**: navy + purple theme in light / dark / device mode, Poppins, floating tab bar, themed dialogs, loading / error / saving states everywhere [**Styling**].
+- **Start over**: Settings → Set up accounts again (removes accounts and entries, here and in the cloud when signed in).
+
 ## Tech stack
 
 Installed: Expo SDK 58, Expo Router (routes in `src/app/`), TypeScript (strict), Reanimated, Gesture Handler, and:
