@@ -36,17 +36,19 @@ describe('authLinkParams', () => {
 });
 
 describe('readAuthLink', () => {
-  it('reads a sign-up confirmation', () => {
-    expect(readAuthLink({ access_token: 'a', refresh_token: 'r', type: 'signup' })).toEqual({
-      kind: 'session',
-      accessToken: 'a',
-      refreshToken: 'r',
-      purpose: 'confirm',
+  it('reads a one-time code and its flow id', () => {
+    expect(readAuthLink(authLinkParams('coinroot://auth-callback?code=8c5f2a&sb_flow_id=flow_123'))).toEqual({
+      kind: 'code',
+      code: '8c5f2a',
+      flowId: 'flow_123',
     });
+    expect(readAuthLink({ code: 'abc' })).toEqual({ kind: 'code', code: 'abc', flowId: null });
   });
 
-  it('reads a password reset', () => {
-    expect(readAuthLink({ access_token: 'a', refresh_token: 'r', type: 'recovery' })).toMatchObject({ purpose: 'recovery' });
+  it('never accepts tokens from a link (someone else could send them)', () => {
+    const crafted = 'coinroot://auth-callback#access_token=a.b.c&refresh_token=r1&type=signup';
+    expect(readAuthLink(authLinkParams(crafted))).toEqual({ kind: 'none' });
+    expect(readAuthLink({ access_token: 'a', refresh_token: 'r', type: 'recovery' })).toEqual({ kind: 'none' });
   });
 
   it('explains an expired link', () => {
@@ -56,13 +58,13 @@ describe('readAuthLink', () => {
     });
   });
 
-  it("shows other errors' description", () => {
+  it("shows other errors' description, even when a code is there too", () => {
     expect(readAuthLink({ error: 'server_error', error_description: 'Something broke' })).toEqual({ kind: 'error', message: 'Something broke' });
-    expect(readAuthLink({ error: 'server_error' })).toMatchObject({ kind: 'error' });
+    expect(readAuthLink({ error: 'server_error', code: 'abc' })).toMatchObject({ kind: 'error' });
   });
 
-  it('needs both tokens', () => {
-    expect(readAuthLink({ access_token: 'a' })).toEqual({ kind: 'none' });
+  it('needs a code', () => {
+    expect(readAuthLink({ code: '  ' })).toEqual({ kind: 'none' });
     expect(readAuthLink({})).toEqual({ kind: 'none' });
   });
 });

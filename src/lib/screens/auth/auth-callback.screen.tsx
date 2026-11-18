@@ -35,9 +35,10 @@ function queryValues(params: Record<string, string | string[] | undefined>): Rec
 }
 
 /**
- * Opened by an email link: `coinroot://auth-callback#access_token=…&type=signup|recovery`.
- * Signs in with the link, then shows "Email confirmed" or the "New password" form.
- * The tokens are in the URL fragment, which the router drops, so the full URL comes from expo-linking.
+ * Opened by an email link: `coinroot://auth-callback?code=…&sb_flow_id=…` (or `?error=…`).
+ * Redeems the code (only works on the phone that asked for the email), then shows "Email
+ * confirmed" or the "New password" form. Errors can come in the fragment, which the router
+ * drops, so the full URL also comes from expo-linking.
  */
 export function AuthCallbackScreen() {
   const params = useLocalSearchParams();
@@ -48,21 +49,20 @@ export function AuthCallbackScreen() {
   });
   const [result, setResult] = useState<Result | null>(null);
 
-  const accessToken = link.kind === 'session' ? link.accessToken : null;
-  const refreshToken = link.kind === 'session' ? link.refreshToken : null;
-  const purpose = link.kind === 'session' ? link.purpose : null;
+  const code = link.kind === 'code' ? link.code : null;
+  const flowId = link.kind === 'code' ? link.flowId : null;
 
   useEffect(() => {
-    if (!accessToken || !refreshToken || !purpose || opened.has(refreshToken)) return;
-    opened.add(refreshToken);
-    authStore.openLink({ kind: 'session', accessToken, refreshToken, purpose }).then(
-      (session) => {
+    if (!code || opened.has(code)) return;
+    opened.add(code);
+    authStore.openLink({ kind: 'code', code, flowId }).then(
+      ({ session, purpose }) => {
         setResult({ step: purpose === 'recovery' ? 'new-password' : 'confirmed', email: session.email });
       },
       (e: unknown) =>
         setResult({ step: 'error', message: e instanceof AuthError ? e.message : "This link didn't work. Ask for a new one." })
     );
-  }, [accessToken, refreshToken, purpose]);
+  }, [code, flowId]);
 
   const shown: Result | null =
     result ??

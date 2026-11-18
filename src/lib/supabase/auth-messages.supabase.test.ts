@@ -12,6 +12,13 @@ describe('authErrorMessage', () => {
     expect(authErrorMessage({ code: 'over_email_send_rate_limit', status: 429 }, FALLBACK)).toBe(AUTH_MESSAGES.tooManyEmails);
   });
 
+  it("explains a link opened on a phone that didn't ask for it", () => {
+    expect(authErrorMessage({ name: 'AuthPKCECodeVerifierMissingError', status: 400 }, FALLBACK)).toBe(AUTH_MESSAGES.linkOtherPhone);
+    expect(authErrorMessage({ code: 'bad_code_verifier', status: 400 }, FALLBACK)).toBe(AUTH_MESSAGES.linkOtherPhone);
+    expect(authErrorMessage({ code: 'flow_state_not_found', status: 404 }, FALLBACK)).toBe(AUTH_MESSAGES.linkOtherPhone);
+    expect(authErrorMessage({ code: 'flow_state_expired', status: 400 }, FALLBACK)).toBe(AUTH_MESSAGES.linkExpired);
+  });
+
   it('treats failed requests as offline', () => {
     expect(authErrorMessage({ name: 'AuthRetryableFetchError', status: 0 }, FALLBACK)).toBe(AUTH_MESSAGES.offline);
     expect(authErrorMessage(new TypeError('Network request failed'), FALLBACK)).toBe(AUTH_MESSAGES.offline);

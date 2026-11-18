@@ -163,17 +163,23 @@ export const authStore = {
     );
   },
 
-  /** Signs in from an email link (confirm sign-up or reset password). */
-  async openLink(link: Extract<AuthLink, { kind: 'session' }>): Promise<AuthSession> {
+  /**
+   * Signs in from an email link (confirm sign-up or reset password) by redeeming its one-time
+   * code with the secret this phone stored when it asked for the email. Fails for a link this
+   * phone didn't ask for. `purpose` says which email it was.
+   */
+  async openLink(link: Extract<AuthLink, { kind: 'code' }>): Promise<{ session: AuthSession; purpose: 'confirm' | 'recovery' }> {
     const supabase = client();
     const data = await run("This link didn't work. Ask for a new one.", () =>
-      supabase.auth.setSession({ access_token: link.accessToken, refresh_token: link.refreshToken })
+      supabase.auth.exchangeCodeForSession(link.code, link.flowId ? { flowId: link.flowId } : undefined)
     );
     const session = toAuthSession(data.session);
     if (!data.session || !session) throw new AuthError("This link didn't work. Ask for a new one.");
     await applyAccountProfile(data.session);
     remember(session);
-    return session;
+    // supabase-js returns `redirectType: 'recovery'` for a password-reset link (not in its types).
+    const redirectType = (data as { redirectType?: string | null }).redirectType;
+    return { session, purpose: redirectType === 'recovery' ? 'recovery' : 'confirm' };
   },
 
   /**

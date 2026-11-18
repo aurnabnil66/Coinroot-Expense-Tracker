@@ -15,6 +15,8 @@ export const AUTH_MESSAGES = {
   sessionEnded: 'Your session ended. Log in again.',
   offline: "Can't reach the server. Check your internet connection and try again.",
   linkExpired: 'This link has expired or was already used. Ask for a new one.',
+  linkOtherPhone:
+    "This link only works on the phone where you signed up or asked for it. If you were confirming your email, it's confirmed now: log in with your password.",
   notConfigured: "Sign-in isn't set up in this copy of Coinroot.",
 } as const;
 
@@ -36,6 +38,9 @@ const BY_CODE: Record<string, string> = {
   refresh_token_not_found: AUTH_MESSAGES.sessionEnded,
   refresh_token_already_used: AUTH_MESSAGES.sessionEnded,
   otp_expired: AUTH_MESSAGES.linkExpired,
+  flow_state_not_found: AUTH_MESSAGES.linkOtherPhone,
+  flow_state_expired: AUTH_MESSAGES.linkExpired,
+  bad_code_verifier: AUTH_MESSAGES.linkOtherPhone,
 };
 
 type ErrorLike = { code?: unknown; name?: unknown; status?: unknown };
@@ -45,6 +50,8 @@ export function authErrorMessage(error: unknown, fallback: string): string {
   if (!error || typeof error !== 'object') return fallback;
   const { code, name, status } = error as ErrorLike;
   if (typeof code === 'string' && BY_CODE[code]) return BY_CODE[code];
+  // The phone has no stored secret for this link: it was asked for on another phone (or app install).
+  if (name === 'AuthPKCECodeVerifierMissingError') return AUTH_MESSAGES.linkOtherPhone;
   // supabase-js reports a failed request (no internet, server down) as AuthRetryableFetchError.
   if (name === 'AuthRetryableFetchError' || (name === 'TypeError' && status === undefined)) return AUTH_MESSAGES.offline;
   if (status === 429) return AUTH_MESSAGES.tooManyTries;
