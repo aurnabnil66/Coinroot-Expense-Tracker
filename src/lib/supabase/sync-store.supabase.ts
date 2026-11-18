@@ -34,6 +34,8 @@ export type SyncSnapshot = {
   lastSyncedAt: string | null;
   /** Changes on the phone waiting for upload, as of the last check. */
   pending: number;
+  /** Rows the last sync couldn't store on this phone (left out; see `SyncSkip`). */
+  skipped: number;
 };
 
 /** Waits this long after a change, so a burst of edits uploads together. */
@@ -47,6 +49,7 @@ let snapshot: SyncSnapshot = {
   error: null,
   lastSyncedAt: syncStateSetting.get().lastSyncedAt,
   pending: 0,
+  skipped: 0,
 };
 const listeners = new Set<() => void>();
 
@@ -107,7 +110,10 @@ async function runOnce(): Promise<void> {
         refreshing = false;
       }
     }
-    commit({ status: 'idle', error: null, lastSyncedAt, pending: pendingCount(db) });
+    if (result.skipped.length > 0 && __DEV__) {
+      console.warn(`Cloud sync left out ${result.skipped.length} row(s) this phone can't store:`, result.skipped);
+    }
+    commit({ status: 'idle', error: null, lastSyncedAt, pending: pendingCount(db), skipped: result.skipped.length });
   } catch (e) {
     commit({ status: 'error', error: messageOf(e), pending: pendingCount(db) });
   }

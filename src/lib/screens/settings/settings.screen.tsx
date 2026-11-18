@@ -75,7 +75,8 @@ function syncSubtitle(sync: SyncSnapshot): string {
     default: {
       if (!sync.lastSyncedAt) return "Not synced yet";
       const waiting = sync.pending > 0 ? ` · ${sync.pending} waiting` : "";
-      return `Synced ${formatSyncedAt(sync.lastSyncedAt)}${waiting}`;
+      const skipped = sync.skipped > 0 ? ` · ${sync.skipped} from the cloud left out` : "";
+      return `Synced ${formatSyncedAt(sync.lastSyncedAt)}${waiting}${skipped}`;
     }
   }
 }

@@ -67,6 +67,12 @@ class FakeServer {
   live(table: SyncTable) {
     return [...this.rows[table].values()].filter((row) => !row.deleted_at);
   }
+
+  /** Writes a row as-is (no checks), like data that got into the cloud some other way. */
+  put(table: SyncTable, row: RemoteRow) {
+    this.clock += 1;
+    this.rows[table].set(`${String(row.user_id)}/${String(row.id)}`, { ...row, server_updated_at: pgTime(new Date(this.clock).toISOString()) });
+  }
 }
 
 /** A phone: its database and where its last pull stopped. */
@@ -154,6 +160,29 @@ describe('syncLedger', () => {
     expect(getTx(a.db, snack)).toMatchObject({ amount: 2000, note: 'Snack', toId: categoryId(a.db, 'Food') });
     expect(a.db.select().from(accounts).all().map((x) => x.name).sort()).toEqual(['Cash', 'Office Bank']);
     expect(server.live('categories')).toHaveLength(names.length);
+  });
+
+  it('merges every never-synced category with the same name, not just one', async () => {
+    const server = new FakeServer();
+    const a = phone();
+    await a.sync(server);
+
+    const b = phone();
+    const cash = addAccount(b.db, 'Cash');
+    const first = addExpense(b.db, cash, 'Food', 100);
+    const twinId = uid('cat');
+    b.db.insert(categories).values({ id: twinId, name: ' FOOD', kind: 'expense' }).run();
+    const now = stamp();
+    const second = uid('tx');
+    b.db.insert(transactions)
+      .values(transactionToRow({ id: second, date: '2026-11-05', type: 'expense', fromId: cash, toId: twinId, amount: 200, note: '', parentId: null, receivedFrom: null, createdAt: now, updatedAt: now }))
+      .run();
+    await b.sync(server);
+
+    const foods = b.db.select().from(categories).where(and(eq(categories.kind, 'expense'), isNull(categories.deletedAt))).all().filter((c) => c.name.trim().toLowerCase() === 'food');
+    expect(foods.map((c) => c.id)).toEqual([categoryId(a.db, 'Food')]);
+    expect(getTx(b.db, first)?.toId).toBe(categoryId(a.db, 'Food'));
+    expect(getTx(b.db, second)?.toId).toBe(categoryId(a.db, 'Food'));
   });
 
   it('keeps the newest edit on every phone', async () => {
@@ -277,6 +306,38 @@ describe('syncLedger', () => {
     await b.sync(server);
     expect(getTx(b.db, id)?.updatedAt).toBe(original);
     expect(server.live('transactions')[0].updated_at).toBe(pgTime(original));
+  });
+});
+
+describe("rows the phone can't store", () => {
+  it('skips bad pulled rows, keeps the rest of the page, and moves on', async () => {
+    const server = new FakeServer();
+    const a = phone();
+    const cash = addAccount(a.db, 'Cash');
+    addExpense(a.db, cash, 'Food', 1000);
+    await a.sync(server);
+    const good = server.live('transactions')[0];
+
+    server.put('transactions', { ...good, id: 'bad-amount', amount: 0 });
+    server.put('transactions', { ...good, id: 'bad-transfer', type: 'transfer', to_id: good.from_id });
+    server.put('transactions', { ...good, id: 'bad-type', type: 'gift' });
+    server.put('transactions', { ...good, id: 'bad-time', updated_at: 'not a time' });
+    server.put('transactions', { ...good, id: undefined });
+    server.put('transactions', { ...good, id: 'fine-later', amount: 2500, note: 'After the bad ones' });
+
+    const b = phone(false);
+    const result = await b.sync(server);
+    expect(result.skipped.map((skip) => skip.id).sort()).toEqual(['(no id)', 'bad-amount', 'bad-time', 'bad-transfer', 'bad-type']);
+    expect(result.skipped.find((skip) => skip.id === 'bad-amount')?.reason).toMatch(/CHECK constraint failed/i);
+    expect(getTx(b.db, String(good.id))?.amount).toBe(1000);
+    expect(getTx(b.db, 'fine-later')).toMatchObject({ amount: 2500, note: 'After the bad ones' });
+    expect(getTx(b.db, 'bad-amount')).toBeUndefined();
+
+    // Sync keeps working, and a row fixed in the cloud arrives.
+    await expect(b.sync(server)).resolves.toMatchObject({ pushed: 0 });
+    server.put('transactions', { ...good, id: 'bad-amount', amount: 700 });
+    await b.sync(server);
+    expect(getTx(b.db, 'bad-amount')?.amount).toBe(700);
   });
 });
 

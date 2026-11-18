@@ -14,9 +14,12 @@
  *   newer; the server skips an upload older than what it has (the `sync_row_write` trigger).
  * - **Deletes** are rows with `deleted_at`, synced like any change. A row deleted before it
  *   ever reached the cloud isn't uploaded at all.
- * - **Default categories don't double:** a pulled category with the same kind and name as a
- *   local one that never synced (e.g. the defaults seeded on a second phone) takes its place,
- *   and local entries are moved over to it. Accounts are never merged by name.
+ * - **Default categories don't double:** a pulled category with the same kind and name as
+ *   local ones that never synced (e.g. the defaults seeded on a second phone) takes their
+ *   place, and local entries are moved over to it. Accounts are never merged by name.
+ * - **A bad pulled row doesn't stop sync:** each row is applied in its own savepoint; one the
+ *   phone can't store (a broken value, a CHECK the cloud didn't enforce) is rolled back alone,
+ *   reported in `skipped`, and the pull moves on. It comes back if it's changed in the cloud.
  */
 import { and, count, eq, getTableColumns, isNotNull, isNull, sql } from 'drizzle-orm';
 
@@ -55,12 +58,17 @@ export type SyncOptions = {
   now?: () => string;
 };
 
+/** A pulled row the phone couldn't store, and why. */
+export type SyncSkip = { table: SyncTable; id: string; reason: string };
+
 export type SyncResult = {
   cursors: SyncCursors;
   /** Rows the pull added or changed on the phone. */
   pulled: number;
   /** Rows uploaded. */
   pushed: number;
+  /** Pulled rows left out because the phone couldn't store them. */
+  skipped: SyncSkip[];
 };
 
 const LOCAL_ONLY_FIELD = 'syncedUpdatedAt';
@@ -104,12 +112,12 @@ const pending = (table: LedgerTable) => sql`${table.syncedUpdatedAt} is not ${ta
 type Tx = Parameters<Parameters<LedgerDatabase['transaction']>[0]>[0];
 
 /**
- * A pulled category matching a never-synced local one (same kind and name): moves local
- * entries to the pulled id and removes the local copy (it never left the phone).
+ * A pulled category matching never-synced local ones (same kind and name): moves their
+ * entries to the pulled id and removes the local copies (they never left the phone).
  */
-function adoptMatchingCategory(tx: Tx, incoming: Record<string, unknown>, now: string) {
+function adoptMatchingCategories(tx: Tx, incoming: Record<string, unknown>, now: string) {
   const name = String(incoming.name).trim().toLowerCase();
-  const twin = tx
+  const twins = tx
     .select({ id: categories.id })
     .from(categories)
     .where(
@@ -120,24 +128,26 @@ function adoptMatchingCategory(tx: Tx, incoming: Record<string, unknown>, now: s
         isNull(categories.deletedAt)
       )
     )
-    .get();
-  if (!twin) return;
+    .all();
   const id = String(incoming.id);
-  tx.update(transactions).set({ fromId: id, updatedAt: now }).where(eq(transactions.fromId, twin.id)).run();
-  tx.update(transactions).set({ toId: id, updatedAt: now }).where(eq(transactions.toId, twin.id)).run();
-  tx.delete(categories).where(eq(categories.id, twin.id)).run();
+  for (const twin of twins) {
+    tx.update(transactions).set({ fromId: id, updatedAt: now }).where(eq(transactions.fromId, twin.id)).run();
+    tx.update(transactions).set({ toId: id, updatedAt: now }).where(eq(transactions.toId, twin.id)).run();
+    tx.delete(categories).where(eq(categories.id, twin.id)).run();
+  }
 }
 
 /** Applies one pulled row; returns whether the phone's data changed. */
 function applyRow(tx: Tx, name: SyncTable, remote: RemoteRow, now: string): boolean {
   const table = TABLES[name];
+  if (typeof remote.id !== 'string' || remote.id === '') throw new Error('missing id');
   const incoming = remoteToLocal(table, remote);
-  const id = String(incoming.id);
+  const id = remote.id;
   const updatedAt = String(incoming.updatedAt);
   const local = tx.select().from(table).where(eq(table.id, id)).get();
 
   if (!local) {
-    if (name === 'categories' && !incoming.deletedAt) adoptMatchingCategory(tx, incoming, now);
+    if (name === 'categories' && !incoming.deletedAt) adoptMatchingCategories(tx, incoming, now);
     tx.insert(table)
       .values({ ...incoming, syncedUpdatedAt: updatedAt } as never)
       .run();
@@ -163,19 +173,27 @@ async function pullTable(database: LedgerDatabase, remote: SyncRemote, name: Syn
   let after: SyncCursor | null = cursor ? { at: new Date(timeOf(cursor.at) - options.overlapMs).toISOString(), id: '' } : null;
   let last = cursor ?? null;
   let changed = 0;
+  const skipped: SyncSkip[] = [];
   for (;;) {
     const page = await remote.pull(name, after, options.pageSize);
     if (page.length === 0) break;
     const now = options.now();
     database.transaction((tx) => {
-      for (const row of page) if (applyRow(tx, name, row, now)) changed += 1;
+      for (const row of page) {
+        try {
+          // A savepoint per row: a row that fails is undone alone, the rest of the page stays.
+          if (tx.transaction((rowTx) => applyRow(rowTx, name, row, now))) changed += 1;
+        } catch (e) {
+          skipped.push({ table: name, id: typeof row.id === 'string' ? row.id : '(no id)', reason: e instanceof Error ? e.message : String(e) });
+        }
+      }
     });
     const tail = page[page.length - 1];
     after = { at: String(tail.server_updated_at), id: String(tail.id) };
     if (!last || timeOf(after.at) > timeOf(last.at) || (timeOf(after.at) === timeOf(last.at) && after.id > last.id)) last = after;
     if (page.length < options.pageSize) break;
   }
-  return { cursor: last, changed };
+  return { cursor: last, changed, skipped };
 }
 
 async function pushTable(database: LedgerDatabase, remote: SyncRemote, name: SyncTable, userId: string, pushSize: number) {
@@ -213,13 +231,15 @@ export async function syncLedger(database: LedgerDatabase, remote: SyncRemote, o
   const cursors: SyncCursors = { ...options.cursors };
   let pulled = 0;
   let pushed = 0;
+  const skipped: SyncSkip[] = [];
   for (const name of SYNC_TABLES) {
-    const { cursor, changed } = await pullTable(database, remote, name, settings, cursors[name]);
-    if (cursor) cursors[name] = cursor;
-    pulled += changed;
+    const result = await pullTable(database, remote, name, settings, cursors[name]);
+    if (result.cursor) cursors[name] = result.cursor;
+    pulled += result.changed;
+    skipped.push(...result.skipped);
   }
   for (const name of SYNC_TABLES) pushed += await pushTable(database, remote, name, options.userId, settings.pushSize);
-  return { cursors, pulled, pushed };
+  return { cursors, pulled, pushed, skipped };
 }
 
 /** Whether the phone holds money records (live accounts or transactions); categories don't count. */
