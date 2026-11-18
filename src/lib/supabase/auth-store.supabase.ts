@@ -1,4 +1,4 @@
-import type { Session, SupabaseClient } from '@supabase/supabase-js';
+import type { Session } from '@supabase/supabase-js';
 import * as Linking from 'expo-linking';
 
 import { createSetting, profileSetting, saveProfile } from '@/lib/storage';
@@ -6,7 +6,7 @@ import { createSetting, profileSetting, saveProfile } from '@/lib/storage';
 import { type AccountProfile, EMPTY_PROFILE, profileFromAccount, readAccountProfile } from './account-profile.supabase';
 import { AUTH_MESSAGES, authErrorMessage } from './auth-messages.supabase';
 import type { AuthLink } from './auth-link.supabase';
-import { getSupabase } from './client.supabase';
+import { type CoinrootSupabase, getSupabase } from './client.supabase';
 
 /**
  * Sign-in with Supabase Auth (email + password). Signing in is optional: the app works
@@ -73,7 +73,7 @@ function listen() {
   supabase.auth.onAuthStateChange((_event, session) => remember(toAuthSession(session)));
 }
 
-function client(): SupabaseClient {
+function client(): CoinrootSupabase {
   const supabase = getSupabase();
   if (!supabase) throw new AuthError(AUTH_MESSAGES.notConfigured);
   listen();

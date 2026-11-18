@@ -74,7 +74,8 @@
     "lint": "expo lint",
     "test": "jest",
     "db:generate": "drizzle-kit generate",
-    "db:check": "drizzle-kit check"
+    "db:check": "drizzle-kit check",
+    "db:types": "bunx supabase gen types typescript --remote --schema public > src/lib/supabase/database.supabase.ts"
   },
   "private": true,
   "jest": {
