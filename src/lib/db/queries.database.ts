@@ -8,7 +8,16 @@ import { and, count, desc, eq, gte, inArray, isNull, lt, lte, ne, or, sql } from
 import type { BaseSQLiteDatabase } from 'drizzle-orm/sqlite-core';
 
 import type { Transaction } from '@/lib/types';
-import { addMonths, type DayGroup, daysInMonth, groupByDay, type PeriodSpending } from '@/lib/utils';
+import {
+  addMonths,
+  type DayGroup,
+  daysInMonth,
+  groupByDay,
+  MONEY_TREE_MAX_DEPTH,
+  type MoneyTree,
+  moneyTree,
+  type PeriodSpending,
+} from '@/lib/utils';
 
 import { rowToTransaction } from './mappers.database';
 import * as schema from './schema.database';
@@ -267,3 +276,51 @@ export function countChildren(database: LedgerDatabase, parentId: string): numbe
   );
 }
 
+
+/** Ids per `IN (…)` lookup, well under SQLite's limit on bound values. */
+const ID_CHUNK = 500;
+
+/**
+ * `moneyTree` for one entry, reading only that tree: the chain up through "Linked to" (one
+ * lookup per step), then every live entry below the root in one recursive query (one level
+ * deeper than the tree goes, so "left" at the deepest level still counts what's linked to it).
+ * No row limit: the totals count the whole tree, and `moneyTree` itself caps what's shown.
+ */
+export function getMoneyTree(database: LedgerDatabase, id: string): MoneyTree | null {
+  const entry = getTransaction(database, id);
+  if (!entry) return null;
+  const chain = [entry];
+  const seen = new Set([entry.id]);
+  for (let step = entry; step.parentId && !seen.has(step.parentId) && chain.length <= MONEY_TREE_MAX_DEPTH; ) {
+    const parent = getTransaction(database, step.parentId);
+    if (!parent) break;
+    chain.push(parent);
+    seen.add(parent.id);
+    step = parent;
+  }
+  const root = chain[chain.length - 1];
+
+  const below = database.all<{ id: string }>(sql`
+    WITH RECURSIVE tree(id, depth) AS (
+      SELECT ${root.id}, 0
+      UNION
+      SELECT t.id, tree.depth + 1
+      FROM transactions t JOIN tree ON t.parent_id = tree.id
+      WHERE t.deleted_at IS NULL AND tree.depth <= ${MONEY_TREE_MAX_DEPTH}
+    )
+    SELECT DISTINCT id FROM tree WHERE id <> ${root.id}
+  `);
+  const ids = below.map((row) => row.id).filter((rowId) => !seen.has(rowId));
+  const rows: Transaction[] = [...chain];
+  for (let i = 0; i < ids.length; i += ID_CHUNK) {
+    rows.push(
+      ...database
+        .select()
+        .from(transactions)
+        .where(and(inArray(transactions.id, ids.slice(i, i + ID_CHUNK)), live))
+        .all()
+        .map(rowToTransaction)
+    );
+  }
+  return moneyTree(id, rows);
+}

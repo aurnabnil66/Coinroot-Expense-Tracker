@@ -61,6 +61,7 @@ export default function RootLayout() {
               <Stack.Protected guard={setupDone}>
                 <Stack.Screen name="(tabs)" />
                 <Stack.Screen name="transaction/[id]" options={pushed} />
+                <Stack.Screen name="money-tree/[id]" options={pushed} />
                 <Stack.Screen name="account/[id]" options={pushed} />
                 <Stack.Screen name="categories" options={pushed} />
                 <Stack.Screen name="transaction-form" options={modal} />
