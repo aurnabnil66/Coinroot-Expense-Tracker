@@ -168,12 +168,14 @@ type Tx = Parameters<Parameters<LedgerDatabase['transaction']>[0]>[0];
 
 /**
  * A pulled category matching never-synced local ones (same kind and name): moves their
- * entries to the pulled id and removes the local copies (they never left the phone).
+ * entries to the pulled id and removes the local copies (they never left the phone, so they
+ * aren't tombstoned). Returns the colour and icon the local copies had, so a customised one
+ * isn't lost where the pulled row has none.
  */
 function adoptMatchingCategories(tx: Tx, incoming: Record<string, unknown>, now: string) {
   const name = String(incoming.name).trim().toLowerCase();
   const twins = tx
-    .select({ id: categories.id })
+    .select({ id: categories.id, color: categories.color, icon: categories.icon })
     .from(categories)
     .where(
       and(
@@ -190,6 +192,10 @@ function adoptMatchingCategories(tx: Tx, incoming: Record<string, unknown>, now:
     tx.update(transactions).set({ toId: id, updatedAt: now }).where(eq(transactions.toId, twin.id)).run();
     tx.delete(categories).where(eq(categories.id, twin.id)).run();
   }
+  return {
+    color: twins.find((twin) => twin.color)?.color ?? null,
+    icon: twins.find((twin) => twin.icon)?.icon ?? null,
+  };
 }
 
 /** Applies one pulled row; returns whether the phone's data changed. */
@@ -202,7 +208,18 @@ function applyRow(tx: Tx, name: SyncTable, remote: RemoteRow, now: string): bool
   const local = tx.select().from(table).where(eq(table.id, id)).get();
 
   if (!local) {
-    if (name === 'categories' && !incoming.deletedAt) adoptMatchingCategories(tx, incoming, now);
+    if (name === 'categories' && !incoming.deletedAt) {
+      const kept = adoptMatchingCategories(tx, incoming, now);
+      const color = incoming.color ?? kept.color;
+      const icon = incoming.icon ?? kept.icon;
+      if (color !== incoming.color || icon !== incoming.icon) {
+        // The phone's colour / icon fill what the cloud row lacks; a fresh `updated_at` uploads them.
+        tx.insert(categories)
+          .values({ ...incoming, color, icon, updatedAt: now, syncedUpdatedAt: updatedAt } as never)
+          .run();
+        return true;
+      }
+    }
     tx.insert(table)
       .values({ ...incoming, syncedUpdatedAt: updatedAt } as never)
       .run();

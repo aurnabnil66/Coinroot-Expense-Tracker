@@ -205,6 +205,24 @@ describe('syncLedger', () => {
     expect(getTx(b.db, second)?.toId).toBe(categoryId(a.db, 'Food'));
   });
 
+  it("keeps a never-synced twin's colour and icon where the cloud row has none, and uploads them", async () => {
+    const server = new FakeServer();
+    const a = phone(false);
+    const now = stamp();
+    a.db.insert(categories).values({ id: 'snacks-cloud', name: 'Snacks', kind: 'expense', color: null, icon: null, createdAt: now, updatedAt: now }).run();
+    await a.sync(server);
+
+    const b = phone(false);
+    b.db.insert(categories).values({ id: 'snacks-local', name: 'snacks', kind: 'expense', color: 'teal', icon: 'cookie' }).run();
+    await b.sync(server);
+
+    const merged = b.db.select().from(categories).where(isNull(categories.deletedAt)).all();
+    expect(merged).toHaveLength(1);
+    expect(merged[0]).toMatchObject({ id: 'snacks-cloud', name: 'Snacks', color: 'teal', icon: 'cookie' });
+    expect(server.live('categories')[0]).toMatchObject({ id: 'snacks-cloud', color: 'teal', icon: 'cookie' });
+    expect(pendingCount(b.db)).toBe(0);
+  });
+
   it('keeps the newest edit on every phone', async () => {
     const server = new FakeServer();
     const a = phone();
