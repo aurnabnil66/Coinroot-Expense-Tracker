@@ -28,12 +28,16 @@ const pgTime = (iso: string) => iso.replace(/\.(\d{3})Z$/, '.$1000+00:00');
 
 /**
  * Behaves like the cloud tables: rows per user keyed by id, `server_updated_at` set on every
- * write, uploads older than the stored row skipped, pulls ordered by (server_updated_at, id).
+ * write, uploads older than the stored row skipped, an `updated_at` more than a minute after
+ * `now` pulled back to `now` (when set), pulls ordered by (server_updated_at, id), and push
+ * returning the stored rows' id and updated_at.
  */
 class FakeServer {
   rows: Record<SyncTable, Map<string, RemoteRow>> = { accounts: new Map(), categories: new Map(), transactions: new Map() };
   private clock = Date.parse('2026-12-01T00:00:00.000Z');
   pushes = 0;
+  /** The server's real time, for clamping future-dated edits (off when null). */
+  now: string | null = null;
 
   remote(userId = USER, onPush?: (table: SyncTable) => void): SyncRemote {
     return {
@@ -54,7 +58,10 @@ class FakeServer {
       push: async (table, rows) => {
         this.pushes += 1;
         onPush?.(table);
-        for (const row of rows) {
+        const written: RemoteRow[] = [];
+        for (const incoming of rows) {
+          const row = { ...incoming };
+          if (this.now && Date.parse(String(row.updated_at)) > Date.parse(this.now) + 60_000) row.updated_at = this.now;
           const key = `${String(row.user_id)}/${String(row.id)}`;
           const stored = this.rows[table].get(key);
           if (stored && Date.parse(String(row.updated_at)) < Date.parse(String(stored.updated_at))) continue;
@@ -62,8 +69,11 @@ class FakeServer {
           const timestamps = Object.fromEntries(
             ['created_at', 'updated_at', 'deleted_at'].map((c) => [c, row[c] ? pgTime(String(row[c])) : null])
           );
-          this.rows[table].set(key, { ...row, ...timestamps, server_updated_at: pgTime(new Date(this.clock).toISOString()) });
+          const saved: RemoteRow = { ...row, ...timestamps, server_updated_at: pgTime(new Date(this.clock).toISOString()) };
+          this.rows[table].set(key, saved);
+          written.push({ id: saved.id, updated_at: saved.updated_at });
         }
+        return written;
       },
     };
   }
@@ -231,6 +241,64 @@ describe('syncLedger', () => {
     // B uploads without pulling first (e.g. the server got A's edit while B's request was on its way).
     await server.remote().push('transactions', [{ ...server.live('transactions')[0], amount: 2000, updated_at: getTx(b.db, id)!.updatedAt }]);
     expect(server.live('transactions')[0].amount).toBe(5000);
+  });
+
+  it("doesn't let a phone with its clock ahead win every conflict", async () => {
+    const server = new FakeServer();
+    server.now = '2026-11-01T09:00:00.000Z';
+    const a = phone();
+    const cash = addAccount(a.db, 'Cash');
+    const id = addExpense(a.db, cash, 'Food', 1000);
+    await a.sync(server);
+    const b = phone(false);
+    await b.sync(server);
+
+    // A's clock is a year ahead.
+    a.db.update(transactions).set({ amount: 2000, updatedAt: '2027-11-01T09:00:00.000Z' }).where(eq(transactions.id, id)).run();
+    await a.sync(server);
+    const stored = server.live('transactions')[0];
+    expect(stored.amount).toBe(2000);
+    expect(Date.parse(String(stored.updated_at))).toBe(Date.parse(server.now));
+    // A adopts the server's time, so it doesn't upload the row again and again.
+    expect(getTx(a.db, id)?.updatedAt).toBe(server.now);
+    expect(pendingCount(a.db)).toBe(0);
+    expect((await a.sync(server)).pushed).toBe(0);
+
+    // A later real edit on B wins, as it should.
+    server.now = '2026-11-02T09:00:00.000Z';
+    editTx(b.db, id, { amount: 3000 });
+    b.db.update(transactions).set({ updatedAt: '2026-11-01T10:00:00.000Z' }).where(eq(transactions.id, id)).run();
+    await b.sync(server);
+    await a.sync(server);
+    expect(server.live('transactions')[0].amount).toBe(3000);
+    expect(getTx(a.db, id)?.amount).toBe(3000);
+  });
+
+  it('knows when an upload lost to a newer edit, and takes the winner on the next pull', async () => {
+    const server = new FakeServer();
+    const a = phone();
+    const cash = addAccount(a.db, 'Cash');
+    const id = addExpense(a.db, cash, 'Food', 1000);
+    await a.sync(server);
+    const b = phone(false);
+    await b.sync(server);
+
+    editTx(b.db, id, { amount: 2000 }); // B's edit
+    const newer = stamp(); // a later edit on another phone…
+    // …reaches the server after B's pull, just before B uploads its transactions.
+    const result = await b.sync(server, {
+      onPush: (table) => {
+        if (table === 'transactions') server.put('transactions', { ...server.live('transactions')[0], amount: 5000, updated_at: pgTime(newer) });
+      },
+    });
+    expect(result.overwritten).toBe(1);
+    expect(server.live('transactions')[0].amount).toBe(5000);
+    expect(pendingCount(b.db)).toBe(1); // not marked as synced: it lost
+
+    const next = await b.sync(server);
+    expect(getTx(b.db, id)?.amount).toBe(5000);
+    expect(next).toMatchObject({ pushed: 0, overwritten: 0 });
+    expect(pendingCount(b.db)).toBe(0);
   });
 
   it('syncs deletes, and never uploads a row deleted before it reached the cloud', async () => {

@@ -128,6 +128,9 @@ async function runOnce(): Promise<void> {
         refreshing = false;
       }
     }
+    if (result.overwritten > 0 && __DEV__) {
+      console.info(`Cloud sync: ${result.overwritten} upload(s) lost to newer edits from another phone; the next pull brings them.`);
+    }
     if (result.skipped.length > 0 && __DEV__) {
       console.warn(`Cloud sync left out ${result.skipped.length} row(s) this phone can't store:`, result.skipped);
     }

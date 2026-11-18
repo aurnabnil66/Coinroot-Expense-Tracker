@@ -11,7 +11,11 @@
  *   seen, starting `overlapMs` earlier because server writes can commit out of order (a row
  *   seen twice is harmless). Push upserts pending rows by `(user_id, id)`.
  * - **Last write wins** by `updated_at`: a pulled row replaces the local one only if it's
- *   newer; the server skips an upload older than what it has (the `sync_row_write` trigger).
+ *   newer; the server skips an upload older than what it has (the `sync_row_write` trigger)
+ *   and pulls an `updated_at` more than a minute in its future back to its own clock, so a
+ *   phone whose clock runs ahead can't win every conflict. Uploads report what was stored
+ *   (adopted on the phone) and what lost (`overwritten`). A phone whose clock runs slow
+ *   still loses ties: the remaining trade-off of using device clocks.
  * - **Deletes** are rows with `deleted_at`, synced like any change. A row deleted before it
  *   ever reached the cloud isn't uploaded at all.
  * - **Default categories don't double:** a pulled category with the same kind and name as
@@ -24,7 +28,7 @@
  *   id and tries again, so a skipped row isn't lost behind the cursor. Entries linked to a
  *   skipped one keep their `parent_id`, so the link returns when it arrives.
  */
-import { and, count, eq, getTableColumns, isNotNull, isNull, sql } from 'drizzle-orm';
+import { and, asc, count, eq, getTableColumns, gt, isNotNull, isNull, sql } from 'drizzle-orm';
 
 import type { LedgerDatabase } from './queries.database';
 import { accounts, categories, transactions } from './schema.database';
@@ -45,11 +49,12 @@ export type SyncCursors = Partial<Record<SyncTable, SyncCursor>>;
 
 /**
  * The cloud side. `pull` returns rows after `after`, ordered by (server_updated_at, id);
- * `fetch` returns the rows with these ids (those that exist).
+ * `fetch` returns the rows with these ids (those that exist); `push` upserts and returns
+ * `{ id, updated_at }` of the rows the server actually stored (a stale one is left out).
  */
 export type SyncRemote = {
   pull(table: SyncTable, after: SyncCursor | null, limit: number): Promise<RemoteRow[]>;
-  push(table: SyncTable, rows: RemoteRow[]): Promise<void>;
+  push(table: SyncTable, rows: RemoteRow[]): Promise<RemoteRow[]>;
   fetch(table: SyncTable, ids: string[]): Promise<RemoteRow[]>;
 };
 
@@ -113,8 +118,10 @@ export type SyncResult = {
   cursors: SyncCursors;
   /** Rows the pull added or changed on the phone. */
   pulled: number;
-  /** Rows uploaded. */
+  /** Rows uploaded and stored by the server. */
   pushed: number;
+  /** Uploads the server skipped because a newer edit from another phone was already there. */
+  overwritten: number;
   /** Pulled rows left out because the phone couldn't store them. */
   skipped: SyncSkip[];
 };
@@ -247,28 +254,59 @@ async function pullTable(database: LedgerDatabase, remote: SyncRemote, name: Syn
   return { cursor: last, changed, skipped, stored };
 }
 
+/**
+ * Uploads pending rows, each once per sync (paged by id). The server answers with the rows it
+ * stored and their `updated_at`, which the phone adopts (the server may have pulled a
+ * future-dated time back to its own clock). A row it didn't store lost to a newer edit
+ * elsewhere: it stays pending, and the next pull brings the winning version.
+ */
 async function pushTable(database: LedgerDatabase, remote: SyncRemote, name: SyncTable, userId: string, pushSize: number) {
   const table = TABLES[name];
   let pushed = 0;
+  let overwritten = 0;
+  let afterId = '';
   for (;;) {
-    const rows = database.select().from(table).where(pending(table)).limit(pushSize).all() as Record<string, unknown>[];
+    const rows = database
+      .select()
+      .from(table)
+      .where(and(pending(table), gt(table.id, afterId)))
+      .orderBy(asc(table.id))
+      .limit(pushSize)
+      .all() as Record<string, unknown>[];
     if (rows.length === 0) break;
+    afterId = String(rows[rows.length - 1].id);
     // Deleted before it ever reached the cloud: nothing to send.
-    const send = rows.filter((row) => !(row.deletedAt && row.syncedUpdatedAt === null));
-    if (send.length > 0) await remote.push(name, send.map((row) => localToRemote(table, row, userId)));
-    pushed += send.length;
+    const unsent = rows.filter((row) => row.deletedAt && row.syncedUpdatedAt === null);
+    const send = rows.filter((row) => !unsent.includes(row));
+    const stored = new Map<string, string>();
+    if (send.length > 0) {
+      for (const row of await remote.push(name, send.map((row) => localToRemote(table, row, userId)))) {
+        const at = toIsoTimestamp(row.updated_at);
+        if (at) stored.set(String(row.id), at);
+      }
+    }
+    pushed += stored.size;
+    overwritten += send.length - stored.size;
     database.transaction((tx) => {
-      for (const row of rows) {
-        // Only if it wasn't edited meanwhile; an edited row stays pending for the next round.
+      // Only rows not edited meanwhile; an edited one stays pending for the next sync.
+      const unchanged = (row: Record<string, unknown>) => and(eq(table.id, String(row.id)), eq(table.updatedAt, String(row.updatedAt)));
+      for (const row of unsent) {
+        tx.update(table).set({ syncedUpdatedAt: String(row.updatedAt) }).where(unchanged(row)).run();
+      }
+      for (const row of send) {
+        const at = stored.get(String(row.id));
+        if (at === undefined) continue; // lost to a newer edit elsewhere: the next pull brings it
+        const local = String(row.updatedAt);
+        const same = timeOf(at) === timeOf(local);
         tx.update(table)
-          .set({ syncedUpdatedAt: String(row.updatedAt) })
-          .where(and(eq(table.id, String(row.id)), eq(table.updatedAt, String(row.updatedAt))))
+          .set(same ? { syncedUpdatedAt: local } : { updatedAt: at, syncedUpdatedAt: at })
+          .where(unchanged(row))
           .run();
       }
     });
     if (rows.length < pushSize) break;
   }
-  return pushed;
+  return { pushed, overwritten };
 }
 
 /**
@@ -321,11 +359,16 @@ export async function syncLedger(database: LedgerDatabase, remote: SyncRemote, o
     skipped.push(...result.skipped);
     for (const id of result.stored) stored.add(`${name}/${id}`);
   }
-  for (const name of SYNC_TABLES) pushed += await pushTable(database, remote, name, options.userId, settings.pushSize);
+  let overwritten = 0;
+  for (const name of SYNC_TABLES) {
+    const result = await pushTable(database, remote, name, options.userId, settings.pushSize);
+    pushed += result.pushed;
+    overwritten += result.overwritten;
+  }
   // One entry per row (a row can be retried and pulled again in the same sync): the latest wins.
   const unique = new Map(skipped.map((skip) => [`${skip.table}/${skip.id}`, skip]));
   for (const key of stored) unique.delete(key);
-  return { cursors, pulled, pushed, skipped: [...unique.values()] };
+  return { cursors, pulled, pushed, overwritten, skipped: [...unique.values()] };
 }
 
 /** Whether the phone holds money records (live accounts or transactions); categories don't count. */

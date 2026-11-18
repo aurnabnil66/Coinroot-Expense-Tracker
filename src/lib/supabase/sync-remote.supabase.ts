@@ -38,8 +38,13 @@ export function supabaseSyncRemote(supabase: CoinrootSupabase): SyncRemote {
     },
 
     async push(table, rows) {
-      const { error } = await supabase.from(table).upsert(rows as never, { onConflict: 'user_id,id' });
+      // Returns only the rows the server stored: a stale one (older than the cloud's) is skipped.
+      const { data, error } = await supabase
+        .from(table)
+        .upsert(rows as never, { onConflict: 'user_id,id' })
+        .select('id, updated_at');
       if (error) throw error;
+      return (data ?? []) as RemoteRow[];
     },
   };
 }
