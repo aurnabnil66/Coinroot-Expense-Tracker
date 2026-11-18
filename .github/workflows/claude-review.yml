@@ -1,17 +1,28 @@
 name: Claude PR review
 
+# Reviews a PR when it's opened (or marked ready), not on every push: each run reads the whole
+# diff again and uses Claude plan usage. For another review after more commits, comment
+# `@claude review` on the PR. CI (ci.yml) still checks every push.
 on:
   pull_request:
     branches: [main]
-    types: [opened, synchronize, reopened, ready_for_review]
+    types: [opened, reopened, ready_for_review]
+  issue_comment:
+    types: [created]
 
 concurrency:
-  group: claude-review-${{ github.event.pull_request.number }}
+  group: claude-review-${{ github.event.pull_request.number || github.event.issue.number }}
   cancel-in-progress: true
 
 jobs:
   review:
-    if: github.event.pull_request.draft == false
+    # A non-draft PR event, or an "@claude review" comment on a PR from someone with access.
+    if: >-
+      (github.event_name == 'pull_request' && github.event.pull_request.draft == false) ||
+      (github.event_name == 'issue_comment' &&
+        github.event.issue.pull_request &&
+        contains(github.event.comment.body, '@claude review') &&
+        contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association))
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -20,16 +31,19 @@ jobs:
       issues: read
       id-token: write
     steps:
+      # A comment event checks out main by default; review the PR's own commit instead.
+      # Safe: the review only reads files and runs `gh pr` commands, never the PR's code.
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ github.event_name == 'issue_comment' && format('refs/pull/{0}/head', github.event.issue.number) || '' }}
 
       - uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           prompt: |
             REPO: ${{ github.repository }}
-            PR NUMBER: ${{ github.event.pull_request.number }}
+            PR NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
 
             Review this pull request before it is merged into main.
             Read CLAUDE.md and AGENTS.md first and check the change against their rules

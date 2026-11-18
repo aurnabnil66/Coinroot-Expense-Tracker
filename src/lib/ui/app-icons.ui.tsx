@@ -2,7 +2,11 @@ import { Path } from 'react-native-svg';
 
 import { createIcon } from '@/lib/gluestack-ui/icon';
 
-/** Lucide-style icons the gluestack set doesn't have. Use with `<Icon as={TagIcon} />`. */
+/**
+ * Lucide-style icons the gluestack set doesn't have. Use with `<Icon as={TagIcon} />`.
+ * Always wrap the paths in a fragment, even a single one: `createIcon` clones a lone `<Path>`
+ * with `stroke=""` and a solid fill (a filled shape and an "is not a valid color" warning).
+ */
 const stroke = { strokeWidth: '2', strokeLinecap: 'round', strokeLinejoin: 'round' } as const;
 
 export const TagIcon = createIcon({
@@ -54,10 +58,12 @@ export const SpreadsheetIcon = createIcon({
 export const ZapIcon = createIcon({
   viewBox: '0 0 24 24',
   path: (
-    <Path
-      d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"
-      {...stroke}
-    />
+    <>
+      <Path
+        d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"
+        {...stroke}
+      />
+    </>
   ),
 });
 
@@ -70,6 +76,15 @@ export const PaletteIcon = createIcon({
         {...stroke}
       />
       <Path d="M13.5 6.5h.01M17.5 10.5h.01M6.5 12.5h.01M8.5 7.5h.01" {...stroke} />
+    </>
+  ),
+});
+
+export const CloudIcon = createIcon({
+  viewBox: '0 0 24 24',
+  path: (
+    <>
+      <Path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z" {...stroke} />
     </>
   ),
 });

@@ -5,9 +5,8 @@ import { View } from 'react-native';
 
 import { Text } from '@/lib/gluestack-ui/text';
 import { VStack } from '@/lib/gluestack-ui/vstack';
-import { AuthError, authStore } from '@/lib/mocks';
-import { type LogInFormInput, type LogInFormValues, logInFormDefaults, logInFormSchema } from '@/lib/schemas';
-import { profileSetting, saveProfile } from '@/lib/storage';
+import { emailSchema, type LogInFormInput, type LogInFormValues, logInFormDefaults, logInFormSchema } from '@/lib/schemas';
+import { AuthError, authStore, isCloudConfigured } from '@/lib/supabase';
 import { Button, LinkPrompt, ModalHeader, ScreenContainer, TextField, useDialog } from '@/lib/ui';
 
 /** "Log in" opened from Settings (after setup). */
@@ -25,7 +24,8 @@ export function LogInScreen() {
 }
 
 type LogInFormProps = {
-  onDone: () => void;
+  /** Awaited, with the button still loading (setup waits for the first sync here). */
+  onDone: () => void | Promise<void>;
   onSignUp: () => void;
 };
 
@@ -33,8 +33,10 @@ export function LogInForm({ onDone, onSignUp }: LogInFormProps) {
   const dialog = useDialog();
   const {
     control,
+    getValues,
     handleSubmit,
     setError,
+    trigger,
     formState: { errors, isSubmitting },
   } = useForm<LogInFormInput, unknown, LogInFormValues>({
     resolver: zodResolver(logInFormSchema),
@@ -44,21 +46,37 @@ export function LogInForm({ onDone, onSignUp }: LogInFormProps) {
 
   const onSubmit = async (values: LogInFormValues) => {
     try {
-      const session = await authStore.signIn(values);
-      // The account's email becomes the profile email.
-      await saveProfile({ ...profileSetting.get(), email: session.email });
-      onDone();
+      // Also brings the account's nickname and phone to this phone.
+      await authStore.signIn(values);
     } catch (e) {
       setError('root', { message: e instanceof AuthError ? e.message : 'Could not log in. Please try again.' });
+      return;
     }
+    await onDone();
   };
 
-  const forgotPassword = () =>
-    dialog.alert({
-      title: 'Reset password',
-      message: 'Password reset by email arrives when Coinroot connects to the cloud.',
-      tone: 'info',
+  const forgotPassword = async () => {
+    // The reset link goes to the email typed above, so it must be valid first.
+    const email = emailSchema.safeParse(getValues('email'));
+    if (!email.success) {
+      await trigger('email');
+      await dialog.alert({ title: 'Reset password', message: 'Enter your email above first.', tone: 'info' });
+      return;
+    }
+    const sent = await dialog.confirm({
+      title: 'Reset password?',
+      message: `We'll email a link to ${email.data}. Open it on this phone to choose a new password.`,
+      confirmLabel: 'Send link',
+      onConfirm: () => authStore.sendPasswordReset(email.data),
     });
+    if (sent) {
+      await dialog.alert({
+        title: 'Check your email',
+        message: `If ${email.data} has a Coinroot account, a reset link is on its way.`,
+        tone: 'success',
+      });
+    }
+  };
 
   return (
     <VStack className="gap-5">
@@ -97,9 +115,11 @@ export function LogInForm({ onDone, onSignUp }: LogInFormProps) {
       {errors.root ? <Text className="text-sm text-destructive">{errors.root.message}</Text> : null}
       <Button label="Log in" size="lg" loading={isSubmitting} onPress={() => void handleSubmit(onSubmit)()} />
       <LinkPrompt question="New to Coinroot?" action="Create account" onPress={onSignUp} />
-      <Text className="text-center text-xs text-muted-foreground">
-        Prototype: sign-in isn&apos;t connected to a server yet, so any email and password work.
-      </Text>
+      {isCloudConfigured ? null : (
+        <Text className="text-center text-xs text-muted-foreground">
+          Sign-in isn&apos;t set up in this copy of Coinroot. Everything else works without an account.
+        </Text>
+      )}
     </VStack>
   );
 }

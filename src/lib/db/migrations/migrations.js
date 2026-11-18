@@ -2,11 +2,15 @@
 
 import journal from './meta/_journal.json';
 import m0000 from './0000_init.sql';
+import m0001 from './0001_whole_viper.sql';
+import m0002 from './0002_rename_party_to_received_from.sql';
 
   export default {
     journal,
     migrations: {
-      m0000
+      m0000,
+m0001,
+m0002
     }
   }
   

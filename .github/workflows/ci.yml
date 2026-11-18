@@ -1,0 +1,52 @@
+name: CI
+
+# The checks CLAUDE.md asks for before a task is done, on every pull request into main
+# and every push to main.
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      # Jest and drizzle-kit run on Node (better-sqlite3 is a Node module).
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install
+        run: bun install --frozen-lockfile
+
+      # `expo start` writes this file (it's gitignored); without it TypeScript doesn't know
+      # Expo's types, such as the `@/global.css` import.
+      - name: Expo type references
+        run: printf '/// <reference types="expo/types" />\n' > expo-env.d.ts
+
+      - name: Lint
+        run: bunx expo lint
+
+      - name: Typecheck
+        run: bunx tsc --noEmit
+
+      - name: Tests
+        run: bun run test --ci
+
+      - name: Database migrations are consistent
+        run: bun run db:check

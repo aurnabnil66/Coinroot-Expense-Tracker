@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from '@jest/globals';
-import { isNull } from 'drizzle-orm';
+import { eq, isNull } from 'drizzle-orm';
 
 import { sampleAccounts, sampleCategories, sampleTransactions } from '@/lib/mocks/sample-data.mock';
 import { type Backup, checkBackup } from '@/lib/schemas';
@@ -39,6 +39,16 @@ describe('backup and restore', () => {
     expect(backup.transactions).toHaveLength(sampleTransactions.length);
     const check = checkBackup(JSON.stringify(backup));
     expect(check).toEqual({ ok: true, backup });
+  });
+
+  it('leaves out a "Linked to" whose entry is missing (e.g. not synced yet), so the file still checks', () => {
+    const child = db.select().from(transactions).all().find((t) => t.parentId !== null)!;
+    db.update(transactions).set({ parentId: 'not-on-this-phone' }).where(eq(transactions.id, child.id)).run();
+    const backup = readBackup(db, '2026-11-10T10:00:00.000Z');
+    expect(backup.transactions.find((t) => t.id === child.id)?.parentId).toBeNull();
+    expect(checkBackup(JSON.stringify(backup)).ok).toBe(true);
+    // Links that are there stay.
+    expect(backup.transactions.filter((t) => t.parentId !== null).length).toBeGreaterThan(0);
   });
 
   it('restoring your own backup undoes later changes', () => {
@@ -96,6 +106,35 @@ describe('checkBackup', () => {
     expect(errorsOf('not json')).toEqual(["This isn't a Coinroot backup file (it isn't valid JSON)."]);
     expect(errorsOf({ app: 'other', format: 1 })).toEqual(["This isn't a Coinroot backup file."]);
     expect(errorsOf({ ...valid(), format: 99 })[0]).toContain('newer version of Coinroot');
+  });
+
+  it('reads a format 1 file, where "Received from" was called party', () => {
+    const current = valid();
+    const withPayer = current.transactions.findIndex((t) => t.receivedFrom);
+    expect(withPayer).toBeGreaterThanOrEqual(0);
+    const old = {
+      ...current,
+      format: 1,
+      transactions: current.transactions.map(({ receivedFrom, ...row }) => ({ ...row, party: receivedFrom })),
+    };
+    const check = checkBackup(JSON.stringify(old));
+    expect(check.ok).toBe(true);
+    if (check.ok) {
+      expect(check.backup.format).toBe(2);
+      expect(check.backup.transactions).toEqual(current.transactions);
+    }
+  });
+
+  it('reads a format 1 row with no party key as no payer', () => {
+    const current = valid();
+    const old = {
+      ...current,
+      format: 1,
+      transactions: current.transactions.map(({ receivedFrom: _r, ...row }) => row),
+    };
+    const check = checkBackup(JSON.stringify(old));
+    expect(check.ok).toBe(true);
+    if (check.ok) expect(check.backup.transactions.every((t) => t.receivedFrom === null)).toBe(true);
   });
 
   it('names the row and field that is wrong', () => {

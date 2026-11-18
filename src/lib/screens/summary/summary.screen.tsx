@@ -29,7 +29,7 @@ import {
   dailySpending,
   daysInMonth,
   formatMonthLabel,
-  incomeByParty,
+  incomeByPayer,
   monthlySummary,
   todayKey,
   toMonthKey,
@@ -52,7 +52,7 @@ export function SummaryScreen() {
   const daily = useMemo(() => dailySpending(month, rows), [month, rows]);
   const categoryById = useMemo(() => new Map(categories.map((c) => [c.id, c])), [categories]);
   const palette = useCategoryColors();
-  const byClient = useMemo(() => incomeByParty(month, rows), [month, rows]);
+  const byClient = useMemo(() => incomeByPayer(month, rows), [month, rows]);
 
   return (
     <ScreenContainer safeTop tabBar>
@@ -153,10 +153,10 @@ export function SummaryScreen() {
               <SectionHeader title="Income by client" />
               <Card>
                 {byClient.map((row, index) => (
-                  <HStack key={row.party} className={`items-center gap-3 px-4 py-3 ${index > 0 ? 'border-t border-border' : ''}`}>
-                    <InitialBadge label={row.party} color={palette.emerald} />
+                  <HStack key={row.receivedFrom} className={`items-center gap-3 px-4 py-3 ${index > 0 ? 'border-t border-border' : ''}`}>
+                    <InitialBadge label={row.receivedFrom} color={palette.emerald} />
                     <Text numberOfLines={1} className="flex-1 text-base font-medium text-foreground">
-                      {row.party}
+                      {row.receivedFrom}
                     </Text>
                     <AmountText amount={row.amount} signed tone="income" className="text-base" />
                   </HStack>

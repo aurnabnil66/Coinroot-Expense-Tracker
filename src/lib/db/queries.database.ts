@@ -209,16 +209,16 @@ export function getAccountBalances(database: LedgerDatabase): Map<string, number
 }
 
 /**
- * `partySuggestions`: "Received from" names, most recently used first, each once (ignoring
+ * `receivedFromSuggestions`: "Received from" names, most recently used first, each once (ignoring
  * case and surrounding spaces). The name is spelled as in its latest use.
  */
-export function getPartyNames(database: LedgerDatabase): string[] {
+export function getReceivedFromNames(database: LedgerDatabase): string[] {
   // SQLite returns the other columns from the row that has the max() — the latest use.
   const rows = database.all<{ name: string }>(sql`
-    SELECT trim(party) AS name, max(date || ' ' || created_at) AS latest
+    SELECT trim(received_from) AS name, max(date || ' ' || created_at) AS latest
     FROM transactions
-    WHERE deleted_at IS NULL AND party IS NOT NULL AND trim(party) <> ''
-    GROUP BY lower(trim(party))
+    WHERE deleted_at IS NULL AND received_from IS NOT NULL AND trim(received_from) <> ''
+    GROUP BY lower(trim(received_from))
     ORDER BY latest DESC
   `);
   return rows.map((r) => r.name);

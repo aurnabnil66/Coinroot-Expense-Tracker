@@ -9,3 +9,4 @@ export * from './schema.database';
 export * from './seed-rows.database';
 export * from './seed.database';
 export * from './setup.database';
+export * from './sync.database';

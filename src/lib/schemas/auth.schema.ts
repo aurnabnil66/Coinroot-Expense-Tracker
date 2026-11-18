@@ -33,3 +33,13 @@ export type LogInFormInput = z.input<typeof logInFormSchema>;
 export type LogInFormValues = z.output<typeof logInFormSchema>;
 
 export const logInFormDefaults = (): LogInFormInput => ({ email: '', password: '' });
+
+/** "New password" after opening a reset link. */
+export const newPasswordFormSchema = z.object({
+  password: newPasswordSchema,
+});
+
+export type NewPasswordFormInput = z.input<typeof newPasswordFormSchema>;
+export type NewPasswordFormValues = z.output<typeof newPasswordFormSchema>;
+
+export const newPasswordFormDefaults = (): NewPasswordFormInput => ({ password: '' });

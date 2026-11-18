@@ -29,7 +29,7 @@ describe('database schema', () => {
     const savingsKeys = ['installmentAmount', 'startDate', 'maturityDate', 'interestRate'];
     const categoryKeys: (keyof Category)[] = ['id', 'name', 'kind', 'icon', 'color', 'archived'];
     const transactionKeys: (keyof Transaction)[] = [
-      'id', 'date', 'type', 'fromId', 'toId', 'amount', 'note', 'parentId', 'party', 'createdAt', 'updatedAt',
+      'id', 'date', 'type', 'fromId', 'toId', 'amount', 'note', 'parentId', 'receivedFrom', 'createdAt', 'updatedAt',
     ];
     expect(Object.keys(columnsOf(accounts))).toEqual(expect.arrayContaining([...accountKeys, ...savingsKeys].map(snake)));
     expect(Object.keys(columnsOf(categories))).toEqual(expect.arrayContaining(categoryKeys.map(snake)));

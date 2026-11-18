@@ -25,16 +25,24 @@ import {
   useLedger,
   useProfile,
   useSimpleMode,
+  useSyncStatus,
   useThemePreference,
 } from "@/lib/hooks";
-import { ledgerStore } from "@/lib/db";
-import { authStore } from "@/lib/mocks";
-import { formatBdPhone, formatFullDate } from "@/lib/utils";
+import { ledgerStore, type SyncSkip } from "@/lib/db";
+import { authStore, type SyncSnapshot, syncStore } from "@/lib/supabase";
+import {
+  formatBdPhone,
+  formatFullDate,
+  formatSyncedAt,
+  formatTaka,
+  isDateKey,
+} from "@/lib/utils";
 import {
   Avatar,
   BanknoteIcon,
   Button,
   Card,
+  CloudIcon,
   IconBadge,
   ListRow,
   PaletteIcon,
@@ -57,17 +65,66 @@ const THEME_OPTIONS: { value: ThemePreference; label: string }[] = [
   { value: "system", label: "Device" },
 ];
 
+const SKIP_TABLE_LABELS: Record<SyncSkip["table"], string> = {
+  transactions: "Entry",
+  accounts: "Account",
+  categories: "Category",
+};
+/** Left-out rows listed in the dialog; the rest are counted. */
+const MAX_SKIPS_LISTED = 8;
+
+/** One left-out cloud row, e.g. "Entry · 5 Nov 2026 · ৳5,000 · ATM: a transfer to the same account". */
+function describeSkip(skip: SyncSkip): string {
+  const { date, amount, name, note } = skip.details;
+  const what = [
+    SKIP_TABLE_LABELS[skip.table],
+    name,
+    date && isDateKey(date) ? formatFullDate(date) : date,
+    amount !== null ? formatTaka(amount) : null,
+    note,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  return `${what}: ${skip.reason}`;
+}
+
+/** The Cloud sync row's second line. */
+function syncSubtitle(sync: SyncSnapshot): string {
+  switch (sync.status) {
+    case "syncing":
+      return "Syncing…";
+    case "error":
+      return `Couldn't sync. ${sync.error ?? ""} Tap to try again.`.replace(/\s+/g, " ");
+    case "blocked":
+      return "Paused: this phone has another account's records";
+    case "off":
+      return sync.offReason === "sample"
+        ? "Off while exploring sample data"
+        : "Off";
+    default: {
+      if (!sync.lastSyncedAt) return "Not synced yet";
+      const waiting = sync.pending > 0 ? ` · ${sync.pending} waiting` : "";
+      const skipped =
+        sync.skipped.length > 0
+          ? ` · ${sync.skipped.length} from the cloud left out`
+          : "";
+      return `Synced ${formatSyncedAt(sync.lastSyncedAt)}${waiting}${skipped}`;
+    }
+  }
+}
+
 export function SettingsScreen() {
   const { status, categories } = useLedger();
   const themePreference = useThemePreference();
   const simpleMode = useSimpleMode();
   const profile = useProfile();
   const session = useAuth();
+  const sync = useSyncStatus();
   const backup = useBackupActions();
   const lastBackupAt = useLastBackupAt();
   const colors = useGluestackColors();
   const dialog = useDialog();
-  const email = profile.email || session?.email;
+  const email = session?.email || profile.email;
   const profileSubtitle = profile.nickname
     ? [email, profile.phone ? formatBdPhone(profile.phone) : null]
         .filter(Boolean)
@@ -77,18 +134,62 @@ export function SettingsScreen() {
   const logOut = () =>
     dialog.confirm({
       title: "Log out?",
-      message: "Your data stays on this phone. You can log in again any time.",
+      message: "Your profile (nickname, email, phone, photo) is removed from this phone. Your accounts and transactions stay. You can log in again any time.",
       tone: "warning",
       icon: LogOutIcon,
       confirmLabel: "Log out",
-      onConfirm: () => authStore.signOut(),
+      onConfirm: async () => {
+        // Upload the latest changes first (waits a few seconds at most).
+        await syncStore.syncWithin(10_000);
+        await authStore.signOut();
+      },
     });
+
+  const syncPressed = () => {
+    if (sync.status === "blocked") {
+      return dialog.alert({
+        title: "Sync is paused",
+        message:
+          "This phone still has the records of the account that synced here before. To sync this account, back them up if you need them, then use Set up accounts again. Or log out and log in with the other account.",
+        tone: "warning",
+      });
+    }
+    if (sync.status === "off" && sync.offReason === "sample") {
+      return dialog.alert({
+        title: "Sync is off",
+        message:
+          "Sample data never goes to the cloud. Sync starts once you set up your own accounts (Set up accounts again).",
+        tone: "info",
+      });
+    }
+    if (sync.status === "idle" && sync.skipped.length > 0) {
+      const listed = sync.skipped.slice(0, MAX_SKIPS_LISTED).map(describeSkip);
+      const more = sync.skipped.length - listed.length;
+      return dialog
+        .show({
+          title: "Some entries are left out",
+          message: [
+            "These are in your cloud account, but this phone can't store them, so they're missing here. Coinroot tries them again on every sync, and they arrive once they're fixed (for example by editing them on the phone that made them).",
+            ...listed,
+            ...(more > 0 ? [`…and ${more} more.`] : []),
+          ].join("\n\n"),
+          tone: "warning",
+          actions: [
+            { label: "OK", value: "ok", variant: "secondary" },
+            { label: "Sync now", value: "sync", variant: "primary" },
+          ],
+        })
+        .then((choice) => (choice === "sync" ? syncStore.syncNow() : undefined));
+    }
+    return syncStore.syncNow();
+  };
 
   const startOver = () =>
     dialog.confirm({
       title: "Start over?",
-      message:
-        "This removes all accounts and transactions and opens first-time setup again. Your profile is kept.",
+      message: session
+        ? "This removes all accounts and transactions, here and from your cloud account (so from every phone that syncs with it), and opens first-time setup again. Your profile is kept."
+        : "This removes all accounts and transactions and opens first-time setup again. Your profile is kept.",
       tone: "warning",
       icon: RepeatIcon,
       confirmLabel: "Start over",
@@ -198,7 +299,21 @@ export function SettingsScreen() {
 
       <SectionHeader title="Backup & data" />
       <Card>
+        {session ? (
+          <ListRow
+            leading={<IconBadge icon={CloudIcon} tone="primary" />}
+            title="Cloud sync"
+            subtitle={syncSubtitle(sync)}
+            trailing={
+              sync.status === "syncing" ? (
+                <ActivityIndicator color={colors.primary} />
+              ) : undefined
+            }
+            onPress={() => void syncPressed()}
+          />
+        ) : null}
         <ListRow
+          divider={Boolean(session)}
           leading={<IconBadge icon={UploadIcon} tone="sky" />}
           title="Back up to a file"
           subtitle={
@@ -264,7 +379,7 @@ export function SettingsScreen() {
             tone="danger"
             leading={<IconBadge icon={LogOutIcon} tone="danger" />}
             title="Log out"
-            subtitle="Your data stays on this phone"
+            subtitle="Removes your profile from this phone"
             onPress={() => void logOut()}
           />
         ) : null}

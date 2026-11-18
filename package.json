@@ -9,6 +9,7 @@
     "@gluestack-ui/utils": "^5.0.6",
     "@hookform/resolvers": "^7.0.1",
     "@legendapp/motion": "^2.5.3",
+    "@supabase/supabase-js": "^2.119.0",
     "drizzle-orm": "^0.45.4",
     "expo": "~58.0.22",
     "expo-constants": "~58.0.14",
@@ -22,6 +23,7 @@
     "expo-image-picker": "~58.0.10",
     "expo-linking": "~58.0.15",
     "expo-router": "~58.0.29",
+    "expo-secure-store": "~58.0.3",
     "expo-sharing": "~58.0.22",
     "expo-splash-screen": "~58.0.12",
     "expo-sqlite": "~58.0.15",
@@ -72,7 +74,8 @@
     "lint": "expo lint",
     "test": "jest",
     "db:generate": "drizzle-kit generate",
-    "db:check": "drizzle-kit check"
+    "db:check": "drizzle-kit check",
+    "db:types": "bunx supabase gen types typescript --remote --schema public > src/lib/supabase/database.supabase.ts"
   },
   "private": true,
   "jest": {

@@ -26,7 +26,7 @@ const dps: Account = {
 const food: Category = { id: 'cat-food', name: 'Food', kind: 'expense', icon: null, color: 'orange', archived: false };
 const pets: Category = { id: 'cat-pets', name: 'Pets', kind: 'expense', icon: null, color: 'teal', archived: false };
 const tx = (fields: Partial<Transaction> & Pick<Transaction, 'id' | 'fromId' | 'toId'>): Transaction => ({
-  date: '2026-11-05', type: 'expense', amount: 5000, note: '', parentId: null, party: null,
+  date: '2026-11-05', type: 'expense', amount: 5000, note: '', parentId: null, receivedFrom: null,
   createdAt: sync.createdAt, updatedAt: sync.updatedAt, ...fields,
 });
 
@@ -83,7 +83,7 @@ describe('row mappers', () => {
   });
 
   it('round-trips transactions', () => {
-    const original = tx({ id: 'tx-1', type: 'income', fromId: 'src-x', toId: 'acc-cash', party: 'Client A' });
+    const original = tx({ id: 'tx-1', type: 'income', fromId: 'src-x', toId: 'acc-cash', receivedFrom: 'Client A' });
     expect(rowToTransaction({ ...transactionToRow(original), deletedAt: null } as TransactionRow)).toEqual(original);
   });
 });

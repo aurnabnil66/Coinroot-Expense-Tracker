@@ -24,7 +24,7 @@ export const transactionFormSchema = z
     note: z.string().trim().max(200, 'Keep the note under 200 characters'),
     parentId: z.string().nullable(),
     /** Income only: who paid. Empty becomes null. */
-    party: z
+    receivedFrom: z
       .string()
       .trim()
       .max(60, 'Keep the name under 60 characters')
@@ -64,7 +64,7 @@ export const transactionFormDefaults = (): TransactionFormInput => ({
   amount: '',
   note: '',
   parentId: null,
-  party: '',
+  receivedFrom: '',
   fee: '',
   feeCategoryId: null,
 });

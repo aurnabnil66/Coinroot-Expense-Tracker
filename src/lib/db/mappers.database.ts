@@ -67,7 +67,7 @@ export function rowToTransaction(row: TransactionRow): Transaction {
     amount: row.amount,
     note: row.note,
     parentId: row.parentId,
-    party: row.party,
+    receivedFrom: row.receivedFrom,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };

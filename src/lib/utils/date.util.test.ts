@@ -1,6 +1,6 @@
 import { describe, expect, it } from '@jest/globals';
 
-import { calendarWeeks, daysInMonth, weekdayLabels } from './date.util';
+import { calendarWeeks, daysInMonth, formatSyncedAt, weekdayLabels } from './date.util';
 
 describe('daysInMonth', () => {
   it('handles month lengths and leap years', () => {
@@ -28,5 +28,20 @@ describe('weekdayLabels', () => {
   it('lists weekdays from the chosen start day', () => {
     expect(weekdayLabels()[0]).toBe('Sun');
     expect(weekdayLabels(6).slice(0, 2)).toEqual(['Sat', 'Sun']);
+  });
+});
+
+describe('formatSyncedAt', () => {
+  // Local times, so the test doesn't depend on the machine's time zone.
+  const now = new Date(2026, 10, 18, 15, 30);
+  const at = (day: number, hour: number, minute: number) => new Date(2026, 10, day, hour, minute).toISOString();
+
+  it('says today or yesterday with a 12-hour time', () => {
+    expect(formatSyncedAt(at(18, 10, 42), now)).toBe('today at 10:42 am');
+    expect(formatSyncedAt(at(17, 21, 5), now)).toBe('yesterday at 9:05 pm');
+  });
+
+  it('gives the date for anything older', () => {
+    expect(formatSyncedAt(at(3, 8, 0), now)).toBe('3 Nov 2026 at 8:00 am');
   });
 });

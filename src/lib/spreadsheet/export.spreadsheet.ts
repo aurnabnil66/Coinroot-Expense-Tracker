@@ -43,7 +43,7 @@ export function transactionsToCsv(
     safeCell(nameOf(tx.toId)),
     plainTaka(tx.amount),
     safeCell(tx.note),
-    safeCell(tx.party ?? ''),
+    safeCell(tx.receivedFrom ?? ''),
     tx.parentId ? (refs.get(tx.parentId) ?? '') : '',
   ]);
   return toCsv([EXPORT_COLUMNS, ...rows]);

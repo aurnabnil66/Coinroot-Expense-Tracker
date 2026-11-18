@@ -88,7 +88,7 @@ function BalanceCheckForm() {
         amount: change.amount,
         note: isCash ? 'Cash count' : 'Balance check',
         parentId: null,
-        party: null,
+        receivedFrom: null,
       });
       router.back();
     } catch {

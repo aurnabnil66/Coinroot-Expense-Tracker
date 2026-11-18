@@ -2,8 +2,9 @@
  * Drizzle schema for the on-device SQLite database. It mirrors the domain types in
  * `src/lib/types` and is ready for Supabase sync later:
  * - ids are UUID text generated on the device (`newId` in `id.database.ts`), so rows made offline never clash
- * - every table has `created_at` / `updated_at` (ISO timestamps, used to find changes)
- *   and `deleted_at` (deleting only sets it, so the delete can sync too)
+ * - every table has `created_at` / `updated_at` (ISO timestamps, used to find changes),
+ *   `deleted_at` (deleting only sets it, so the delete can sync too) and `synced_updated_at`
+ *   (what the cloud last confirmed; see `sync.database.ts`)
  * - money is integer poisha; dates are `YYYY-MM-DD` text
  *
  * After changing this file run `bunx drizzle-kit generate` to add a migration.
@@ -24,6 +25,12 @@ const syncColumns = {
   updatedAt: text('updated_at').notNull().default(nowIso),
   /** Set instead of deleting the row; `null` while the row is live. */
   deletedAt: text('deleted_at'),
+  /**
+   * The `updated_at` the cloud last confirmed (pushed or pulled), `null` if never synced.
+   * A row needs uploading while this differs from `updated_at`, so every write that bumps
+   * `updated_at` is picked up without a separate flag. Device-only: not in backups or the cloud.
+   */
+  syncedUpdatedAt: text('synced_updated_at'),
 };
 
 /** `column IN ('a', 'b')` for a check constraint. */
@@ -95,7 +102,7 @@ export const transactions = sqliteTable(
     /** The transaction this money came from (the money tree). */
     parentId: text('parent_id'),
     /** Income only: who paid ("Received from"). */
-    party: text('party'),
+    receivedFrom: text('received_from'),
   },
   (table) => [
     check('transactions_type_check', oneOf('type', TRANSACTION_TYPES)),

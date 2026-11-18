@@ -29,8 +29,8 @@ export function transactionTitle(tx: Transaction, nameOf: (id: string) => string
 
 function subtitle(tx: Transaction, nameOf: (id: string) => string, showDate?: boolean): string {
   const account = tx.type === 'expense' ? nameOf(tx.fromId) : tx.type === 'income' ? nameOf(tx.toId) : null;
-  const party = tx.type === 'income' && tx.party ? `from ${tx.party}` : null;
-  return [showDate ? formatDayLabel(tx.date) : null, account, party, tx.note || null].filter(Boolean).join(' · ');
+  const payer = tx.type === 'income' && tx.receivedFrom ? `from ${tx.receivedFrom}` : null;
+  return [showDate ? formatDayLabel(tx.date) : null, account, payer, tx.note || null].filter(Boolean).join(' · ');
 }
 
 export function TransactionRow({ transaction: tx, nameOf, remaining, onPress, showDate, divider }: TransactionRowProps) {

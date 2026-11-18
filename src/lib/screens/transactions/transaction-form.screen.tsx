@@ -19,7 +19,7 @@ import {
   getAccountBalances,
   getChildTotals,
   getLinkableParents,
-  getPartyNames,
+  getReceivedFromNames,
   getTransaction,
   ledgerStore,
   type LedgerSnapshot,
@@ -103,7 +103,7 @@ function initialValues(ledger: LedgerSnapshot, params: FormParams): TransactionF
       amount: formatTakaInput(existing.amount),
       note: existing.note,
       parentId: existing.parentId,
-      party: existing.party ?? '',
+      receivedFrom: existing.receivedFrom ?? '',
     };
   }
   const parent = params.parentId ? getTransaction(db, params.parentId) : null;
@@ -158,7 +158,7 @@ function TransactionForm() {
   const [type, fromId, toId, linkedId, fee] = useWatch({ control, name: ['type', 'fromId', 'toId', 'parentId', 'fee'] });
 
   const nameOf = useMemo(() => nameLookup(accounts, categories), [accounts, categories]);
-  const parties = useLedgerQuery(getPartyNames, []) ?? NO_NAMES;
+  const payerNames = useLedgerQuery(getReceivedFromNames, []) ?? NO_NAMES;
   const balances = useLedgerQuery(getAccountBalances, []) ?? NO_BALANCES;
   // "Linked to": recent money into the account this entry spends from (Design B: ATM → Cash →
   // expenses), plus the current link, and how much is left of each.
@@ -240,7 +240,7 @@ function TransactionForm() {
       const input = {
         ...values,
         parentId: values.type === 'income' ? null : values.parentId,
-        party: values.type === 'income' ? values.party : null,
+        receivedFrom: values.type === 'income' ? values.receivedFrom : null,
       };
       if (id) await ledgerStore.updateTransaction(id, input);
       else await ledgerStore.addTransaction(input);
@@ -254,7 +254,7 @@ function TransactionForm() {
           amount: charge,
           note: `Charge for transfer to ${nameOf(values.toId)}`,
           parentId: null,
-          party: null,
+          receivedFrom: null,
         });
       }
       router.back();
@@ -355,7 +355,7 @@ function TransactionForm() {
           {type === 'income' ? (
             <Controller
               control={control}
-              name="party"
+              name="receivedFrom"
               render={({ field, fieldState }) => (
                 <TextField
                   label="Received from"
@@ -365,7 +365,7 @@ function TransactionForm() {
                   error={fieldState.error?.message}
                   placeholder="Client or person (optional)"
                   maxLength={60}
-                  suggestions={parties}
+                  suggestions={payerNames}
                 />
               )}
             />
