@@ -28,9 +28,15 @@ import {
   useSyncStatus,
   useThemePreference,
 } from "@/lib/hooks";
-import { ledgerStore } from "@/lib/db";
+import { ledgerStore, type SyncSkip } from "@/lib/db";
 import { authStore, type SyncSnapshot, syncStore } from "@/lib/supabase";
-import { formatBdPhone, formatFullDate, formatSyncedAt } from "@/lib/utils";
+import {
+  formatBdPhone,
+  formatFullDate,
+  formatSyncedAt,
+  formatTaka,
+  isDateKey,
+} from "@/lib/utils";
 import {
   Avatar,
   BanknoteIcon,
@@ -59,6 +65,29 @@ const THEME_OPTIONS: { value: ThemePreference; label: string }[] = [
   { value: "system", label: "Device" },
 ];
 
+const SKIP_TABLE_LABELS: Record<SyncSkip["table"], string> = {
+  transactions: "Entry",
+  accounts: "Account",
+  categories: "Category",
+};
+/** Left-out rows listed in the dialog; the rest are counted. */
+const MAX_SKIPS_LISTED = 8;
+
+/** One left-out cloud row, e.g. "Entry · 5 Nov 2026 · ৳5,000 · ATM: a transfer to the same account". */
+function describeSkip(skip: SyncSkip): string {
+  const { date, amount, name, note } = skip.details;
+  const what = [
+    SKIP_TABLE_LABELS[skip.table],
+    name,
+    date && isDateKey(date) ? formatFullDate(date) : date,
+    amount !== null ? formatTaka(amount) : null,
+    note,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  return `${what}: ${skip.reason}`;
+}
+
 /** The Cloud sync row's second line. */
 function syncSubtitle(sync: SyncSnapshot): string {
   switch (sync.status) {
@@ -75,7 +104,10 @@ function syncSubtitle(sync: SyncSnapshot): string {
     default: {
       if (!sync.lastSyncedAt) return "Not synced yet";
       const waiting = sync.pending > 0 ? ` · ${sync.pending} waiting` : "";
-      const skipped = sync.skipped > 0 ? ` · ${sync.skipped} from the cloud left out` : "";
+      const skipped =
+        sync.skipped.length > 0
+          ? ` · ${sync.skipped.length} from the cloud left out`
+          : "";
       return `Synced ${formatSyncedAt(sync.lastSyncedAt)}${waiting}${skipped}`;
     }
   }
@@ -129,6 +161,25 @@ export function SettingsScreen() {
           "Sample data never goes to the cloud. Sync starts once you set up your own accounts (Set up accounts again).",
         tone: "info",
       });
+    }
+    if (sync.status === "idle" && sync.skipped.length > 0) {
+      const listed = sync.skipped.slice(0, MAX_SKIPS_LISTED).map(describeSkip);
+      const more = sync.skipped.length - listed.length;
+      return dialog
+        .show({
+          title: "Some entries are left out",
+          message: [
+            "These are in your cloud account, but this phone can't store them, so they're missing here. Coinroot tries them again on every sync, and they arrive once they're fixed (for example by editing them on the phone that made them).",
+            ...listed,
+            ...(more > 0 ? [`…and ${more} more.`] : []),
+          ].join("\n\n"),
+          tone: "warning",
+          actions: [
+            { label: "OK", value: "ok", variant: "secondary" },
+            { label: "Sync now", value: "sync", variant: "primary" },
+          ],
+        })
+        .then((choice) => (choice === "sync" ? syncStore.syncNow() : undefined));
     }
     return syncStore.syncNow();
   };

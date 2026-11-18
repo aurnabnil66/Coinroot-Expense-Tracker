@@ -19,7 +19,10 @@
  *   place, and local entries are moved over to it. Accounts are never merged by name.
  * - **A bad pulled row doesn't stop sync:** each row is applied in its own savepoint; one the
  *   phone can't store (a broken value, a CHECK the cloud didn't enforce) is rolled back alone,
- *   reported in `skipped`, and the pull moves on. It comes back if it's changed in the cloud.
+ *   reported in `skipped` (with a readable reason and what the row is), and the pull moves on.
+ *   The caller keeps that list and passes it back as `retry`: every sync fetches those rows by
+ *   id and tries again, so a skipped row isn't lost behind the cursor. Entries linked to a
+ *   skipped one keep their `parent_id`, so the link returns when it arrives.
  */
 import { and, count, eq, getTableColumns, isNotNull, isNull, sql } from 'drizzle-orm';
 
@@ -40,15 +43,21 @@ export type RemoteRow = Record<string, unknown>;
 export type SyncCursor = { at: string; id: string };
 export type SyncCursors = Partial<Record<SyncTable, SyncCursor>>;
 
-/** The cloud side. `pull` returns rows after `after`, ordered by (server_updated_at, id). */
+/**
+ * The cloud side. `pull` returns rows after `after`, ordered by (server_updated_at, id);
+ * `fetch` returns the rows with these ids (those that exist).
+ */
 export type SyncRemote = {
   pull(table: SyncTable, after: SyncCursor | null, limit: number): Promise<RemoteRow[]>;
   push(table: SyncTable, rows: RemoteRow[]): Promise<void>;
+  fetch(table: SyncTable, ids: string[]): Promise<RemoteRow[]>;
 };
 
 export type SyncOptions = {
   userId: string;
   cursors?: SyncCursors;
+  /** Rows the last sync skipped (its `skipped`): fetched by id and tried again first. */
+  retry?: readonly SyncSkip[];
   /** Rows per pull request. */
   pageSize?: number;
   /** Rows per upload. */
@@ -58,8 +67,47 @@ export type SyncOptions = {
   now?: () => string;
 };
 
-/** A pulled row the phone couldn't store, and why. */
-export type SyncSkip = { table: SyncTable; id: string; reason: string };
+/** What a skipped row is, so the user can recognise it (whatever the cloud row had). */
+export type SyncSkipDetails = { date: string | null; amount: number | null; name: string | null; note: string | null };
+
+/** A pulled row the phone couldn't store, and why (a readable reason). */
+export type SyncSkip = { table: SyncTable; id: string; reason: string; details: SyncSkipDetails };
+
+/** Plain-language reasons for the database errors a pulled row can hit. */
+const CHECK_REASONS: Record<string, string> = {
+  transactions_amount_check: 'amount must be more than 0',
+  transactions_from_to_check: 'a transfer to the same account',
+  transactions_type_check: 'unknown entry type',
+  accounts_type_check: 'unknown account type',
+  categories_kind_check: 'unknown category kind',
+};
+
+/** A readable reason for why a pulled row couldn't be stored. Pure and tested. */
+export function skipReason(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  const check = /CHECK constraint failed: (\w+)/i.exec(message);
+  if (check) return CHECK_REASONS[check[1]] ?? `breaks the rule ${check[1]}`;
+  const missing = /NOT NULL constraint failed: \w+\.(\w+)/i.exec(message);
+  if (missing) return `${missing[1].replace(/_/g, ' ')} is missing`;
+  if (/Invalid timestamp/i.test(message)) return 'a date or time is invalid';
+  if (/missing id/i.test(message)) return 'it has no id';
+  return message;
+}
+
+function skipOf(table: SyncTable, row: RemoteRow, error: unknown): SyncSkip {
+  const text = (value: unknown) => (typeof value === 'string' && value.trim() ? value.trim() : null);
+  return {
+    table,
+    id: typeof row.id === 'string' && row.id ? row.id : '(no id)',
+    reason: skipReason(error),
+    details: {
+      date: text(row.date),
+      amount: typeof row.amount === 'number' ? row.amount : null,
+      name: text(row.name),
+      note: text(row.note),
+    },
+  };
+}
 
 export type SyncResult = {
   cursors: SyncCursors;
@@ -169,11 +217,13 @@ function applyRow(tx: Tx, name: SyncTable, remote: RemoteRow, now: string): bool
   return false;
 }
 
-async function pullTable(database: LedgerDatabase, remote: SyncRemote, name: SyncTable, options: Required<Omit<SyncOptions, 'cursors' | 'userId'>>, cursor: SyncCursor | undefined) {
+async function pullTable(database: LedgerDatabase, remote: SyncRemote, name: SyncTable, options: Required<Omit<SyncOptions, 'cursors' | 'userId' | 'retry'>>, cursor: SyncCursor | undefined) {
   let after: SyncCursor | null = cursor ? { at: new Date(timeOf(cursor.at) - options.overlapMs).toISOString(), id: '' } : null;
   let last = cursor ?? null;
   let changed = 0;
   const skipped: SyncSkip[] = [];
+  /** Ids stored without an error, so an earlier skip of the same row is cleared. */
+  const stored = new Set<string>();
   for (;;) {
     const page = await remote.pull(name, after, options.pageSize);
     if (page.length === 0) break;
@@ -183,8 +233,9 @@ async function pullTable(database: LedgerDatabase, remote: SyncRemote, name: Syn
         try {
           // A savepoint per row: a row that fails is undone alone, the rest of the page stays.
           if (tx.transaction((rowTx) => applyRow(rowTx, name, row, now))) changed += 1;
+          stored.add(String(row.id));
         } catch (e) {
-          skipped.push({ table: name, id: typeof row.id === 'string' ? row.id : '(no id)', reason: e instanceof Error ? e.message : String(e) });
+          skipped.push(skipOf(name, row, e));
         }
       }
     });
@@ -193,7 +244,7 @@ async function pullTable(database: LedgerDatabase, remote: SyncRemote, name: Syn
     if (!last || timeOf(after.at) > timeOf(last.at) || (timeOf(after.at) === timeOf(last.at) && after.id > last.id)) last = after;
     if (page.length < options.pageSize) break;
   }
-  return { cursor: last, changed, skipped };
+  return { cursor: last, changed, skipped, stored };
 }
 
 async function pushTable(database: LedgerDatabase, remote: SyncRemote, name: SyncTable, userId: string, pushSize: number) {
@@ -220,7 +271,32 @@ async function pushTable(database: LedgerDatabase, remote: SyncRemote, name: Syn
   return pushed;
 }
 
-/** One full sync: pull every table, then push everything pending. Throws if the remote fails. */
+/**
+ * Tries the rows a previous sync skipped again, fetched by id (they may be older than the
+ * cursor). Ones that now fit are stored; ones gone from the cloud are dropped.
+ */
+async function retrySkipped(database: LedgerDatabase, remote: SyncRemote, retry: readonly SyncSkip[], now: string) {
+  let changed = 0;
+  const skipped: SyncSkip[] = [];
+  for (const name of SYNC_TABLES) {
+    const ids = retry.filter((skip) => skip.table === name && skip.id !== '(no id)').map((skip) => skip.id);
+    for (let i = 0; i < ids.length; i += 100) {
+      const rows = await remote.fetch(name, ids.slice(i, i + 100));
+      database.transaction((tx) => {
+        for (const row of rows) {
+          try {
+            if (tx.transaction((rowTx) => applyRow(rowTx, name, row, now))) changed += 1;
+          } catch (e) {
+            skipped.push(skipOf(name, row, e));
+          }
+        }
+      });
+    }
+  }
+  return { changed, skipped };
+}
+
+/** One full sync: retry earlier skips, pull every table, then push everything pending. Throws if the remote fails. */
 export async function syncLedger(database: LedgerDatabase, remote: SyncRemote, options: SyncOptions): Promise<SyncResult> {
   const settings = {
     pageSize: options.pageSize ?? 1000,
@@ -232,14 +308,24 @@ export async function syncLedger(database: LedgerDatabase, remote: SyncRemote, o
   let pulled = 0;
   let pushed = 0;
   const skipped: SyncSkip[] = [];
+  if (options.retry && options.retry.length > 0) {
+    const again = await retrySkipped(database, remote, options.retry, settings.now());
+    pulled += again.changed;
+    skipped.push(...again.skipped);
+  }
+  const stored = new Set<string>();
   for (const name of SYNC_TABLES) {
     const result = await pullTable(database, remote, name, settings, cursors[name]);
     if (result.cursor) cursors[name] = result.cursor;
     pulled += result.changed;
     skipped.push(...result.skipped);
+    for (const id of result.stored) stored.add(`${name}/${id}`);
   }
   for (const name of SYNC_TABLES) pushed += await pushTable(database, remote, name, options.userId, settings.pushSize);
-  return { cursors, pulled, pushed, skipped };
+  // One entry per row (a row can be retried and pulled again in the same sync): the latest wins.
+  const unique = new Map(skipped.map((skip) => [`${skip.table}/${skip.id}`, skip]));
+  for (const key of stored) unique.delete(key);
+  return { cursors, pulled, pushed, skipped: [...unique.values()] };
 }
 
 /** Whether the phone holds money records (live accounts or transactions); categories don't count. */

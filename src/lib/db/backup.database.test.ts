@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from '@jest/globals';
-import { isNull } from 'drizzle-orm';
+import { eq, isNull } from 'drizzle-orm';
 
 import { sampleAccounts, sampleCategories, sampleTransactions } from '@/lib/mocks/sample-data.mock';
 import { type Backup, checkBackup } from '@/lib/schemas';
@@ -39,6 +39,16 @@ describe('backup and restore', () => {
     expect(backup.transactions).toHaveLength(sampleTransactions.length);
     const check = checkBackup(JSON.stringify(backup));
     expect(check).toEqual({ ok: true, backup });
+  });
+
+  it('leaves out a "Linked to" whose entry is missing (e.g. not synced yet), so the file still checks', () => {
+    const child = db.select().from(transactions).all().find((t) => t.parentId !== null)!;
+    db.update(transactions).set({ parentId: 'not-on-this-phone' }).where(eq(transactions.id, child.id)).run();
+    const backup = readBackup(db, '2026-11-10T10:00:00.000Z');
+    expect(backup.transactions.find((t) => t.id === child.id)?.parentId).toBeNull();
+    expect(checkBackup(JSON.stringify(backup)).ok).toBe(true);
+    // Links that are there stay.
+    expect(backup.transactions.filter((t) => t.parentId !== null).length).toBeGreaterThan(0);
   });
 
   it('restoring your own backup undoes later changes', () => {

@@ -30,6 +30,13 @@ export function supabaseSyncRemote(supabase: CoinrootSupabase): SyncRemote {
       return (data ?? []) as RemoteRow[];
     },
 
+    async fetch(table, ids) {
+      if (ids.length === 0) return [];
+      const { data, error } = await supabase.from(table).select('*').in('id', ids);
+      if (error) throw error;
+      return (data ?? []) as RemoteRow[];
+    },
+
     async push(table, rows) {
       const { error } = await supabase.from(table).upsert(rows as never, { onConflict: 'user_id,id' });
       if (error) throw error;

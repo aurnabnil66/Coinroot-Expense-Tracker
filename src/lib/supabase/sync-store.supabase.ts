@@ -1,7 +1,18 @@
 import { AppState } from 'react-native';
 
-import { db, hasLedgerData, ledgerCounts, ledgerStore, pendingCount, prepareForNewAccount, syncLedger, whenDatabaseReady } from '@/lib/db';
-import { setupStateSetting, syncStateSetting } from '@/lib/storage';
+import {
+  db,
+  hasLedgerData,
+  ledgerCounts,
+  ledgerStore,
+  pendingCount,
+  prepareForNewAccount,
+  SYNC_TABLES,
+  syncLedger,
+  type SyncSkip,
+  whenDatabaseReady,
+} from '@/lib/db';
+import { MAX_STORED_SKIPS, setupStateSetting, syncStateSetting } from '@/lib/storage';
 
 import { AUTH_MESSAGES } from './auth-messages.supabase';
 import { authStore } from './auth-store.supabase';
@@ -34,8 +45,8 @@ export type SyncSnapshot = {
   lastSyncedAt: string | null;
   /** Changes on the phone waiting for upload, as of the last check. */
   pending: number;
-  /** Rows the last sync couldn't store on this phone (left out; see `SyncSkip`). */
-  skipped: number;
+  /** Cloud rows this phone couldn't store (left out here, tried again on every sync). */
+  skipped: SyncSkip[];
 };
 
 /** Waits this long after a change, so a burst of edits uploads together. */
@@ -49,9 +60,14 @@ let snapshot: SyncSnapshot = {
   error: null,
   lastSyncedAt: syncStateSetting.get().lastSyncedAt,
   pending: 0,
-  skipped: 0,
+  skipped: storedSkips(),
 };
 const listeners = new Set<() => void>();
+
+/** The saved skipped rows, for the tables sync knows (anything else is from an older app). */
+function storedSkips(): SyncSkip[] {
+  return syncStateSetting.get().skipped.filter((skip): skip is SyncSkip => (SYNC_TABLES as readonly string[]).includes(skip.table));
+}
 
 function commit(next: Partial<SyncSnapshot>) {
   snapshot = { ...snapshot, ...next };
@@ -89,7 +105,7 @@ async function runOnce(): Promise<void> {
     }
     // A new phone, records made before signing in (merged), or a phone emptied by "Set up accounts again".
     if (state.owner !== null) prepareForNewAccount(db);
-    syncStateSetting.set({ owner: session.userId, cursors: {}, lastSyncedAt: null });
+    syncStateSetting.set({ owner: session.userId, cursors: {}, lastSyncedAt: null, skipped: [] });
   }
 
   commit({ status: 'syncing', offReason: null, error: null, pending: pendingCount(db) });
@@ -97,9 +113,11 @@ async function runOnce(): Promise<void> {
     const result = await syncLedger(db, supabaseSyncRemote(supabase), {
       userId: session.userId,
       cursors: syncStateSetting.get().cursors,
+      retry: storedSkips(),
     });
     const lastSyncedAt = new Date().toISOString();
-    syncStateSetting.set({ owner: session.userId, cursors: result.cursors, lastSyncedAt });
+    const skipped = result.skipped.slice(0, MAX_STORED_SKIPS);
+    syncStateSetting.set({ owner: session.userId, cursors: result.cursors, lastSyncedAt, skipped });
     if (result.pulled > 0) {
       // Logged in during first-time setup on a phone without records: the account's records finish it.
       if (setupStateSetting.get() === 'none' && ledgerCounts(db).accounts > 0) setupStateSetting.set('own');
@@ -113,7 +131,7 @@ async function runOnce(): Promise<void> {
     if (result.skipped.length > 0 && __DEV__) {
       console.warn(`Cloud sync left out ${result.skipped.length} row(s) this phone can't store:`, result.skipped);
     }
-    commit({ status: 'idle', error: null, lastSyncedAt, pending: pendingCount(db), skipped: result.skipped.length });
+    commit({ status: 'idle', error: null, lastSyncedAt, pending: pendingCount(db), skipped });
   } catch (e) {
     commit({ status: 'error', error: messageOf(e), pending: pendingCount(db) });
   }

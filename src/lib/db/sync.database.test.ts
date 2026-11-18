@@ -10,7 +10,9 @@ import {
   pendingCount,
   prepareForNewAccount,
   type RemoteRow,
+  skipReason,
   type SyncCursors,
+  type SyncSkip,
   syncLedger,
   type SyncRemote,
   type SyncTable,
@@ -47,6 +49,8 @@ class FakeServer {
           })
           .slice(0, limit)
           .map((row) => ({ ...row })),
+      fetch: async (table, ids) =>
+        [...this.rows[table].values()].filter((row) => row.user_id === userId && ids.includes(String(row.id))).map((row) => ({ ...row })),
       push: async (table, rows) => {
         this.pushes += 1;
         onPush?.(table);
@@ -68,10 +72,13 @@ class FakeServer {
     return [...this.rows[table].values()].filter((row) => !row.deleted_at);
   }
 
-  /** Writes a row as-is (no checks), like data that got into the cloud some other way. */
-  put(table: SyncTable, row: RemoteRow) {
+  /**
+   * Writes a row as-is (no checks), like data that got into the cloud some other way.
+   * `at` sets its server_updated_at (e.g. older than a phone's cursor); otherwise it's the newest.
+   */
+  put(table: SyncTable, row: RemoteRow, at?: string) {
     this.clock += 1;
-    this.rows[table].set(`${String(row.user_id)}/${String(row.id)}`, { ...row, server_updated_at: pgTime(new Date(this.clock).toISOString()) });
+    this.rows[table].set(`${String(row.user_id)}/${String(row.id)}`, { ...row, server_updated_at: pgTime(at ?? new Date(this.clock).toISOString()) });
   }
 }
 
@@ -80,11 +87,14 @@ function phone(withDefaults = true) {
   const db = createTestDatabase();
   if (withDefaults) db.insert(categories).values(defaultCategoryRows(() => uid('cat'))).run();
   let cursors: SyncCursors = {};
+  // Kept between syncs like the app keeps it (syncStateSetting), and retried each time.
+  let skipped: SyncSkip[] = [];
   return {
     db,
     async sync(server: FakeServer, options: { pageSize?: number; pushSize?: number; onPush?: (table: SyncTable) => void } = {}) {
-      const result = await syncLedger(db, server.remote(USER, options.onPush), { userId: USER, cursors, ...options });
+      const result = await syncLedger(db, server.remote(USER, options.onPush), { userId: USER, cursors, retry: skipped, ...options });
       cursors = result.cursors;
+      skipped = result.skipped;
       return result;
     },
   };
@@ -328,7 +338,11 @@ describe("rows the phone can't store", () => {
     const b = phone(false);
     const result = await b.sync(server);
     expect(result.skipped.map((skip) => skip.id).sort()).toEqual(['(no id)', 'bad-amount', 'bad-time', 'bad-transfer', 'bad-type']);
-    expect(result.skipped.find((skip) => skip.id === 'bad-amount')?.reason).toMatch(/CHECK constraint failed/i);
+    expect(result.skipped.find((skip) => skip.id === 'bad-amount')).toMatchObject({
+      table: 'transactions',
+      reason: 'amount must be more than 0',
+      details: { date: '2026-11-05', amount: 0, name: null, note: null },
+    });
     expect(getTx(b.db, String(good.id))?.amount).toBe(1000);
     expect(getTx(b.db, 'fine-later')).toMatchObject({ amount: 2500, note: 'After the bad ones' });
     expect(getTx(b.db, 'bad-amount')).toBeUndefined();
@@ -338,6 +352,60 @@ describe("rows the phone can't store", () => {
     server.put('transactions', { ...good, id: 'bad-amount', amount: 700 });
     await b.sync(server);
     expect(getTx(b.db, 'bad-amount')?.amount).toBe(700);
+  });
+
+  it("keeps a child's link to a skipped parent, and the parent arrives once it fits", async () => {
+    const server = new FakeServer();
+    const a = phone();
+    const cash = addAccount(a.db, 'Cash');
+    addExpense(a.db, cash, 'Food', 1000);
+    await a.sync(server);
+    const template = server.live('transactions')[0];
+
+    // A withdrawal the phone can't store (from = to), and a linked expense that's fine.
+    const oldTime = '2026-11-30T00:00:00.000Z'; // a day before B's cursor (and its 2-minute overlap)
+    server.put('transactions', { ...template, id: 'atm', type: 'transfer', from_id: cash, to_id: cash, amount: 500000, note: 'ATM' }, oldTime);
+    server.put('transactions', { ...template, id: 'cng', amount: 30000, note: 'CNG', parent_id: 'atm' });
+
+    const b = phone(false);
+    const first = await b.sync(server);
+    expect(first.skipped).toEqual([
+      { table: 'transactions', id: 'atm', reason: 'a transfer to the same account', details: { date: '2026-11-05', amount: 500000, name: null, note: 'ATM' } },
+    ]);
+    expect(getTx(b.db, 'cng')?.parentId).toBe('atm');
+    expect(getTx(b.db, 'atm')).toBeUndefined();
+
+    // Fixed in the cloud without a newer server time (older than B's cursor and its overlap):
+    // only the retry by id can find it.
+    server.put('transactions', { ...template, id: 'atm', type: 'transfer', from_id: cash, to_id: addAccount(a.db, 'Wallet'), amount: 500000, note: 'ATM' }, oldTime);
+    const second = await b.sync(server);
+    expect(second.skipped).toEqual([]);
+    expect(getTx(b.db, 'atm')).toMatchObject({ amount: 500000, note: 'ATM' });
+    expect(getTx(b.db, 'cng')?.parentId).toBe('atm');
+  });
+
+  it('drops a skipped row that is gone from the cloud', async () => {
+    const server = new FakeServer();
+    const a = phone();
+    const cash = addAccount(a.db, 'Cash');
+    addExpense(a.db, cash, 'Food', 1000);
+    await a.sync(server);
+    server.put('transactions', { ...server.live('transactions')[0], id: 'bad', amount: -5 });
+    const b = phone(false);
+    expect((await b.sync(server)).skipped).toHaveLength(1);
+    server.rows.transactions.delete(`${USER}/bad`);
+    expect((await b.sync(server)).skipped).toEqual([]);
+  });
+});
+
+describe('skipReason', () => {
+  it('says why in plain words', () => {
+    expect(skipReason(new Error('CHECK constraint failed: transactions_amount_check'))).toBe('amount must be more than 0');
+    expect(skipReason(new Error('CHECK constraint failed: something_new'))).toBe('breaks the rule something_new');
+    expect(skipReason(new Error('NOT NULL constraint failed: transactions.from_id'))).toBe('from id is missing');
+    expect(skipReason(new Error('Invalid timestamp from the server: x'))).toBe('a date or time is invalid');
+    expect(skipReason(new Error('missing id'))).toBe('it has no id');
+    expect(skipReason('anything else')).toBe('anything else');
   });
 });
 

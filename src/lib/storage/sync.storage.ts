@@ -3,6 +3,17 @@ import { createSetting } from './settings.storage';
 /** Where the last pull of one cloud table stopped (`SyncCursor` in `src/lib/db/sync.database.ts`). */
 export type StoredSyncCursor = { at: string; id: string };
 
+/** A cloud row this phone couldn't store (`SyncSkip` in `src/lib/db/sync.database.ts`). */
+export type StoredSyncSkip = {
+  table: string;
+  id: string;
+  reason: string;
+  details: { date: string | null; amount: number | null; name: string | null; note: string | null };
+};
+
+/** At most this many skipped rows are kept (and retried). */
+export const MAX_STORED_SKIPS = 200;
+
 export type SyncState = {
   /**
    * The account whose records this phone syncs with, set on its first sync and kept after
@@ -14,12 +25,34 @@ export type SyncState = {
   cursors: Partial<Record<string, StoredSyncCursor>>;
   /** ISO time of the last successful sync. */
   lastSyncedAt: string | null;
+  /** Cloud rows the last sync couldn't store; every sync tries them again. */
+  skipped: StoredSyncSkip[];
 };
 
-export const EMPTY_SYNC_STATE: SyncState = { owner: null, cursors: {}, lastSyncedAt: null };
+export const EMPTY_SYNC_STATE: SyncState = { owner: null, cursors: {}, lastSyncedAt: null, skipped: [] };
 
 const isCursor = (value: unknown): value is StoredSyncCursor =>
   !!value && typeof value === 'object' && typeof (value as StoredSyncCursor).at === 'string' && typeof (value as StoredSyncCursor).id === 'string';
+
+const textOrNull = (value: unknown) => (typeof value === 'string' ? value : null);
+
+function readSkip(value: unknown): StoredSyncSkip | null {
+  if (!value || typeof value !== 'object') return null;
+  const skip = value as Record<string, unknown>;
+  if (typeof skip.table !== 'string' || typeof skip.id !== 'string') return null;
+  const details = skip.details && typeof skip.details === 'object' ? (skip.details as Record<string, unknown>) : {};
+  return {
+    table: skip.table,
+    id: skip.id,
+    reason: typeof skip.reason === 'string' ? skip.reason : '',
+    details: {
+      date: textOrNull(details.date),
+      amount: typeof details.amount === 'number' ? details.amount : null,
+      name: textOrNull(details.name),
+      note: textOrNull(details.note),
+    },
+  };
+}
 
 /** Cloud sync bookkeeping, on this device only. */
 export const syncStateSetting = createSetting<SyncState>({
@@ -35,6 +68,9 @@ export const syncStateSetting = createSetting<SyncState>({
         owner: typeof value.owner === 'string' ? value.owner : null,
         cursors: Object.fromEntries(Object.entries(cursors).filter(([, cursor]) => isCursor(cursor))) as SyncState['cursors'],
         lastSyncedAt: typeof value.lastSyncedAt === 'string' ? value.lastSyncedAt : null,
+        skipped: Array.isArray(value.skipped)
+          ? value.skipped.map(readSkip).filter((skip): skip is StoredSyncSkip => skip !== null).slice(0, MAX_STORED_SKIPS)
+          : [],
       };
     } catch {
       return undefined;

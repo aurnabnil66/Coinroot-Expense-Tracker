@@ -12,7 +12,11 @@ import { accounts, categories, transactions } from './schema.database';
 /** Rows per INSERT, well under SQLite's limit on bound values. */
 const CHUNK = 100;
 
-/** Every live account, category and transaction, oldest first, as a backup. */
+/**
+ * Every live account, category and transaction, oldest first, as a backup. A "Linked to" that
+ * points at an entry not in the file (e.g. one cloud sync couldn't store yet) is left out, so
+ * the file always passes `checkBackup`.
+ */
 export function readBackup(database: LedgerDatabase, exportedAt = new Date().toISOString()): Backup {
   // Backups hold the ledger only: no soft-delete or sync bookkeeping.
   const withoutDeletedAt = <T extends { deletedAt: string | null; syncedUpdatedAt: string | null }>({
@@ -32,14 +36,22 @@ export function readBackup(database: LedgerDatabase, exportedAt = new Date().toI
       .all()
       .map(withoutDeletedAt),
     categories: database.select().from(categories).where(isNull(categories.deletedAt)).orderBy(sql`rowid`).all().map(withoutDeletedAt),
-    transactions: database
-      .select()
-      .from(transactions)
-      .where(isNull(transactions.deletedAt))
-      .orderBy(asc(transactions.date), asc(transactions.createdAt), asc(transactions.id))
-      .all()
-      .map(withoutDeletedAt),
+    transactions: linksInsideFile(
+      database
+        .select()
+        .from(transactions)
+        .where(isNull(transactions.deletedAt))
+        .orderBy(asc(transactions.date), asc(transactions.createdAt), asc(transactions.id))
+        .all()
+        .map(withoutDeletedAt)
+    ),
   };
+}
+
+/** Clears a `parentId` whose transaction isn't among `rows`. */
+function linksInsideFile<T extends { id: string; parentId: string | null }>(rows: T[]): T[] {
+  const ids = new Set(rows.map((row) => row.id));
+  return rows.map((row) => (row.parentId !== null && !ids.has(row.parentId) ? { ...row, parentId: null } : row));
 }
 
 type LedgerTable = typeof accounts | typeof categories | typeof transactions;
