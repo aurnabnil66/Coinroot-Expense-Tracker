@@ -94,6 +94,13 @@ const TEXT_CLASS: Record<ButtonVariant, Record<ButtonColor, string>> = {
   link: { primary: 'text-primary', danger: 'text-destructive', muted: 'text-muted-foreground' },
 };
 
+/**
+ * A disabled solid button (not loading) turns gray instead of a faded colour, so it clearly
+ * reads as "not yet": e.g. Save before anything changed, Continue before a choice is made.
+ */
+const DISABLED_SOLID_BOX = 'bg-muted-foreground/25 dark:bg-muted-foreground/25 data-[disabled=true]:opacity-100';
+const DISABLED_SOLID_TEXT = 'text-muted-foreground';
+
 /** A link has no box: no height, no background, and it fades instead of filling when pressed. */
 const LINK_BOX = 'h-auto rounded-md bg-transparent px-1 py-2 data-[active=true]:bg-transparent data-[active=true]:opacity-60';
 
@@ -129,18 +136,21 @@ export function Button({
   // Links are small text by default; `size="md"` gives a larger link (e.g. a header "Edit").
   const sizes = SIZE_CLASS[size ?? (isLink ? 'sm' : 'md')];
   const box = isLink ? LINK_BOX : sizes.box;
-  const textClass = `${sizes.text} font-semibold ${TEXT_CLASS[variant][color]}`;
+  const grayed = disabled && !loading && variant === 'solid';
+  const colorText = grayed ? DISABLED_SOLID_TEXT : TEXT_CLASS[variant][color];
+  const colorBox = grayed ? DISABLED_SOLID_BOX : BOX_CLASS[variant][color];
+  const textClass = `${sizes.text} font-semibold ${colorText}`;
 
   return (
     <GluestackButton
       variant={GLUESTACK_VARIANT[variant]}
-      className={`${box} ${BOX_CLASS[variant][color]} ${className}`}
+      className={`${box} ${colorBox} ${className}`}
       isDisabled={disabled || loading}
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? label}
       accessibilityState={{ disabled: disabled || loading, busy: loading }}>
-      {loading ? <ButtonLoader tone={spinnerTone(variant, color)} /> : icon ? <ButtonIcon as={icon} size={sizes.icon} className={TEXT_CLASS[variant][color]} /> : null}
+      {loading ? <ButtonLoader tone={spinnerTone(variant, color)} /> : icon ? <ButtonIcon as={icon} size={sizes.icon} className={colorText} /> : null}
       <ButtonText numberOfLines={1} className={textClass}>
         {loading && loadingLabel ? loadingLabel : label}
       </ButtonText>
