@@ -3,10 +3,18 @@ import * as Linking from 'expo-linking';
 
 import { createSetting, profileSetting, saveProfile } from '@/lib/storage';
 
-import { type AccountProfile, EMPTY_PROFILE, profileFromAccount, readAccountProfile } from './account-profile.supabase';
+import {
+  type AccountProfile,
+  EMPTY_PROFILE,
+  photoOnLogIn,
+  profileFromAccount,
+  readAccountPhoto,
+  readAccountProfile,
+} from './account-profile.supabase';
 import { AUTH_MESSAGES, authErrorMessage } from './auth-messages.supabase';
 import type { AuthLink } from './auth-link.supabase';
 import { type CoinrootSupabase, getSupabase } from './client.supabase';
+import { downloadAccountPhoto, removeAccountPhoto, uploadAccountPhoto } from './profile-photo.supabase';
 
 /**
  * Sign-in with Supabase Auth (email + password). Signing in is optional: the app works
@@ -97,13 +105,34 @@ async function run<R extends { data: unknown; error: unknown }>(fallback: string
  * After logging in, the profile on the phone becomes the account's: nickname, sign-in email
  * and phone, blank where the account has none. Never fails the log-in.
  */
-async function applyAccountProfile(session: Session) {
-  const account = readAccountProfile(session.user.user_metadata);
+async function applyAccountProfile(supabase: CoinrootSupabase, session: Session) {
+  const metadata = session.user.user_metadata;
+  let profile = profileFromAccount(profileSetting.get(), readAccountProfile(metadata), session.user.email ?? '');
+  const photo = photoOnLogIn(readAccountPhoto(metadata), profile.photo);
+  if (photo === 'download') {
+    try {
+      profile = { ...profile, photo: await downloadAccountPhoto(supabase, session.user.id) };
+    } catch {
+      // Offline or missing: keep what the phone has; the next log-in tries again.
+    }
+  }
   try {
-    await saveProfile(profileFromAccount(profileSetting.get(), account, session.user.email ?? ''));
+    profile = await saveProfile(profile);
   } catch {
     // Keep the profile already on the phone.
   }
+  if (photo === 'upload' && profile.photo) {
+    // The phone kept this account's photo (e.g. picked at sign-up before the email was confirmed).
+    void savePhotoOnAccount(supabase, session.user.id, profile.photo).catch(() => undefined);
+  }
+}
+
+/** Uploads (or, for `null`, removes) the account's photo and records it in `user_metadata.photo_version`. */
+async function savePhotoOnAccount(supabase: CoinrootSupabase, userId: string, uri: string | null) {
+  const version = uri ? await uploadAccountPhoto(supabase, userId, uri) : null;
+  if (!uri) await removeAccountPhoto(supabase, userId);
+  const { error } = await supabase.auth.updateUser({ data: { photo_version: version } });
+  if (error) throw error;
 }
 
 /** Where email links send the user back to: `coinroot://auth-callback` (the `auth-callback` route). */
@@ -132,13 +161,13 @@ export const authStore = {
     return { session };
   },
 
-  /** Logs in; the account's nickname, email and phone become the profile on this phone. */
+  /** Logs in; the account's nickname, email, phone and photo become the profile on this phone. */
   async signIn({ email, password }: { email: string; password: string }): Promise<AuthSession> {
     const supabase = client();
     const data = await run('Could not log in. Please try again.', () => supabase.auth.signInWithPassword({ email, password }));
     const session = toAuthSession(data.session);
     if (!data.session || !session) throw new AuthError('Could not log in. Please try again.');
-    await applyAccountProfile(data.session);
+    await applyAccountProfile(supabase, data.session);
     remember(session);
     return session;
   },
@@ -175,7 +204,7 @@ export const authStore = {
     );
     const session = toAuthSession(data.session);
     if (!data.session || !session) throw new AuthError("This link didn't work. Ask for a new one.");
-    await applyAccountProfile(data.session);
+    await applyAccountProfile(supabase, data.session);
     remember(session);
     // supabase-js returns `redirectType: 'recovery'` for a password-reset link (not in its types).
     const redirectType = (data as { redirectType?: string | null }).redirectType;
@@ -183,14 +212,17 @@ export const authStore = {
   },
 
   /**
-   * Saves an edited nickname / phone on the account while signed in. Best effort: the
-   * profile is already saved on the phone, and the next edit or log-in sends it again.
+   * Saves an edited nickname / phone on the account while signed in, and the photo when it
+   * changed (`photo.uri`: the shrunk file to upload, or `null` to remove it). Best effort:
+   * the profile is already saved on the phone, and the next edit or log-in sends it again.
    */
-  async updateAccountProfile(profile: AccountProfile): Promise<void> {
+  async updateAccountProfile(profile: AccountProfile, photo?: { uri: string | null }): Promise<void> {
     const supabase = getSupabase();
-    if (!supabase || !sessionSetting.get()) return;
+    const session = sessionSetting.get();
+    if (!supabase || !session) return;
     try {
       await supabase.auth.updateUser({ data: profile });
+      if (photo) await savePhotoOnAccount(supabase, session.userId, photo.uri);
     } catch {
       // Offline: kept on the phone.
     }

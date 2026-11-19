@@ -1,6 +1,6 @@
 import { describe, expect, it } from '@jest/globals';
 
-import { EMPTY_PROFILE, profileFromAccount, readAccountProfile } from './account-profile.supabase';
+import { EMPTY_PROFILE, photoOnLogIn, profileFromAccount, readAccountPhoto, readAccountProfile } from './account-profile.supabase';
 
 const GUEST = { nickname: 'Guest', photo: 'file:///photo.jpg', email: 'own@example.com', phone: '+8801711111111' };
 
@@ -43,5 +43,21 @@ describe('profileFromAccount', () => {
       nickname: 'Rafi',
       phone: null,
     });
+  });
+});
+
+describe('the account photo', () => {
+  it('reads photo_version from the metadata', () => {
+    expect(readAccountPhoto({ nickname: 'Rafi', photo_version: '2026-11-19T10:00:00.000Z' })).toBe('2026-11-19T10:00:00.000Z');
+    expect(readAccountPhoto({ photo_version: null })).toBeNull();
+    expect(readAccountPhoto({ photo_version: '  ' })).toBeNull();
+    expect(readAccountPhoto(undefined)).toBeNull();
+  });
+
+  it("downloads the account's photo, uploads the phone's when the account has none, else does nothing", () => {
+    expect(photoOnLogIn('v1', 'file:///kept.jpg')).toBe('download');
+    expect(photoOnLogIn('v1', null)).toBe('download');
+    expect(photoOnLogIn(null, 'file:///kept.jpg')).toBe('upload');
+    expect(photoOnLogIn(null, null)).toBe('none');
   });
 });

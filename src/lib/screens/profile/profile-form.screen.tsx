@@ -60,8 +60,13 @@ export function ProfileForm({ submitLabel, onDone }: ProfileFormProps) {
   const onSubmit = async (values: ProfileFormValues) => {
     try {
       // Signed in, the email is the sign-in email (read-only).
-      await saveProfile({ ...values, email: session?.email ?? values.email });
-      void authStore.updateAccountProfile({ nickname: values.nickname, phone: values.phone });
+      const saved = await saveProfile({ ...values, email: session?.email ?? values.email });
+      // The photo goes to the account only when it changed (it's already shrunk by the picker).
+      const photoChanged = values.photo !== profile.photo;
+      void authStore.updateAccountProfile(
+        { nickname: values.nickname, phone: values.phone },
+        photoChanged ? { uri: saved.photo } : undefined
+      );
       onDone();
     } catch {
       setError('root', { message: 'Could not save your profile. Please try again.' });
