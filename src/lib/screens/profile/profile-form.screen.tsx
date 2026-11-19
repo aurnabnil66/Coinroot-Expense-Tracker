@@ -62,12 +62,12 @@ export function ProfileForm({ submitLabel, onDone, onlyWhenChanged = false }: Pr
   const onSubmit = async (values: ProfileFormValues) => {
     try {
       // Signed in, the email is the sign-in email (read-only).
-      const saved = await saveProfile({ ...values, email: session?.email ?? values.email });
-      // The photo goes to the account only when it changed (it's already shrunk by the picker).
-      const photoChanged = values.photo !== profile.photo;
+      await saveProfile({ ...values, email: session?.email ?? values.email });
+      // The saved photo (already shrunk by the picker) goes to the account when it changed,
+      // or when an earlier upload never made it.
       void authStore.updateAccountProfile(
         { nickname: values.nickname, phone: values.phone },
-        photoChanged ? { uri: saved.photo } : undefined
+        { photoChanged: values.photo !== profile.photo }
       );
       onDone();
     } catch {

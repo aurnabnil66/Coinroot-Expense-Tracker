@@ -40,6 +40,22 @@ export const profileSetting = createSetting<Profile>({
   write: (storage, key, value) => storage.set(key, JSON.stringify(value)),
 });
 
+/**
+ * The account (its sign-in email, lower case) whose photo change on this phone hasn't reached
+ * the cloud yet: set before every upload or removal and cleared only when it worked, so a
+ * failed one is sent again on the next profile save or log-in (and the account's older photo
+ * isn't downloaded over it). `null` when nothing is waiting.
+ */
+export const photoPendingSetting = createSetting<string | null>({
+  key: 'profile-photo-pending',
+  fallback: null,
+  read: (storage, key) => storage.getString(key) || undefined,
+  write: (storage, key, value) => {
+    if (value) storage.set(key, value);
+    else storage.remove(key);
+  },
+});
+
 const PHOTO_FOLDER = 'profile';
 
 /**

@@ -29,11 +29,18 @@ export function readAccountPhoto(metadata: unknown): string | null {
 }
 
 /**
- * What to do with the photo at log-in: `download` the account's (it has one), `upload` the one
- * this phone kept for the same account (the account has none yet, e.g. it was picked at sign-up
- * before the email was confirmed), or `none`.
+ * What to do with the photo at log-in. When this phone has a photo change the account never
+ * received (`pending`: an upload or removal that failed, e.g. offline), the phone wins: `upload`
+ * the photo it kept, or `remove` the account's. Otherwise `download` the account's photo when it
+ * has one, `upload` the one this phone kept for the same account when it has none (e.g. picked
+ * at sign-up before the email was confirmed), or `none`.
  */
-export function photoOnLogIn(accountPhoto: string | null, keptPhoto: string | null): 'download' | 'upload' | 'none' {
+export function photoOnLogIn(
+  accountPhoto: string | null,
+  keptPhoto: string | null,
+  pending: boolean
+): 'download' | 'upload' | 'remove' | 'none' {
+  if (pending) return keptPhoto ? 'upload' : accountPhoto ? 'remove' : 'none';
   if (accountPhoto) return 'download';
   return keptPhoto ? 'upload' : 'none';
 }

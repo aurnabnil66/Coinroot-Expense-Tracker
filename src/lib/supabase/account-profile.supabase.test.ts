@@ -55,9 +55,18 @@ describe('the account photo', () => {
   });
 
   it("downloads the account's photo, uploads the phone's when the account has none, else does nothing", () => {
-    expect(photoOnLogIn('v1', 'file:///kept.jpg')).toBe('download');
-    expect(photoOnLogIn('v1', null)).toBe('download');
-    expect(photoOnLogIn(null, 'file:///kept.jpg')).toBe('upload');
-    expect(photoOnLogIn(null, null)).toBe('none');
+    expect(photoOnLogIn('v1', 'file:///kept.jpg', false)).toBe('download');
+    expect(photoOnLogIn('v1', null, false)).toBe('download');
+    expect(photoOnLogIn(null, 'file:///kept.jpg', false)).toBe('upload');
+    expect(photoOnLogIn(null, null, false)).toBe('none');
+  });
+
+  it("sends a change the account never received instead of downloading the account's older photo", () => {
+    // A newer photo whose upload failed.
+    expect(photoOnLogIn('v1', 'file:///newer.jpg', true)).toBe('upload');
+    // A removal that failed.
+    expect(photoOnLogIn('v1', null, true)).toBe('remove');
+    expect(photoOnLogIn(null, 'file:///kept.jpg', true)).toBe('upload');
+    expect(photoOnLogIn(null, null, true)).toBe('none');
   });
 });
