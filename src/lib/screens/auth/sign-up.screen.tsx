@@ -51,7 +51,11 @@ export function SignUpForm({ onDone, onLogIn }: SignUpFormProps) {
         password,
         profile: { nickname: profile.nickname, phone: profile.phone },
       });
-      await saveProfile(profile);
+      const saved = await saveProfile(profile);
+      if (session && saved.photo) {
+        // Signed in straight away: the photo goes to the account now (else at the first log-in).
+        void authStore.updateAccountProfile({ nickname: saved.nickname, phone: saved.phone }, { photoChanged: true });
+      }
       if (!session) {
         // The project asks for email confirmation: the emailed link finishes signing in.
         await dialog.alert({

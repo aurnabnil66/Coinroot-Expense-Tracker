@@ -5,6 +5,7 @@ export * from './auth-store.supabase';
 export * from './client.supabase';
 export * from './config.supabase';
 export * from './database.supabase';
+export * from './profile-photo.supabase';
 export * from './session-storage.supabase';
 export * from './sync-remote.supabase';
 export * from './sync-store.supabase';

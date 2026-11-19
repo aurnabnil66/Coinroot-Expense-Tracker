@@ -1,12 +1,20 @@
 import type { Session } from '@supabase/supabase-js';
 import * as Linking from 'expo-linking';
 
-import { createSetting, profileSetting, saveProfile } from '@/lib/storage';
+import { createSetting, photoPendingSetting, profileSetting, saveProfile } from '@/lib/storage';
 
-import { type AccountProfile, EMPTY_PROFILE, profileFromAccount, readAccountProfile } from './account-profile.supabase';
+import {
+  type AccountProfile,
+  EMPTY_PROFILE,
+  photoOnLogIn,
+  profileFromAccount,
+  readAccountPhoto,
+  readAccountProfile,
+} from './account-profile.supabase';
 import { AUTH_MESSAGES, authErrorMessage } from './auth-messages.supabase';
 import type { AuthLink } from './auth-link.supabase';
 import { type CoinrootSupabase, getSupabase } from './client.supabase';
+import { downloadAccountPhoto, removeAccountPhoto, uploadAccountPhoto } from './profile-photo.supabase';
 
 /**
  * Sign-in with Supabase Auth (email + password). Signing in is optional: the app works
@@ -97,13 +105,73 @@ async function run<R extends { data: unknown; error: unknown }>(fallback: string
  * After logging in, the profile on the phone becomes the account's: nickname, sign-in email
  * and phone, blank where the account has none. Never fails the log-in.
  */
-async function applyAccountProfile(session: Session) {
-  const account = readAccountProfile(session.user.user_metadata);
+async function applyAccountProfile(supabase: CoinrootSupabase, session: Session) {
+  const metadata = session.user.user_metadata;
+  const email = session.user.email ?? '';
+  let profile = profileFromAccount(profileSetting.get(), readAccountProfile(metadata), email);
+  const pending = photoPendingSetting.get() === accountKey(email);
+  const photo = photoOnLogIn(readAccountPhoto(metadata), profile.photo, pending);
+  if (photo === 'download') {
+    try {
+      profile = { ...profile, photo: await downloadAccountPhoto(supabase, session.user.id) };
+    } catch {
+      // Offline or missing: keep what the phone has; the next log-in tries again.
+    }
+  }
   try {
-    await saveProfile(profileFromAccount(profileSetting.get(), account, session.user.email ?? ''));
+    profile = await saveProfile(profile);
   } catch {
     // Keep the profile already on the phone.
   }
+  if (photo === 'upload' || photo === 'remove') {
+    // A change the account never received, or a photo picked at sign-up before the email was confirmed.
+    if (!pending) markPhotoPending(email);
+    void sendPendingPhoto(supabase, session.user.id, email).catch(() => undefined);
+  }
+}
+
+const accountKey = (email: string) => email.trim().toLowerCase();
+
+/** Bumped by every photo change, so an upload that finishes after a newer change doesn't clear its flag. */
+let photoChanges = 0;
+/** Photo uploads run one at a time, so an older one can't land after a newer one. */
+let photoQueue: Promise<void> = Promise.resolve();
+
+/** Notes that this account's photo on the phone (or its removal) has to reach the cloud. */
+function markPhotoPending(email: string) {
+  photoChanges += 1;
+  photoPendingSetting.set(accountKey(email));
+}
+
+/**
+ * Sends the phone's current photo (or removes the account's, when the phone has none) if a change
+ * for this account is waiting, then clears the flag unless a newer change came in meanwhile.
+ * Throws on failure; the change stays waiting for the next profile save or log-in.
+ */
+function sendPendingPhoto(supabase: CoinrootSupabase, userId: string, email: string): Promise<void> {
+  const send = photoQueue.then(async () => {
+    if (photoPendingSetting.get() !== accountKey(email)) return;
+    const changes = photoChanges;
+    await savePhotoOnAccount(supabase, userId, profileSetting.get().photo);
+    if (changes === photoChanges) photoPendingSetting.set(null);
+  });
+  photoQueue = send.catch(() => undefined);
+  return send;
+}
+
+/** Waits for `promise`, but at most `ms`. */
+const within = (promise: Promise<unknown>, ms: number) =>
+  Promise.race([promise, new Promise((resolve) => setTimeout(resolve, ms))]);
+
+/** How long log-out waits for a photo that hasn't reached the account yet. */
+const SIGN_OUT_PHOTO_MS = 10_000;
+
+/** Uploads (or, for `null`, removes) the account's photo and records it in `user_metadata.photo_version`. */
+async function savePhotoOnAccount(supabase: CoinrootSupabase, userId: string, uri: string | null) {
+  const version = uri ? await uploadAccountPhoto(supabase, userId, uri) : null;
+  if (!uri) await removeAccountPhoto(supabase, userId);
+  const { error } = await supabase.auth.updateUser({ data: { photo_version: version } });
+  if (error) throw error;
 }
 
 /** Where email links send the user back to: `coinroot://auth-callback` (the `auth-callback` route). */
@@ -132,13 +200,13 @@ export const authStore = {
     return { session };
   },
 
-  /** Logs in; the account's nickname, email and phone become the profile on this phone. */
+  /** Logs in; the account's nickname, email, phone and photo become the profile on this phone. */
   async signIn({ email, password }: { email: string; password: string }): Promise<AuthSession> {
     const supabase = client();
     const data = await run('Could not log in. Please try again.', () => supabase.auth.signInWithPassword({ email, password }));
     const session = toAuthSession(data.session);
     if (!data.session || !session) throw new AuthError('Could not log in. Please try again.');
-    await applyAccountProfile(data.session);
+    await applyAccountProfile(supabase, data.session);
     remember(session);
     return session;
   },
@@ -148,11 +216,18 @@ export const authStore = {
    * (nickname, email, phone, photo), which belongs to the account.
    */
   async signOut(): Promise<void> {
+    const supabase = getSupabase();
+    const current = sessionSetting.get();
+    if (supabase && current) {
+      // Last chance for a photo that hasn't reached the account: the phone's copy is removed below.
+      await within(sendPendingPhoto(supabase, current.userId, current.email).catch(() => undefined), SIGN_OUT_PHOTO_MS);
+    }
     await run('Could not log out. Please try again.', async () => {
       const { error } = await client().auth.signOut({ scope: 'local' });
       return { data: null, error };
     });
     remember(null);
+    photoPendingSetting.set(null);
     await saveProfile(EMPTY_PROFILE).catch(() => profileSetting.set(EMPTY_PROFILE));
   },
 
@@ -175,7 +250,7 @@ export const authStore = {
     );
     const session = toAuthSession(data.session);
     if (!data.session || !session) throw new AuthError("This link didn't work. Ask for a new one.");
-    await applyAccountProfile(data.session);
+    await applyAccountProfile(supabase, data.session);
     remember(session);
     // supabase-js returns `redirectType: 'recovery'` for a password-reset link (not in its types).
     const redirectType = (data as { redirectType?: string | null }).redirectType;
@@ -183,17 +258,22 @@ export const authStore = {
   },
 
   /**
-   * Saves an edited nickname / phone on the account while signed in. Best effort: the
-   * profile is already saved on the phone, and the next edit or log-in sends it again.
+   * Saves an edited nickname / phone on the account while signed in, and the profile photo
+   * on the phone (already saved there) when `photoChanged` or when an earlier change never
+   * reached the account. Best effort: offline, the nickname / phone go with the next edit
+   * and the photo stays waiting (`photoPendingSetting`) for the next save, log-in or log-out.
    */
-  async updateAccountProfile(profile: AccountProfile): Promise<void> {
+  async updateAccountProfile(profile: AccountProfile, { photoChanged = false }: { photoChanged?: boolean } = {}): Promise<void> {
     const supabase = getSupabase();
-    if (!supabase || !sessionSetting.get()) return;
+    const session = sessionSetting.get();
+    if (!supabase || !session) return;
+    if (photoChanged) markPhotoPending(session.email);
     try {
       await supabase.auth.updateUser({ data: profile });
     } catch {
-      // Offline: kept on the phone.
+      // Offline: the next edit sends it.
     }
+    await sendPendingPhoto(supabase, session.userId, session.email).catch(() => undefined);
   },
 
   /** Sets a new password for the signed-in account (after a reset link). */

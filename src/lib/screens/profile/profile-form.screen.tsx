@@ -20,7 +20,7 @@ export function ProfileFormScreen() {
       <ModalHeader title={profile.nickname ? 'Edit profile' : 'Create profile'} onClose={() => router.back()} />
       <ScreenContainer>
         <VStack className="pt-6">
-          <ProfileForm submitLabel="Save" onDone={() => router.back()} />
+          <ProfileForm submitLabel="Save" onlyWhenChanged onDone={() => router.back()} />
         </VStack>
       </ScreenContainer>
     </View>
@@ -30,13 +30,15 @@ export function ProfileFormScreen() {
 type ProfileFormProps = {
   submitLabel: string;
   onDone: () => void;
+  /** Keep the button disabled until something differs from the saved profile (Edit profile; setup can always continue). */
+  onlyWhenChanged?: boolean;
 };
 
 /**
  * Photo, nickname (required, one word), email and phone (optional). With an account the
  * email is the sign-in email and can't be changed here. Also used by first-time setup.
  */
-export function ProfileForm({ submitLabel, onDone }: ProfileFormProps) {
+export function ProfileForm({ submitLabel, onDone, onlyWhenChanged = false }: ProfileFormProps) {
   const profile = useProfile();
   const session = useAuth();
 
@@ -44,7 +46,7 @@ export function ProfileForm({ submitLabel, onDone }: ProfileFormProps) {
     control,
     handleSubmit,
     setError,
-    formState: { errors, isSubmitting },
+    formState: { errors, isSubmitting, isDirty },
   } = useForm<ProfileFormInput, unknown, ProfileFormValues>({
     resolver: zodResolver(profileFormSchema),
     defaultValues: {
@@ -61,7 +63,12 @@ export function ProfileForm({ submitLabel, onDone }: ProfileFormProps) {
     try {
       // Signed in, the email is the sign-in email (read-only).
       await saveProfile({ ...values, email: session?.email ?? values.email });
-      void authStore.updateAccountProfile({ nickname: values.nickname, phone: values.phone });
+      // The saved photo (already shrunk by the picker) goes to the account when it changed,
+      // or when an earlier upload never made it.
+      void authStore.updateAccountProfile(
+        { nickname: values.nickname, phone: values.phone },
+        { photoChanged: values.photo !== profile.photo }
+      );
       onDone();
     } catch {
       setError('root', { message: 'Could not save your profile. Please try again.' });
@@ -126,7 +133,14 @@ export function ProfileForm({ submitLabel, onDone }: ProfileFormProps) {
         )}
       />
       {errors.root ? <Text className="text-sm text-destructive">{errors.root.message}</Text> : null}
-      <Button label={submitLabel} size="lg" className="mt-2" loading={isSubmitting} onPress={() => void handleSubmit(onSubmit)()} />
+      <Button
+        label={submitLabel}
+        size="lg"
+        className="mt-2"
+        loading={isSubmitting}
+        disabled={onlyWhenChanged && !isDirty}
+        onPress={() => void handleSubmit(onSubmit)()}
+      />
     </VStack>
   );
 }
