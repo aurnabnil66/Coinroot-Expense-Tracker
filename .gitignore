@@ -3,6 +3,9 @@
 # dependencies
 node_modules/
 
+# Astro
+.astro/
+
 # Expo
 .expo/
 dist/

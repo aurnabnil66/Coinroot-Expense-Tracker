@@ -40,6 +40,8 @@ jobs:
         working-directory: apps/mobile
         run: printf '/// <reference types="expo/types" />\n' > expo-env.d.ts
 
-      # Lint, typecheck, tests and the database migrations check of every app, through Turborepo.
+      # Lint, typecheck, tests, the database migrations check and the build of every app, through Turborepo.
       - name: Checks
-        run: bunx turbo run lint typecheck test db:check
+        env:
+          ASTRO_TELEMETRY_DISABLED: '1'
+        run: bunx turbo run lint typecheck test db:check build

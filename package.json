@@ -8,11 +8,13 @@
   ],
   "scripts": {
     "dev:mobile": "bun --cwd apps/mobile start",
+    "dev:landing": "bun --cwd apps/landing-page dev",
+    "build": "turbo run build",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "db:check": "turbo run db:check",
-    "check": "turbo run lint typecheck test db:check"
+    "check": "turbo run lint typecheck test db:check build"
   },
   "devDependencies": {
     "turbo": "^2.11.13"

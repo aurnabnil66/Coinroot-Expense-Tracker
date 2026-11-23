@@ -1,0 +1,965 @@
+---
+import Base from '../layouts/base.layout.astro';
+import Icon from '../components/icon.component.astro';
+import MoneyTree from '../components/money-tree.component.astro';
+import PhoneMock from '../components/phone-mock.component.astro';
+
+const features = [
+  {
+    icon: 'tree',
+    title: 'The money tree',
+    text: 'Link a CNG fare to the ATM withdrawal it came from, and that to your salary. Open any entry and see the whole chain, with what is left at every step.',
+    wide: true,
+  },
+  {
+    icon: 'wallet',
+    title: 'Every account, one place',
+    text: 'Bank accounts, cash, mobile wallets and DPS. Balances are worked out from your entries, never typed in.',
+  },
+  {
+    icon: 'arrows',
+    title: 'Transfers are not spending',
+    text: 'ATM withdrawals, wallet top-ups and DPS installments move money. They never inflate your expenses.',
+  },
+  {
+    icon: 'chart',
+    title: 'A clear monthly summary',
+    text: 'Income, expenses and what moved to savings. Spending by category and over time, income by client.',
+  },
+  {
+    icon: 'scale',
+    title: 'Count cash',
+    text: 'Type what is actually in your wallet or bank. Coinroot records the difference so the numbers match real life.',
+  },
+  {
+    icon: 'sheet',
+    title: 'Bring your spreadsheet',
+    text: 'Import a CSV or a table pasted from Excel, Sheets or a bank statement, in any layout. Export to CSV whenever you like.',
+  },
+  {
+    icon: 'bolt',
+    title: 'Simple mode',
+    text: 'Your four most used entries as one-tap buttons, and fewer fields in the form.',
+  },
+  {
+    icon: 'cloud',
+    title: 'Backup and sync, if you want',
+    text: 'Save a backup file to any drive. Or create an account to sync between phones. Never required.',
+  },
+] as const;
+
+const steps = [
+  {
+    n: '01',
+    title: 'Name your accounts',
+    text: 'Bank, cash, mobile wallet, DPS: whatever you use, with today’s balance. No bank account required.',
+  },
+  {
+    n: '02',
+    title: 'Record as money moves',
+    text: 'Income, expenses and transfers in a few taps. Choose the date, add a note, say who paid you.',
+  },
+  {
+    n: '03',
+    title: 'Follow it to the root',
+    text: 'Link spending to where its money came from, and watch each month’s tree fill in.',
+  },
+];
+
+const privacy = [
+  { icon: 'phone', title: 'On your phone', text: 'Your entries live in a database on your device. It all works with no internet at all.' },
+  { icon: 'eye', title: 'No ads, no tracking', text: 'No analytics in the app, no ad SDKs, nothing sold. This site loads no trackers either.' },
+  { icon: 'shield', title: 'Sign-in is optional', text: 'Use it without an account. Sign in only if you want cloud sync, and only your own records are reachable.' },
+  { icon: 'code', title: 'Going open source', text: 'The code will be public, so anyone can check what it does with their data.' },
+] as const;
+
+const faqs = [
+  {
+    q: 'Why isn’t Coinroot on the Play Store?',
+    a: 'It’s a small independent project, shared directly as an Android app file (APK) from this site. You install it once and it works like any other app.',
+  },
+  {
+    q: 'Is installing an APK safe?',
+    a: 'Download Coinroot only from this site. Android will ask you to allow installs from your browser the first time; you can turn that off again afterwards.',
+  },
+  {
+    q: 'Does it work with my bank or mobile wallet?',
+    a: 'Yes. Coinroot doesn’t connect to any bank or wallet. You name your own accounts and record entries yourself, so it works with all of them.',
+  },
+  {
+    q: 'Do I need the internet?',
+    a: 'No. Everything works offline. The internet is only used if you choose to sign in and sync.',
+  },
+  {
+    q: 'What if I lose or change my phone?',
+    a: 'Back up to a file and restore it on the new phone, or sign in and your records sync back from the cloud.',
+  },
+  {
+    q: 'Is there an iPhone version?',
+    a: 'Not yet. Coinroot is Android-first; iPhone may come later.',
+  },
+];
+
+const year = new Date().getFullYear();
+---
+
+<Base
+  title="Coinroot: every taka has a root"
+  description="Coinroot is a free, offline money tracker for Bangladesh. Track every taka across bank accounts, cash, mobile wallets and DPS, and trace any expense back to where it came from."
+>
+  <!-- HERO -->
+  <header class="hero">
+    <div class="hero-glow" aria-hidden="true"></div>
+    <nav class="nav container" aria-label="Main">
+      <a class="brand" href="/" aria-label="Coinroot home">
+        <span class="brand-mark"><img src="/logo.png" alt="" width="34" height="34" /></span>
+        <span>Coinroot</span>
+      </a>
+      <ul class="nav-links">
+        <li><a href="#idea">The idea</a></li>
+        <li><a href="#features">Features</a></li>
+        <li><a href="#privacy">Privacy</a></li>
+        <li><a href="#faq">FAQ</a></li>
+      </ul>
+      <a class="btn btn-ghost nav-cta" href="#download">Get the app</a>
+    </nav>
+
+    <div class="hero-inner container">
+      <div class="hero-copy">
+        <p class="pill"><span class="pill-dot"></span>Made for taka · Android</p>
+        <h1>Every taka <br />has a <em>root.</em></h1>
+        <p class="hero-lead">
+          Coinroot tracks where your money comes from and where it goes, across bank accounts,
+          cash, mobile wallets and DPS. Trace any expense back to the salary it came from.
+        </p>
+        <div class="hero-actions">
+          <a class="btn btn-primary" href="#download"><Icon name="android" size={20} />Get it for Android</a>
+          <a class="btn btn-ghost" href="#idea">See how it works</a>
+        </div>
+        <ul class="hero-facts">
+          <li>Free</li>
+          <li>Works offline</li>
+          <li>No ads</li>
+        </ul>
+      </div>
+      <div class="hero-visual">
+        <MoneyTree />
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <!-- THE IDEA -->
+    <section class="section" id="idea">
+      <div class="container idea">
+        <div data-reveal>
+          <span class="eyebrow">The idea</span>
+          <h2 class="section-title">Money moves. It doesn’t just get spent.</h2>
+          <p class="section-lead">
+            Taking ৳10,000 out of an ATM isn’t spending, it’s moving money from your bank to your
+            pocket. Most expense apps count it anyway, and your month looks far worse than it was.
+            Coinroot keeps transfers apart, so “spent” means spent.
+          </p>
+        </div>
+
+        <div class="compare">
+          <article class="ledger ledger-other" data-reveal style="--delay:.1s">
+            <p class="ledger-head">A typical expense app</p>
+            <ul>
+              <li><span>ATM withdrawal</span><span>−৳10,000</span></li>
+              <li><span>DPS installment</span><span>−৳5,000</span></li>
+              <li><span>Wallet top-up</span><span>−৳3,000</span></li>
+              <li><span>Transport</span><span>−৳1,200</span></li>
+            </ul>
+            <p class="ledger-total"><span>Spent</span><strong>৳19,200</strong></p>
+            <p class="ledger-note">Counted the same money twice.</p>
+          </article>
+
+          <article class="ledger ledger-coinroot" data-reveal style="--delay:.2s">
+            <p class="ledger-head"><img src="/logo.png" alt="" width="20" height="20" />Coinroot</p>
+            <ul>
+              <li><span>ATM withdrawal</span><span class="tag tag-transfer">→ Cash</span></li>
+              <li><span>DPS installment</span><span class="tag tag-savings">→ Savings</span></li>
+              <li><span>Wallet top-up</span><span class="tag tag-transfer">→ Wallet</span></li>
+              <li><span>Transport</span><span class="out">−৳1,200</span></li>
+            </ul>
+            <p class="ledger-total"><span>Spent</span><strong>৳1,200</strong></p>
+            <p class="ledger-note">৳5,000 moved to savings, shown on its own.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- HOW IT WORKS -->
+    <section class="section steps-section" aria-labelledby="steps-title">
+      <div class="container">
+        <div data-reveal>
+          <span class="eyebrow">How it works</span>
+          <h2 class="section-title" id="steps-title">Three steps, then it’s just habit.</h2>
+        </div>
+        <ol class="steps">
+          {
+            steps.map((s, i) => (
+              <li data-reveal style={`--delay:${i * 0.1}s`}>
+                <span class="step-n">{s.n}</span>
+                <h3>{s.title}</h3>
+                <p>{s.text}</p>
+              </li>
+            ))
+          }
+        </ol>
+      </div>
+    </section>
+
+    <!-- FEATURES -->
+    <section class="section" id="features">
+      <div class="container">
+        <div data-reveal>
+          <span class="eyebrow">Features</span>
+          <h2 class="section-title">Everything a taka touches.</h2>
+        </div>
+        <div class="bento">
+          {
+            features.map((f, i) => (
+              <article class={`card${'wide' in f && f.wide ? ' card-wide' : ''}`} data-reveal style={`--delay:${(i % 3) * 0.08}s`}>
+                <span class="card-icon">
+                  <Icon name={f.icon} size={22} />
+                </span>
+                <h3>{f.title}</h3>
+                <p>{f.text}</p>
+              </article>
+            ))
+          }
+        </div>
+      </div>
+    </section>
+
+    <!-- MADE FOR TAKA -->
+    <section class="section taka">
+      <div class="container taka-inner">
+        <div class="taka-copy" data-reveal>
+          <span class="eyebrow">Made for Bangladesh</span>
+          <h2 class="section-title">Speaks taka, lakh and crore.</h2>
+          <p class="section-lead">
+            Amounts read the way you say them: ৳2,45,300, not ৳245,300. Savings and DPS are
+            accounts of their own, bank charges and excise duty have a home, and payers like
+            clients are kept with each payment.
+          </p>
+          <ul class="checks">
+            <li>Bank, cash, mobile wallet and DPS accounts</li>
+            <li>Salary moved between banks counts once</li>
+            <li>Cash-out fees saved as their own charge</li>
+            <li>Light and dark themes</li>
+          </ul>
+        </div>
+        <div class="taka-visual" data-reveal style="--delay:.15s">
+          <PhoneMock />
+        </div>
+      </div>
+    </section>
+
+    <!-- PRIVACY -->
+    <section class="section privacy" id="privacy">
+      <div class="container">
+        <div data-reveal>
+          <span class="eyebrow">Privacy</span>
+          <h2 class="section-title">Your money stays your business.</h2>
+        </div>
+        <div class="privacy-grid">
+          {
+            privacy.map((p, i) => (
+              <div class="privacy-item" data-reveal style={`--delay:${i * 0.08}s`}>
+                <Icon name={p.icon} size={24} />
+                <h3>{p.title}</h3>
+                <p>{p.text}</p>
+              </div>
+            ))
+          }
+        </div>
+      </div>
+    </section>
+
+    <!-- DOWNLOAD -->
+    <section class="section download-section" id="download">
+      <div class="container">
+        <div class="download" data-reveal>
+          <div class="download-copy">
+            <span class="eyebrow eyebrow-light">Download</span>
+            <h2>Coming soon to Android.</h2>
+            <p>
+              Coinroot will be available here as a direct download (APK). Scan the code with
+              your phone or tap the button, and you’re set up in a minute.
+            </p>
+            <div class="download-actions">
+              <span class="btn btn-primary is-disabled" aria-disabled="true"><Icon name="download" size={20} />Download APK · soon</span>
+              <span class="soon">iPhone: not yet</span>
+            </div>
+          </div>
+          <div class="qr" aria-label="QR code coming soon" role="img">
+            <div class="qr-grid" aria-hidden="true">
+              {Array.from({ length: 49 }, (_, i) => <span class={((i * 7 + (i % 5) * 3) % 4 === 0 || [0, 1, 7, 8, 5, 6, 12, 13, 35, 36, 42, 43].includes(i)) ? 'on' : ''} />)}
+            </div>
+            <span class="qr-label">QR code soon</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- FAQ -->
+    <section class="section" id="faq">
+      <div class="container faq-inner">
+        <div data-reveal>
+          <span class="eyebrow">FAQ</span>
+          <h2 class="section-title">Questions, answered.</h2>
+        </div>
+        <div class="faq" data-reveal style="--delay:.1s">
+          {
+            faqs.map((f) => (
+              <details>
+                <summary>{f.q}</summary>
+                <p>{f.a}</p>
+              </details>
+            ))
+          }
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="container footer-inner">
+      <a class="brand brand-dark" href="/">
+        <span class="brand-mark"><img src="/logo.png" alt="" width="30" height="30" /></span>
+        <span>Coinroot</span>
+      </a>
+      <p>Every taka has a root. Made in Bangladesh.</p>
+      <p class="copy">© {year} Coinroot</p>
+    </div>
+  </footer>
+</Base>
+
+<style>
+  /* ---------- Hero ---------- */
+  .hero {
+    position: relative;
+    overflow: hidden;
+    color: #fff;
+    background:
+      radial-gradient(1200px 600px at 85% -10%, rgb(108 76 241 / 0.55), transparent 60%),
+      radial-gradient(700px 500px at -10% 110%, rgb(56 189 248 / 0.18), transparent 60%),
+      linear-gradient(170deg, #1e2a5e 0%, #121a45 45%, #0b1026 100%);
+  }
+  .hero-glow {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-image: radial-gradient(rgb(255 255 255 / 0.09) 1px, transparent 1px);
+    background-size: 26px 26px;
+    mask-image: linear-gradient(180deg, #000 0%, transparent 85%);
+  }
+
+  .nav {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    padding-block: 22px;
+  }
+  .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 20px;
+    font-weight: 600;
+    text-decoration: none;
+    letter-spacing: -0.01em;
+  }
+  .brand-mark {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    background: #fff;
+  }
+  .nav-links {
+    display: flex;
+    gap: 28px;
+    margin: 0 0 0 auto;
+    padding: 0;
+    list-style: none;
+    font-size: 14.5px;
+  }
+  .nav-links a {
+    color: rgb(255 255 255 / 0.75);
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+  .nav-links a:hover {
+    color: #fff;
+  }
+  .nav-cta {
+    min-height: 42px;
+    padding: 0 18px;
+    font-size: 14px;
+  }
+
+  .hero-inner {
+    position: relative;
+    display: grid;
+    grid-template-columns: 1.05fr 1fr;
+    align-items: center;
+    gap: clamp(32px, 6vw, 80px);
+    padding-top: clamp(32px, 6vw, 72px);
+    padding-bottom: clamp(64px, 9vw, 120px);
+  }
+
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    background: rgb(255 255 255 / 0.08);
+    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.16);
+    color: rgb(255 255 255 / 0.85);
+    font-size: 13px;
+    animation: rise 0.7s ease both;
+  }
+  .pill-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #38bdf8;
+    box-shadow: 0 0 0 4px rgb(56 189 248 / 0.25);
+  }
+
+  h1 {
+    margin-top: 22px;
+    font-size: clamp(44px, 7.4vw, 84px);
+    line-height: 1.02;
+    letter-spacing: -0.035em;
+    animation: rise 0.8s 0.08s ease both;
+  }
+  h1 em {
+    font-style: normal;
+    background: linear-gradient(90deg, #b9a8ff, #38bdf8);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .hero-lead {
+    margin-top: 24px;
+    max-width: 46ch;
+    color: rgb(255 255 255 / 0.75);
+    font-size: clamp(16px, 1.7vw, 18.5px);
+    animation: rise 0.8s 0.16s ease both;
+  }
+  .hero-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 34px;
+    animation: rise 0.8s 0.24s ease both;
+  }
+  .hero-facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 22px;
+    margin: 28px 0 0;
+    padding: 0;
+    list-style: none;
+    color: rgb(255 255 255 / 0.6);
+    font-size: 14px;
+    animation: rise 0.8s 0.32s ease both;
+  }
+  .hero-facts li::before {
+    content: '✓';
+    margin-right: 8px;
+    color: #34d399;
+  }
+
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(16px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  /* ---------- Idea / comparison ---------- */
+  .idea {
+    display: grid;
+    grid-template-columns: 1fr 1.15fr;
+    gap: clamp(36px, 6vw, 80px);
+    align-items: center;
+  }
+  .compare {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  .ledger {
+    padding: 22px;
+    border-radius: var(--radius);
+    background: var(--card);
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border);
+  }
+  .ledger-other {
+    transform: rotate(-1.5deg);
+    opacity: 0.92;
+  }
+  .js .ledger-other[data-reveal].is-visible {
+    transform: rotate(-1.5deg);
+  }
+  .ledger-coinroot {
+    border-color: color-mix(in srgb, var(--primary) 45%, var(--border));
+    box-shadow:
+      var(--shadow),
+      0 0 0 4px var(--primary-soft);
+  }
+  .ledger-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .ledger-head img {
+    border-radius: 6px;
+    background: #fff;
+  }
+  .ledger ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    font-size: 14px;
+  }
+  .ledger li {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 9px 0;
+    border-bottom: 1px dashed var(--border);
+  }
+  .ledger-other li span:last-child {
+    color: var(--expense);
+    font-weight: 500;
+  }
+  .tag {
+    padding: 1px 9px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .tag-transfer {
+    color: var(--transfer);
+    background: color-mix(in srgb, var(--transfer) 14%, transparent);
+  }
+  .tag-savings {
+    color: var(--primary);
+    background: var(--primary-soft);
+  }
+  .out {
+    font-weight: 500;
+  }
+  .ledger-total {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-top: 14px;
+    font-size: 14px;
+    color: var(--muted);
+  }
+  .ledger-total strong {
+    color: var(--text);
+    font-size: 24px;
+    font-weight: 600;
+  }
+  .ledger-other .ledger-total strong {
+    text-decoration: line-through;
+    text-decoration-color: var(--expense);
+    text-decoration-thickness: 2px;
+  }
+  .ledger-note {
+    margin-top: 6px;
+    color: var(--muted);
+    font-size: 12.5px;
+  }
+
+  /* ---------- Steps ---------- */
+  .steps-section {
+    background: var(--bg-alt);
+  }
+  .steps {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    margin: 48px 0 0;
+    padding: 0;
+    list-style: none;
+    counter-reset: none;
+  }
+  .steps li {
+    position: relative;
+    padding: 28px 26px 30px;
+    border-radius: var(--radius);
+    background: var(--card);
+    border: 1px solid var(--border);
+  }
+  .step-n {
+    display: block;
+    margin-bottom: 18px;
+    background: linear-gradient(135deg, var(--hero-start), var(--hero-end));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    font-size: 40px;
+    font-weight: 600;
+    line-height: 1;
+  }
+  .steps h3,
+  .card h3,
+  .privacy-item h3 {
+    font-size: 18px;
+    letter-spacing: -0.01em;
+  }
+  .steps p,
+  .card p,
+  .privacy-item p {
+    margin-top: 8px;
+    color: var(--muted);
+    font-size: 15px;
+  }
+
+  /* ---------- Features bento ---------- */
+  .bento {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-top: 48px;
+  }
+  .card {
+    padding: 26px;
+    border-radius: var(--radius);
+    background: var(--card);
+    border: 1px solid var(--border);
+    transition:
+      transform 0.25s ease,
+      box-shadow 0.25s ease;
+  }
+  .card:hover {
+    box-shadow: var(--shadow);
+  }
+  .card-icon {
+    display: grid;
+    place-items: center;
+    width: 46px;
+    height: 46px;
+    margin-bottom: 18px;
+    border-radius: 14px;
+    color: var(--primary);
+    background: var(--primary-soft);
+  }
+  .card-wide {
+    grid-column: span 2;
+    color: #fff;
+    border: 0;
+    background:
+      radial-gradient(500px 240px at 100% 0%, rgb(56 189 248 / 0.25), transparent 70%),
+      linear-gradient(135deg, var(--hero-start), var(--hero-end));
+  }
+  .card-wide h3 {
+    font-size: 24px;
+  }
+  .card-wide p {
+    max-width: 52ch;
+    color: rgb(255 255 255 / 0.78);
+    font-size: 16px;
+  }
+  .card-wide .card-icon {
+    color: #fff;
+    background: rgb(255 255 255 / 0.16);
+  }
+
+  /* ---------- Made for taka ---------- */
+  .taka {
+    background: var(--bg-alt);
+    overflow: hidden;
+  }
+  .taka-inner {
+    display: grid;
+    grid-template-columns: 1.1fr 1fr;
+    gap: clamp(36px, 6vw, 80px);
+    align-items: center;
+  }
+  .taka-visual {
+    position: relative;
+    display: grid;
+    place-items: center;
+  }
+  .taka-visual::before {
+    content: '৳';
+    position: absolute;
+    z-index: 0;
+    color: var(--primary);
+    opacity: 0.08;
+    font-size: clamp(260px, 38vw, 440px);
+    font-weight: 700;
+    line-height: 1;
+  }
+  .taka-visual :global(.phone) {
+    position: relative;
+    z-index: 1;
+  }
+  .checks {
+    display: grid;
+    gap: 10px;
+    margin: 28px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+  .checks li {
+    display: flex;
+    gap: 12px;
+    align-items: baseline;
+  }
+  .checks li::before {
+    content: '';
+    flex: none;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--income);
+    transform: translateY(-2px);
+  }
+
+  /* ---------- Privacy ---------- */
+  .privacy-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 32px;
+    margin-top: 48px;
+  }
+  .privacy-item {
+    padding-top: 22px;
+    border-top: 2px solid var(--border);
+  }
+  .privacy-item :global(svg) {
+    margin-bottom: 16px;
+    color: var(--primary);
+  }
+
+  /* ---------- Download ---------- */
+  .download-section {
+    padding-top: 0;
+  }
+  .download {
+    position: relative;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 40px;
+    overflow: hidden;
+    padding: clamp(32px, 6vw, 64px);
+    border-radius: 32px;
+    color: #fff;
+    background:
+      radial-gradient(600px 300px at 90% 120%, rgb(56 189 248 / 0.35), transparent 70%),
+      linear-gradient(135deg, #1e2a5e, #6c4cf1);
+  }
+  .eyebrow-light {
+    color: #bae6fd;
+  }
+  .download h2 {
+    font-size: clamp(30px, 4.6vw, 48px);
+  }
+  .download p {
+    margin-top: 16px;
+    max-width: 50ch;
+    color: rgb(255 255 255 / 0.8);
+  }
+  .download-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 14px 22px;
+    margin-top: 30px;
+  }
+  .is-disabled {
+    opacity: 0.75;
+    cursor: default;
+  }
+  .is-disabled:hover {
+    transform: none;
+  }
+  .soon {
+    color: rgb(255 255 255 / 0.65);
+    font-size: 14px;
+  }
+  .qr {
+    display: grid;
+    justify-items: center;
+    gap: 12px;
+    padding: 18px;
+    border-radius: 22px;
+    background: #fff;
+    color: var(--navy);
+  }
+  .qr-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 18px);
+    gap: 4px;
+    filter: blur(1.5px);
+    opacity: 0.35;
+  }
+  .qr-grid span {
+    width: 18px;
+    height: 18px;
+    border-radius: 4px;
+    background: #e2e5f2;
+  }
+  .qr-grid span.on {
+    background: #1e2a5e;
+  }
+  .qr-label {
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  /* ---------- FAQ ---------- */
+  .faq-inner {
+    display: grid;
+    grid-template-columns: 0.8fr 1.2fr;
+    gap: clamp(32px, 6vw, 80px);
+    align-items: start;
+  }
+  .faq details {
+    border-bottom: 1px solid var(--border);
+  }
+  .faq summary {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 22px 0;
+    font-size: 17px;
+    font-weight: 500;
+    list-style: none;
+    cursor: pointer;
+  }
+  .faq summary::-webkit-details-marker {
+    display: none;
+  }
+  .faq summary::after {
+    content: '+';
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    color: var(--primary);
+    background: var(--primary-soft);
+    font-size: 20px;
+    line-height: 1;
+    transition: transform 0.25s ease;
+  }
+  .faq details[open] summary::after {
+    transform: rotate(45deg);
+  }
+  .faq details p {
+    padding: 0 46px 22px 0;
+    color: var(--muted);
+  }
+
+  /* ---------- Footer ---------- */
+  .footer {
+    padding-block: 40px;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 14px;
+  }
+  .footer-inner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px 28px;
+  }
+  .brand-dark {
+    color: var(--text);
+    font-size: 18px;
+  }
+  .brand-dark .brand-mark {
+    width: 36px;
+    height: 36px;
+    border: 1px solid var(--border);
+  }
+  .copy {
+    margin-left: auto;
+  }
+
+  /* ---------- Responsive ---------- */
+  @media (max-width: 960px) {
+    .hero-inner,
+    .idea,
+    .taka-inner,
+    .faq-inner {
+      grid-template-columns: 1fr;
+    }
+    .hero-visual {
+      max-width: 520px;
+    }
+    .privacy-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+    .bento {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  @media (max-width: 720px) {
+    .nav-links {
+      display: none;
+    }
+    .nav-cta {
+      margin-left: auto;
+    }
+    .steps,
+    .bento,
+    .compare {
+      grid-template-columns: 1fr;
+    }
+    .card-wide {
+      grid-column: auto;
+    }
+    .ledger-other,
+    .js .ledger-other[data-reveal].is-visible {
+      transform: none;
+    }
+    .download {
+      grid-template-columns: 1fr;
+    }
+    .qr {
+      justify-self: start;
+    }
+    .copy {
+      margin-left: 0;
+    }
+  }
+
+  @media (max-width: 520px) {
+    .privacy-grid {
+      grid-template-columns: 1fr;
+    }
+    .hero-actions .btn {
+      width: 100%;
+    }
+  }
+</style>

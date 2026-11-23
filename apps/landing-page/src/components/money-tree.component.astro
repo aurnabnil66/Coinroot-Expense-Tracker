@@ -1,0 +1,296 @@
+---
+/**
+ * The hero illustration: one month's salary traced down to what it was spent on, the way
+ * the app's Money tree screen shows it. Amounts are invented; account names are the app's
+ * generic defaults.
+ */
+type Kind = 'income' | 'account' | 'savings' | 'expense';
+
+interface TreeNode {
+  id: string;
+  x: number;
+  y: number;
+  label: string;
+  amount: string;
+  kind: Kind;
+  level: number;
+}
+
+const W = 150;
+const H = 54;
+
+const nodes: TreeNode[] = [
+  { id: 'salary', x: 260, y: 44, label: 'Salary', amount: '+৳85,000', kind: 'income', level: 0 },
+  { id: 'office', x: 260, y: 148, label: 'Office account', amount: '৳15,000 left', kind: 'account', level: 1 },
+  { id: 'primary', x: 260, y: 252, label: 'Primary account', amount: '৳52,000 left', kind: 'account', level: 2 },
+  { id: 'dps', x: 88, y: 364, label: 'Savings (DPS)', amount: '৳5,000', kind: 'savings', level: 3 },
+  { id: 'cash', x: 260, y: 364, label: 'Cash · ATM', amount: '৳10,000', kind: 'account', level: 3 },
+  { id: 'wallet', x: 432, y: 364, label: 'Mobile wallet', amount: '৳3,000', kind: 'account', level: 3 },
+  { id: 'transport', x: 165, y: 476, label: 'Transport', amount: '−৳1,200', kind: 'expense', level: 4 },
+  { id: 'groceries', x: 355, y: 476, label: 'Groceries', amount: '−৳3,400', kind: 'expense', level: 4 },
+];
+
+const edges: [string, string][] = [
+  ['salary', 'office'],
+  ['office', 'primary'],
+  ['primary', 'dps'],
+  ['primary', 'cash'],
+  ['primary', 'wallet'],
+  ['cash', 'transport'],
+  ['cash', 'groceries'],
+];
+
+const byId = new Map(nodes.map((n) => [n.id, n]));
+
+function curve(a: TreeNode, b: TreeNode): string {
+  const y1 = a.y + H / 2;
+  const y2 = b.y - H / 2;
+  const mid = (y1 + y2) / 2;
+  return `M ${a.x} ${y1} C ${a.x} ${mid}, ${b.x} ${mid}, ${b.x} ${y2}`;
+}
+
+const paths = edges.map(([from, to]) => {
+  const a = byId.get(from)!;
+  const b = byId.get(to)!;
+  return { d: curve(a, b), kind: b.kind, level: b.level };
+});
+
+// The glowing coin travels this route: from the salary down to a CNG fare.
+const route = ['salary', 'office', 'primary', 'cash', 'transport'];
+const stops = route.map((id) => byId.get(id)!);
+const routePath =
+  `M ${stops[0].x} ${stops[0].y}` +
+  stops
+    .slice(1)
+    .map((b, i) => {
+      const a = stops[i];
+      const y1 = a.y + H / 2;
+      const y2 = b.y - H / 2;
+      const mid = (y1 + y2) / 2;
+      return ` L ${a.x} ${y1} C ${a.x} ${mid}, ${b.x} ${mid}, ${b.x} ${y2} L ${b.x} ${b.y}`;
+    })
+    .join('');
+
+const cash = byId.get('cash')!;
+---
+
+<figure class="tree" aria-labelledby="tree-caption">
+  <svg viewBox="0 0 520 600" role="img" aria-labelledby="tree-title tree-desc">
+    <title id="tree-title">A month's salary, traced to what it paid for</title>
+    <desc id="tree-desc">
+      Salary of 85,000 taka arrives in the office account. 70,000 moves to the primary account,
+      which sends 5,000 to a DPS, 10,000 to cash by ATM and 3,000 to a mobile wallet. From the
+      cash, 1,200 went on transport and 3,400 on groceries, and 5,400 is still in cash.
+    </desc>
+    <defs>
+      <linearGradient id="root-gradient" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#9d87ff" />
+        <stop offset="100%" stop-color="#38bdf8" />
+      </linearGradient>
+      <radialGradient id="coin-glow">
+        <stop offset="0%" stop-color="#ffffff" />
+        <stop offset="45%" stop-color="#38bdf8" />
+        <stop offset="100%" stop-color="#38bdf8" stop-opacity="0" />
+      </radialGradient>
+    </defs>
+
+    <g class="edges" fill="none">
+      {
+        paths.map((p) => (
+          <path
+            d={p.d}
+            pathLength="1"
+            class={`edge edge-${p.kind}`}
+            style={`--level:${p.level}`}
+          />
+        ))
+      }
+      <path
+        d={`M ${cash.x} ${cash.y + H / 2} L ${cash.x} 548`}
+        pathLength="1"
+        class="edge edge-left"
+        style="--level:4"
+      />
+    </g>
+
+    <!-- Drawn under the cards, so the coin slips behind each account it passes. -->
+    <g class="coin" aria-hidden="true">
+      <circle r="11" fill="url(#coin-glow)" />
+      <circle r="3.5" fill="#ffffff" />
+      <animateMotion dur="5.5s" begin="2.4s" repeatCount="indefinite" path={routePath} keyPoints="0;1" keyTimes="0;1" calcMode="linear" />
+    </g>
+
+    <g class="nodes">
+      {
+        nodes.map((n) => (
+          <g class={`node node-${n.kind}`} style={`--level:${n.level}`}>
+            <rect x={n.x - W / 2} y={n.y - H / 2} width={W} height={H} rx="16" />
+            <text x={n.x} y={n.y - 5} class="node-label">
+              {n.label}
+            </text>
+            <text x={n.x} y={n.y + 15} class="node-amount">
+              {n.amount}
+            </text>
+          </g>
+        ))
+      }
+      <g class="node node-left" style="--level:5">
+        <rect x={cash.x - 92} y="548" width="184" height="34" rx="17" />
+        <text x={cash.x} y="570" class="node-left-text">৳5,400 still in cash</text>
+      </g>
+    </g>
+
+  </svg>
+  <figcaption id="tree-caption">Every taka, traced back to where it came from.</figcaption>
+</figure>
+
+<style>
+  .tree {
+    margin: 0;
+    position: relative;
+    padding: clamp(16px, 3vw, 28px);
+    border-radius: 28px;
+    background:
+      linear-gradient(180deg, rgb(255 255 255 / 0.07), rgb(255 255 255 / 0.02));
+    box-shadow:
+      inset 0 0 0 1px rgb(255 255 255 / 0.12),
+      0 40px 80px -40px rgb(0 0 0 / 0.6);
+    backdrop-filter: blur(6px);
+  }
+
+  svg {
+    width: 100%;
+    height: auto;
+    overflow: visible;
+    font-family: 'Poppins', system-ui, sans-serif;
+  }
+
+  figcaption {
+    margin-top: 8px;
+    color: rgb(255 255 255 / 0.6);
+    font-size: 13px;
+    text-align: center;
+  }
+
+  .edge {
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    animation: draw 0.9s cubic-bezier(0.6, 0, 0.3, 1) forwards;
+    animation-delay: calc(0.35s + var(--level) * 0.32s);
+  }
+  .edge-account,
+  .edge-savings {
+    stroke: url(#root-gradient);
+  }
+  .edge-income {
+    stroke: #34d399;
+  }
+  .edge-expense {
+    stroke: #fb7185;
+    stroke-width: 1.6;
+  }
+  .edge-left {
+    stroke: rgb(255 255 255 / 0.35);
+    stroke-width: 1.5;
+    stroke-dasharray: 0.04 0.04;
+    stroke-dashoffset: 0;
+    opacity: 0;
+    animation: fade 0.6s ease forwards;
+    animation-delay: calc(0.35s + var(--level) * 0.32s);
+  }
+
+  .node {
+    opacity: 0;
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: pop 0.55s cubic-bezier(0.2, 0.8, 0.2, 1.2) forwards;
+    animation-delay: calc(0.15s + var(--level) * 0.32s);
+  }
+  .node rect {
+    fill: #161f4a;
+    stroke: rgb(255 255 255 / 0.14);
+    stroke-width: 1;
+  }
+  .node-income rect {
+    fill: #10334a;
+    stroke: rgb(52 211 153 / 0.55);
+  }
+  .node-savings rect {
+    stroke: rgb(157 135 255 / 0.7);
+  }
+  .node-expense rect {
+    fill: #2a1838;
+    stroke: rgb(251 113 133 / 0.45);
+  }
+  .node-left rect {
+    fill: rgb(56 189 248 / 0.12);
+    stroke: rgb(56 189 248 / 0.5);
+    stroke-dasharray: 4 4;
+  }
+
+  text {
+    text-anchor: middle;
+  }
+  .node-label {
+    fill: rgb(255 255 255 / 0.62);
+    font-size: 11.5px;
+    font-weight: 400;
+  }
+  .node-amount {
+    fill: #ffffff;
+    font-size: 15px;
+    font-weight: 600;
+  }
+  .node-income .node-amount {
+    fill: #34d399;
+  }
+  .node-expense .node-amount {
+    fill: #fb7185;
+  }
+  .node-left-text {
+    fill: #7dd3fc;
+    font-size: 12.5px;
+    font-weight: 500;
+  }
+
+  .coin {
+    opacity: 0;
+    animation: fade 0.4s ease forwards 2.4s;
+  }
+
+  @keyframes draw {
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+  @keyframes pop {
+    from {
+      opacity: 0;
+      transform: translateY(8px) scale(0.94);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  @keyframes fade {
+    to {
+      opacity: 1;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .coin {
+      display: none;
+    }
+    .edge {
+      stroke-dashoffset: 0;
+    }
+    .node,
+    .edge-left {
+      opacity: 1;
+    }
+  }
+</style>
