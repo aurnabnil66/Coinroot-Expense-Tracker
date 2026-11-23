@@ -4,9 +4,13 @@
 # https://github.com/<repo>/releases/latest/download/coinroot.apk (the website's Download button)
 # always serves the newest APK.
 #
-# Start it from apps/mobile:   bunx eas-cli workflow:run .eas/workflows/release.yml
-# or from GitHub:              push a tag vX.Y.Z, or Actions → Release → Run workflow
-#                              (.github/workflows/release.yml at the repo root starts this workflow)
+# Start it from apps/mobile (uploads the local folder: commit and push first):
+#   bunx eas-cli workflow:run .eas/workflows/release.yml
+# or from GitHub: push a tag vX.Y.Z, or Actions → Release → Run workflow (on main)
+#   (.github/workflows/release.yml at the repo root starts this workflow)
+#
+# A version that's already released is refused before building. To replace its APK (e.g. a
+# broken build), add -F replace=true, or tick "replace" when running it from GitHub.
 #
 # Needs the EAS environment variable GH_RELEASE_TOKEN (secret, production environment):
 # a GitHub fine-grained token for this repository with "Contents: Read and write".
@@ -14,11 +18,33 @@
 name: Release
 
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      replace:
+        type: boolean
+        default: false
+        description: Replace the APK of a release that's already published for this version
 
 jobs:
+  # Fails fast (before using a build) on a bad token or an already published version.
+  check_release:
+    name: Check the release
+    environment: production
+    env:
+      GH_REPO: aurnabnil66/Coinroot-Expense-Tracker
+      REPLACE: ${{ inputs.replace }}
+    steps:
+      - uses: eas/checkout
+      # Steps start in the app's folder; the fallback covers a checkout at the repo root.
+      - name: Check the version can be released
+        run: |
+          script=scripts/publish-github-release.mjs
+          [ -f "$script" ] || script=apps/mobile/$script
+          node "$script" --check
+
   build_android:
     name: Build Android APK
+    needs: [check_release]
     type: build
     params:
       platform: android
@@ -30,6 +56,7 @@ jobs:
     environment: production
     env:
       GH_REPO: aurnabnil66/Coinroot-Expense-Tracker
+      REPLACE: ${{ inputs.replace }}
     steps:
       - uses: eas/checkout
 
@@ -45,7 +72,6 @@ jobs:
           APP_VERSION: ${{ needs.build_android.outputs.app_version }}
           VERSION_CODE: ${{ needs.build_android.outputs.app_build_version }}
           COMMIT: ${{ needs.build_android.outputs.git_commit_hash }}
-        # Steps start in the app's folder; the fallback covers a checkout at the repo root.
         run: |
           script=scripts/publish-github-release.mjs
           [ -f "$script" ] || script=apps/mobile/$script
