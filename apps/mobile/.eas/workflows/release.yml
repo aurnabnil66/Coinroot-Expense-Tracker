@@ -1,0 +1,52 @@
+# Release: build the Android APK on EAS, then publish it as a GitHub Release.
+#
+# The release is tagged v<version from app.json> and holds one file, coinroot.apk, so
+# https://github.com/<repo>/releases/latest/download/coinroot.apk (the website's Download button)
+# always serves the newest APK.
+#
+# Start it from apps/mobile:   bunx eas-cli workflow:run .eas/workflows/release.yml
+# or from GitHub:              push a tag vX.Y.Z, or Actions → Release → Run workflow
+#                              (.github/workflows/release.yml at the repo root starts this workflow)
+#
+# Needs the EAS environment variable GH_RELEASE_TOKEN (secret, production environment):
+# a GitHub fine-grained token for this repository with "Contents: Read and write".
+
+name: Release
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  build_android:
+    name: Build Android APK
+    type: build
+    params:
+      platform: android
+      profile: production
+
+  publish_github:
+    name: Publish on GitHub
+    needs: [build_android]
+    environment: production
+    env:
+      GH_REPO: aurnabnil66/Coinroot-Expense-Tracker
+    steps:
+      - uses: eas/checkout
+
+      - uses: eas/download_build
+        id: download
+        with:
+          build_id: ${{ needs.build_android.outputs.build_id }}
+          extensions: [apk]
+
+      - name: Create the GitHub Release
+        env:
+          APK_PATH: ${{ steps.download.outputs.artifact_path }}
+          APP_VERSION: ${{ needs.build_android.outputs.app_version }}
+          VERSION_CODE: ${{ needs.build_android.outputs.app_build_version }}
+          COMMIT: ${{ needs.build_android.outputs.git_commit_hash }}
+        # Steps start in the app's folder; the fallback covers a checkout at the repo root.
+        run: |
+          script=scripts/publish-github-release.mjs
+          [ -f "$script" ] || script=apps/mobile/$script
+          node "$script"
