@@ -1,56 +1,58 @@
-# Welcome to your Expo app 👋
+# Coinroot
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A personal money tracker for Bangladesh (৳ / BDT) that traces every taka back to where it came from.
 
-## Get started
+Money doesn't just get spent: it moves. Salary lands in one bank account, part of it moves to another, an ATM withdrawal turns it into cash, and the cash pays for a rickshaw. Coinroot keeps that chain, so you can see where each expense's money came from and what's left of it. Transfers between your own accounts are never counted as spending.
 
-1. Install dependencies
-
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **src/app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
+```
+Salary → Office bank account → Primary bank account → ATM withdrawal (→ Cash)
+                                                        ├─ Transport expense
+                                                        └─ still in cash
 ```
 
-This command will move the starter code to the **example** directory and create a blank **src/app** directory where you can start developing.
+## Features
 
-### Other setup steps
+- Income, expenses and transfers across bank accounts, cash, mobile wallets and savings / DPS
+- Balances worked out from your entries, with "Count cash" / "Check balance" to match reality
+- Money tree: link an expense to the entry its money came from and follow the whole chain
+- Monthly summary: income, spending by category, spending over time, moved to savings
+- Import any spreadsheet (CSV or a pasted table), export to CSV, back up and restore a file
+- Light and dark theme, Simple mode with quick add
+- Optional account for cloud backup and sync between phones
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+## Privacy
 
-## Learn more
+Coinroot is local-first. Everything is stored in a database on your phone and the app works fully offline. Nothing leaves the phone unless you create an account and turn on cloud sync. There are no ads and no trackers.
 
-To learn more about developing your project with Expo, look at the following resources:
+## Install
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+Android APKs will be published on the [Releases](../../releases) page. iOS isn't released yet.
 
-## Join the community
+## Build from source
 
-Join our community of developers creating universal apps.
+You need [Bun](https://bun.sh) and, for the Android app, a development build (the app uses native modules, so Expo Go isn't enough).
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+```bash
+bun install          # once, at the repo root
+bun run dev:mobile   # start Metro for the app
+bun run dev:landing  # the website at http://localhost:4321
+bun run check        # lint, typecheck, tests and builds
+```
+
+Sign-in and sync are optional. To use them, copy `apps/mobile/.env.example` to `apps/mobile/.env.local` and fill in your own Supabase project's values; without them the app works fully offline.
+
+| Path | What |
+|---|---|
+| `apps/mobile` | The Expo / React Native app |
+| `apps/landing-page` | The website (Astro, static) |
+| `supabase` | Optional cloud backend: SQL migrations and config |
+
+## License
+
+Copyright (C) 2026 Mnemonics HQ
+
+Coinroot is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version. It is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See [LICENSE](LICENSE) for the full text.
+
+The Poppins font is licensed separately under the SIL Open Font License (`Poppins-OFL.txt` next to the font files).
+
+If you publish your own version, please give it a different name and icon so people don't confuse it with Coinroot.

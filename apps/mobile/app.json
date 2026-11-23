@@ -2,6 +2,7 @@
   "expo": {
     "name": "Coinroot",
     "slug": "coinroot",
+    "owner": "mnemonics",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -9,7 +10,7 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "icon": "./assets/expo.icon",
-      "bundleIdentifier": "com.coinroot"
+      "bundleIdentifier": "com.mnemonics.coinroot"
     },
     "android": {
       "adaptiveIcon": {
@@ -19,7 +20,7 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.coinroot"
+      "package": "com.mnemonics.coinroot"
     },
     "web": {
       "output": "server",

@@ -3,6 +3,7 @@ import Base from '../layouts/base.layout.astro';
 import Icon from '../components/icon.component.astro';
 import MoneyTree from '../components/money-tree.component.astro';
 import PhoneMock from '../components/phone-mock.component.astro';
+import { APK_URL, RELEASES_URL, apkQrSvg, getLatestRelease } from '../utils/latest-release.util';
 
 const features = [
   {
@@ -80,7 +81,7 @@ const faqs = [
   },
   {
     q: 'Is installing an APK safe?',
-    a: 'Download Coinroot only from this site. Android will ask you to allow installs from your browser the first time; you can turn that off again afterwards.',
+    a: 'Download Coinroot only from this site or its GitHub Releases page. Android will ask you to allow installs from your browser the first time; you can turn that off again afterwards. To update, install the new version over the old one: your data stays.',
   },
   {
     q: 'Does it work with my bank or mobile wallet?',
@@ -101,10 +102,19 @@ const faqs = [
 ];
 
 const year = new Date().getFullYear();
+
+// Read at build time (see latest-release.util.ts): "coming soon" until the first release exists.
+const release = await getLatestRelease();
+const canDownload = release.status !== 'none';
+const qrSvg = canDownload ? await apkQrSvg() : '';
+const releaseDate =
+  release.status === 'available'
+    ? release.publishedAt.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+    : '';
 ---
 
 <Base
-  title="Coinroot: every taka has a root"
+  title="Coinroot: Every Taka has a Root"
   description="Coinroot is a free, offline money tracker for Bangladesh. Track every taka across bank accounts, cash, mobile wallets and DPS, and trace any expense back to where it came from."
 >
   <!-- HERO -->
@@ -285,22 +295,58 @@ const year = new Date().getFullYear();
         <div class="download" data-reveal>
           <div class="download-copy">
             <span class="eyebrow eyebrow-light">Download</span>
-            <h2>Coming soon to Android.</h2>
-            <p>
-              Coinroot will be available here as a direct download (APK). Scan the code with
-              your phone or tap the button, and you’re set up in a minute.
-            </p>
-            <div class="download-actions">
-              <span class="btn btn-primary is-disabled" aria-disabled="true"><Icon name="download" size={20} />Download APK · soon</span>
-              <span class="soon">iPhone: not yet</span>
-            </div>
+            {
+              canDownload ? (
+                <>
+                  <h2>Get Coinroot for Android.</h2>
+                  <p>
+                    Free, as a direct download (APK). Tap the button on your phone (on a computer, scan
+                    the code with it), then open the file to install. New versions install over the old
+                    one and keep your data.
+                  </p>
+                  <div class="download-actions">
+                    <a class="btn btn-primary" href={APK_URL} download>
+                      <Icon name="download" size={20} />
+                      Download APK
+                    </a>
+                    <a class="release-link" href={RELEASES_URL}>All versions on GitHub</a>
+                  </div>
+                  {release.status === 'available' && (
+                    <p class="release-meta">
+                      Version {release.version} · {releaseDate} · {release.sizeMb} MB · Android
+                    </p>
+                  )}
+                </>
+              ) : (
+                <>
+                  <h2>Coming soon to Android.</h2>
+                  <p>
+                    Coinroot will be available here as a direct download (APK). Scan the code with
+                    your phone or tap the button, and you’re set up in a minute.
+                  </p>
+                  <div class="download-actions">
+                    <span class="btn btn-primary is-disabled" aria-disabled="true"><Icon name="download" size={20} />Download APK · soon</span>
+                    <span class="soon">iPhone: not yet</span>
+                  </div>
+                </>
+              )
+            }
           </div>
-          <div class="qr" aria-label="QR code coming soon" role="img">
-            <div class="qr-grid" aria-hidden="true">
-              {Array.from({ length: 49 }, (_, i) => <span class={((i * 7 + (i % 5) * 3) % 4 === 0 || [0, 1, 7, 8, 5, 6, 12, 13, 35, 36, 42, 43].includes(i)) ? 'on' : ''} />)}
-            </div>
-            <span class="qr-label">QR code soon</span>
-          </div>
+          {
+            canDownload ? (
+              <div class="qr is-live">
+                <div class="qr-code" role="img" aria-label="QR code linking to the Coinroot APK" set:html={qrSvg} />
+                <span class="qr-label">Scan to download</span>
+              </div>
+            ) : (
+              <div class="qr" aria-label="QR code coming soon" role="img">
+                <div class="qr-grid" aria-hidden="true">
+                  {Array.from({ length: 49 }, (_, i) => <span class={((i * 7 + (i % 5) * 3) % 4 === 0 || [0, 1, 7, 8, 5, 6, 12, 13, 35, 36, 42, 43].includes(i)) ? 'on' : ''} />)}
+                </div>
+                <span class="qr-label">QR code soon</span>
+              </div>
+            )
+          }
         </div>
       </div>
     </section>
@@ -833,6 +879,29 @@ const year = new Date().getFullYear();
     font-size: 13px;
     font-weight: 600;
   }
+  .qr-code {
+    width: 168px;
+    height: 168px;
+  }
+  .qr-code :global(svg) {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+  .release-link {
+    color: #fff;
+    font-size: 15px;
+    font-weight: 500;
+    text-underline-offset: 4px;
+  }
+  .release-link:hover {
+    color: #bae6fd;
+  }
+  .download .release-meta {
+    margin-top: 18px;
+    color: rgb(255 255 255 / 0.65);
+    font-size: 14px;
+  }
 
   /* ---------- FAQ ---------- */
   .faq-inner {
@@ -955,6 +1024,10 @@ const year = new Date().getFullYear();
   }
 
   @media (max-width: 520px) {
+    /* On a phone the button is the way in; the code is for opening the page on a computer. */
+    .qr.is-live {
+      display: none;
+    }
     .privacy-grid {
       grid-template-columns: 1fr;
     }
