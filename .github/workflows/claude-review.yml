@@ -46,7 +46,8 @@ jobs:
             PR NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
 
             Review this pull request before it is merged into main.
-            Read CLAUDE.md and AGENTS.md first and check the change against their rules
+            Read the root CLAUDE.md first, then the CLAUDE.md (and AGENTS.md) of each app the
+            change touches (e.g. apps/mobile/CLAUDE.md), and check the change against their rules
             (domain rules, money as integer poisha, folder structure, file naming, barrels,
             styling, forms, loading states, dialogs).
 

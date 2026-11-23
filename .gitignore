@@ -18,6 +18,9 @@ expo-env.d.ts
 *.key
 *.mobileprovision
 
+# Turborepo
+.turbo/
+
 # Metro
 .metro-health-check*
 
@@ -40,8 +43,8 @@ yarn-error.*
 example
 
 # generated native folders
-/ios
-/android
+apps/*/ios
+apps/*/android
 
 # code editor folders
 .vscode/
