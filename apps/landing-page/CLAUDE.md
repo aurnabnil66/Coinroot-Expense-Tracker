@@ -1,6 +1,6 @@
 # Coinroot website (`apps/landing-page`)
 
-The landing page for the Coinroot app: what it does, why, privacy, and (later) where to download the Android APK. Part of the Coinroot monorepo (see the root `CLAUDE.md`). Product facts come from `apps/mobile/CLAUDE.md`; don't promise features the app doesn't have.
+The landing page for the Coinroot app: what it does, why, privacy, and where to download the Android APK (from the GitHub Releases the release workflow publishes). Part of the Coinroot monorepo (see the root `CLAUDE.md`). Product facts come from `apps/mobile/CLAUDE.md`; don't promise features the app doesn't have.
 
 ## Stack
 
@@ -14,7 +14,8 @@ The landing page for the Coinroot app: what it does, why, privacy, and (later) w
 
 | Path | What |
 |---|---|
-| `src/pages/index.astro` | The page: hero, the idea (transfers vs spending), how it works, features, made for Bangladesh, privacy, download (coming soon), FAQ, footer |
+| `src/pages/index.astro` | The page: hero, the idea (transfers vs spending), how it works, features, made for Bangladesh, privacy, download, FAQ, footer |
+| `src/utils/latest-release.util.ts` | The download: `APK_URL` (`…/releases/latest/download/coinroot.apk`), `getLatestRelease()` (version, date and size of the latest GitHub Release, read at build time) and `apkQrSvg()` (the QR code, drawn at build time with `qrcode`) |
 | `src/layouts/base.layout.astro` | `<head>` (meta, social preview, fonts) and the reveal-on-scroll script |
 | `src/components/money-tree.component.astro` | The hero's animated SVG money tree (salary → accounts → spending) |
 | `src/components/phone-mock.component.astro` | The app's Accounts tab drawn in HTML |
@@ -29,4 +30,5 @@ File names are kebab-case with a suffix (`*.component.astro`, `*.layout.astro`),
 - Amounts use the taka sign and lakh grouping (`৳2,45,300`).
 - Motion respects `prefers-reduced-motion`; content stays visible without JavaScript (`[data-reveal]` only hides when the `js` class is set).
 - Works from 320 px wide with no horizontal scroll.
+- **Download section:** the button always links to `APK_URL`, which GitHub redirects to the newest release's `coinroot.apk`, so a new release needs no site change. The version / date / size line comes from `getLatestRelease()` at build time (the page makes no request to GitHub), so rebuild the site after a release to update it. Without a release (404: none yet, or the repo is private) the section shows "Coming soon"; if GitHub can't be reached it still shows the button, without the details. The QR code (to the APK) is hidden below 520 px, where the button is the way in. Releases repo: `RELEASES_REPO`.
 - Hosting is not set up yet. When the domain is known, set `site` in `astro.config.mjs`: `base.layout.astro` then adds the canonical link, `og:url` and `og:image` (absolute URLs, which crawlers need). Until then those tags are left out.
