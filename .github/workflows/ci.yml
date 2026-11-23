@@ -37,16 +37,9 @@ jobs:
       # `expo start` writes this file (it's gitignored); without it TypeScript doesn't know
       # Expo's types, such as the `@/global.css` import.
       - name: Expo type references
+        working-directory: apps/mobile
         run: printf '/// <reference types="expo/types" />\n' > expo-env.d.ts
 
-      - name: Lint
-        run: bunx expo lint
-
-      - name: Typecheck
-        run: bunx tsc --noEmit
-
-      - name: Tests
-        run: bun run test --ci
-
-      - name: Database migrations are consistent
-        run: bun run db:check
+      # Lint, typecheck, tests and the database migrations check of every app, through Turborepo.
+      - name: Checks
+        run: bunx turbo run lint typecheck test db:check

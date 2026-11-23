@@ -1,0 +1,4 @@
+[install]
+# React Native, Metro and NativeWind expect one hoisted node_modules at the root.
+# Bun 1.3 defaults workspaces to isolated installs, which some React Native libraries can't resolve.
+linker = "hoisted"

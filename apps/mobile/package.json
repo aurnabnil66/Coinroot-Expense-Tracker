@@ -1,7 +1,20 @@
 {
-  "name": "coinroot-expense-tracker",
+  "name": "@coinroot/mobile",
   "version": "1.0.0",
+  "private": true,
   "main": "index.js",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
+    "web": "expo start --web",
+    "lint": "expo lint",
+    "test": "jest",
+    "db:generate": "drizzle-kit generate",
+    "db:check": "drizzle-kit check",
+    "db:types": "bunx supabase --workdir ../.. gen types typescript --remote --schema public > src/lib/supabase/database.supabase.ts",
+    "typecheck": "tsc --noEmit"
+  },
   "dependencies": {
     "@expo/html-elements": "^58.0.3",
     "@expo/ui": "~58.0.26",
@@ -67,18 +80,6 @@
     "tailwindcss": "^3.4.17",
     "typescript": "~6.0.3"
   },
-  "scripts": {
-    "start": "expo start",
-    "android": "expo run:android",
-    "ios": "expo run:ios",
-    "web": "expo start --web",
-    "lint": "expo lint",
-    "test": "jest",
-    "db:generate": "drizzle-kit generate",
-    "db:check": "drizzle-kit check",
-    "db:types": "bunx supabase gen types typescript --remote --schema public > src/lib/supabase/database.supabase.ts"
-  },
-  "private": true,
   "jest": {
     "preset": "jest-expo"
   }
