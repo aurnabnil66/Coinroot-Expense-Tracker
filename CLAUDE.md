@@ -29,4 +29,4 @@ bun run check        # lint + typecheck + test + db:check + build in every works
 bun run lint | typecheck | test | db:check | build
 ```
 
-Every workspace that has them exposes `lint`, `typecheck`, `test`, `db:check` and `build` scripts so Turborepo can run them. Run `bun run check` before calling a task done. EAS commands run from `apps/mobile`.
+Turborepo runs `lint`, `typecheck`, `test`, `db:check` and `build` in each workspace that defines them; a workspace without one says why in its own `CLAUDE.md` (the landing page has no `lint` / `test`). Run `bun run check` before calling a task done. EAS commands run from `apps/mobile`.

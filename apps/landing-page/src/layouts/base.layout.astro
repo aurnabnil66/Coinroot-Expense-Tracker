@@ -7,6 +7,12 @@ interface Props {
 }
 
 const { title, description } = Astro.props;
+
+// Social crawlers need absolute URLs, which need `site` in astro.config.mjs. Until it's set
+// (no domain yet), the canonical / og:url / og:image tags are left out.
+const site = Astro.site;
+const canonical = site ? new URL(Astro.url.pathname, site).href : undefined;
+const ogImage = site ? new URL('/og-image.png', site).href : undefined;
 ---
 
 <!doctype html>
@@ -24,10 +30,22 @@ const { title, description } = Astro.props;
     <link rel="preload" href="/fonts/Poppins-Regular.ttf" as="font" type="font/ttf" crossorigin />
 
     <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Coinroot" />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
-    <meta property="og:image" content="/apple-touch-icon.png" />
-    <meta name="twitter:card" content="summary" />
+    {canonical && <link rel="canonical" href={canonical} />}
+    {canonical && <meta property="og:url" content={canonical} />}
+    {
+      ogImage && (
+        <>
+          <meta property="og:image" content={ogImage} />
+          <meta property="og:image:width" content="1200" />
+          <meta property="og:image:height" content="630" />
+          <meta property="og:image:alt" content="Coinroot: every taka has a root." />
+        </>
+      )
+    }
+    <meta name="twitter:card" content={ogImage ? 'summary_large_image' : 'summary'} />
 
     <!-- Reveal-on-scroll is only hidden when JS can show it again. -->
     <script is:inline>document.documentElement.classList.add('js');</script>
