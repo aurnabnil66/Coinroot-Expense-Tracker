@@ -1,5 +1,6 @@
-// Publishes a built APK as a GitHub Release. Run by the EAS workflow `.eas/workflows/release.yml`;
-// Node 22, no dependencies.
+// Publishes a built APK as a GitHub Release. Run by `bun run release` (scripts/release.mjs, local
+// builds) and by the EAS workflow `.eas/workflows/release.yml` (cloud builds); Node 22, no
+// dependencies.
 //
 //   node publish-github-release.mjs --check   before the build: checks app.json can receive OTA
 //                                             updates, the token works and the release can be published
@@ -14,6 +15,8 @@
 //   VERSION_CODE      Android versionCode of the build (optional, shown in the notes)
 //   COMMIT            full commit SHA the build came from (optional; a new tag points at it,
 //                     otherwise at the default branch)
+//   RUNTIME_VERSION   the APK's runtime version (fingerprint); written in the notes, where
+//                     `bun run ota` checks an update matches the latest release
 //   REPLACE           "true" to replace the APK of a release that's already published
 //   GH_API_URL        API base, default https://api.github.com (for testing)
 //
@@ -29,6 +32,12 @@ import { readFile } from 'node:fs/promises';
 const ASSET_NAME = 'coinroot.apk';
 const UPLOAD_PREFIX = 'coinroot-upload-';
 const CHECKSUM_LINE = /^SHA-256 of coinroot\.apk: .*$/m;
+const RUNTIME_LINE = /^Runtime version: .*$/m;
+
+/** Replaces the line `pattern` matches, or adds `line` at the end. */
+function withLine(body, pattern, line) {
+  return pattern.test(body) ? body.replace(pattern, line) : `${body}\n\n${line}`;
+}
 
 function env(name, { optional = false } = {}) {
   let value = process.env[name]?.trim();
@@ -44,7 +53,7 @@ async function readAppJson() {
   return JSON.parse(await readFile(new URL('../app.json', import.meta.url), 'utf8')).expo;
 }
 
-/** An APK built without these could never receive OTA updates (.eas/workflows/ota-update.yml). */
+/** An APK built without these could never receive OTA updates (`bun run ota`). */
 function checkOtaConfig(expo) {
   if (!expo.updates?.url || !expo.runtimeVersion) {
     throw new Error(
@@ -121,6 +130,8 @@ const commit = env('COMMIT', { optional: true });
 const apk = await readFile(apkPath);
 const checksum = createHash('sha256').update(apk).digest('hex');
 const checksumLine = `SHA-256 of coinroot.apk: \`${checksum}\``;
+const runtime = env('RUNTIME_VERSION', { optional: true });
+const runtimeLine = runtime ? `Runtime version: \`${runtime}\`` : null;
 
 let release = existing;
 if (release) {
@@ -139,6 +150,7 @@ if (release) {
         'Installing over an earlier version keeps your data.',
         '',
         checksumLine,
+        ...(runtimeLine ? [runtimeLine] : []),
       ].join('\n'),
       generate_release_notes: true,
       draft: true,
@@ -165,10 +177,9 @@ await github(`/releases/assets/${uploaded.id}`, {
   body: JSON.stringify({ name: ASSET_NAME }),
 });
 
-// 3. Publish (a draft) and mark as latest, with the new checksum in the notes.
-const body = CHECKSUM_LINE.test(release.body ?? '')
-  ? release.body.replace(CHECKSUM_LINE, checksumLine)
-  : `${release.body ?? ''}\n\n${checksumLine}`;
+// 3. Publish (a draft) and mark as latest, with the new checksum and runtime version in the notes.
+let body = withLine(release.body ?? '', CHECKSUM_LINE, checksumLine);
+if (runtimeLine) body = withLine(body, RUNTIME_LINE, runtimeLine);
 release = await github(`/releases/${release.id}`, {
   method: 'PATCH',
   body: JSON.stringify({ body, draft: false, make_latest: 'true' }),
