@@ -13,7 +13,7 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "icon": "./assets/expo.icon",
-      "bundleIdentifier": "com.mnemonics.coinroot"
+      "bundleIdentifier": "com.mnemonicshq.coinroot"
     },
     "android": {
       "adaptiveIcon": {
@@ -23,7 +23,7 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.mnemonics.coinroot"
+      "package": "com.mnemonicshq.coinroot"
     },
     "web": {
       "output": "server",
@@ -96,6 +96,14 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "0b653f26-8947-44e8-b1e9-d3cf5c4d4585"
+      }
+    },
+    "updates": {
+      "url": "https://u.expo.dev/0b653f26-8947-44e8-b1e9-d3cf5c4d4585"
     }
   }
 }
