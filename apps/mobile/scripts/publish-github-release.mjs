@@ -1,8 +1,9 @@
 // Publishes a built APK as a GitHub Release. Run by the EAS workflow `.eas/workflows/release.yml`;
 // Node 22, no dependencies.
 //
-//   node publish-github-release.mjs --check   before the build: checks the token works and that the
-//                                             release can be published (reads the version from app.json)
+//   node publish-github-release.mjs --check   before the build: checks app.json can receive OTA
+//                                             updates, the token works and the release can be published
+//                                             (reads the version from app.json)
 //   node publish-github-release.mjs           after the build: publishes APK_PATH
 //
 // Environment:
@@ -39,16 +40,27 @@ function env(name, { optional = false } = {}) {
   return value || undefined;
 }
 
-async function appJsonVersion() {
-  const appJson = JSON.parse(await readFile(new URL('../app.json', import.meta.url), 'utf8'));
-  return appJson.expo.version;
+async function readAppJson() {
+  return JSON.parse(await readFile(new URL('../app.json', import.meta.url), 'utf8')).expo;
+}
+
+/** An APK built without these could never receive OTA updates (.eas/workflows/ota-update.yml). */
+function checkOtaConfig(expo) {
+  if (!expo.updates?.url || !expo.runtimeVersion) {
+    throw new Error(
+      'app.json has no updates.url or runtimeVersion, so this APK could never receive OTA updates. ' +
+        'Run `bunx eas-cli update:configure` in apps/mobile (after `eas init`), commit, and release again.',
+    );
+  }
 }
 
 const checkOnly = process.argv.includes('--check');
+const appJson = checkOnly || !process.env.APP_VERSION ? await readAppJson() : undefined;
+if (checkOnly) checkOtaConfig(appJson);
 const token = env('GH_RELEASE_TOKEN');
 const repo = env('GH_REPO');
 const apiUrl = env('GH_API_URL', { optional: true }) ?? 'https://api.github.com';
-const version = env('APP_VERSION', { optional: true }) ?? (await appJsonVersion());
+const version = env('APP_VERSION', { optional: true }) ?? appJson.version;
 const replace = env('REPLACE', { optional: true }) === 'true';
 const tag = `v${version}`;
 

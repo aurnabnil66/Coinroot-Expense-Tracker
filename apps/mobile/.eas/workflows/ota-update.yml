@@ -1,0 +1,65 @@
+# OTA update: publish a JavaScript-only update to installed APKs, without a new release.
+#
+# The runtime version is the project's fingerprint (app.json `runtimeVersion.policy`), so an update
+# only reaches APKs whose native code matches exactly. This workflow fingerprints the project,
+# looks for a production build with that fingerprint, and:
+# - publishes the update to the `production` channel when one exists;
+# - stops with a message when none does: the native code changed (a new native library, an
+#   app.json plugin or icon change, an Expo SDK upgrade, …), so make a release instead
+#   (.eas/workflows/release.yml), which builds a new APK.
+#
+# Start it from apps/mobile (uploads the local folder: commit and push first):
+#   bunx eas-cli workflow:run .eas/workflows/ota-update.yml -F message="Fix the summary totals"
+# or from GitHub: Actions → OTA update → Run workflow (on main)
+#   (.github/workflows/trigger-eas-update.yml at the repo root starts this workflow)
+#
+# Installed apps download the update the next time they start and run it from the start after.
+
+name: OTA update
+
+on:
+  workflow_dispatch:
+    inputs:
+      message:
+        type: string
+        required: true
+        description: What changed, shown with the update on expo.dev
+
+jobs:
+  fingerprint:
+    name: Fingerprint
+    type: fingerprint
+    environment: production
+
+  get_android_build:
+    name: Find a matching APK
+    needs: [fingerprint]
+    type: get-build
+    params:
+      platform: android
+      profile: production
+      fingerprint_hash: ${{ needs.fingerprint.outputs.android_fingerprint_hash }}
+      wait_for_in_progress: true
+
+  publish_update:
+    name: Publish the update
+    needs: [get_android_build]
+    if: ${{ needs.get_android_build.outputs.build_id }}
+    type: update
+    environment: production
+    params:
+      channel: production
+      platform: android
+      message: ${{ inputs.message }}
+
+  needs_release:
+    name: Native code changed
+    needs: [get_android_build]
+    if: ${{ !needs.get_android_build.outputs.build_id }}
+    steps:
+      - name: Stop
+        run: |
+          echo "No production APK has this fingerprint: the native code changed since the last release,"
+          echo "so installed apps couldn't run this update. Make a release instead (it builds a new APK):"
+          echo "raise \"version\" in app.json, then run .eas/workflows/release.yml (or push the tag v<version>)."
+          exit 1

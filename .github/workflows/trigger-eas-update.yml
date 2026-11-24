@@ -1,0 +1,60 @@
+name: OTA update
+
+# Starts the EAS workflow apps/mobile/.eas/workflows/ota-update.yml, which publishes a
+# JavaScript-only update to installed APKs whose native code matches (otherwise it stops and
+# says to make a release instead). Run it from Actions → OTA update → Run workflow, on main.
+# The same EAS workflow can be started from a terminal:
+# cd apps/mobile && bunx eas-cli workflow:run .eas/workflows/ota-update.yml -F message="…"
+#
+# Needs the repository secret EXPO_TOKEN (see trigger-eas-workflow.yml).
+
+on:
+  workflow_dispatch:
+    inputs:
+      message:
+        description: What changed (shown with the update on expo.dev)
+        type: string
+        required: true
+
+concurrency:
+  group: ota-update
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  # Exact version: this job holds EXPO_TOKEN. Keep it in step with trigger-eas-workflow.yml.
+  EAS_CLI_VERSION: 27.11.0
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - name: Only from main
+        if: github.ref_name != 'main'
+        working-directory: .
+        run: |
+          echo "::error::Publish updates from main, not from $GITHUB_REF_NAME."
+          exit 1
+
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - name: Install
+        working-directory: .
+        run: bun install --frozen-lockfile
+
+      # Uploads this checkout to EAS and waits, so this run shows whether the update went out.
+      - name: Run the EAS update workflow
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          MESSAGE: ${{ inputs.message }}
+        run: bunx "eas-cli@$EAS_CLI_VERSION" workflow:run .eas/workflows/ota-update.yml --non-interactive --wait -F "message=$MESSAGE"
