@@ -1,4 +1,6 @@
-# Release: build the Android APK on EAS, then publish it as a GitHub Release.
+# Release in the cloud: build the Android APK on EAS, then publish it as a GitHub Release.
+# Optional backup: releases normally run on your computer with `bun run release`
+# (scripts/release.mjs), which is free; this one uses an EAS build from the plan's allowance.
 #
 # The release is tagged v<version from app.json> and holds one file, coinroot.apk, so
 # https://github.com/<repo>/releases/latest/download/coinroot.apk (the website's Download button)
@@ -7,12 +9,13 @@
 # Start it from apps/mobile (uploads the local folder: commit and push first):
 #   bunx eas-cli workflow:run .eas/workflows/release.yml
 # or from GitHub: push a tag vX.Y.Z, or Actions → Release → Run workflow (on main)
-#   (.github/workflows/release.yml at the repo root starts this workflow)
+#   (.github/workflows/trigger-eas-workflow.yml at the repo root starts this workflow)
 #
 # A version that's already released is refused before building. To replace its APK (e.g. a
 # broken build), add -F replace=true, or tick "replace" when running it from GitHub.
 #
-# Needs the EAS environment variable GH_RELEASE_TOKEN (secret, production environment):
+# Needs the EAS environment variable GH_RELEASE_TOKEN (secret, production environment; not set
+# up while releases run locally):
 # a GitHub fine-grained token for this repository with "Contents: Read and write".
 
 name: Release
@@ -72,6 +75,7 @@ jobs:
           APP_VERSION: ${{ needs.build_android.outputs.app_version }}
           VERSION_CODE: ${{ needs.build_android.outputs.app_build_version }}
           COMMIT: ${{ needs.build_android.outputs.git_commit_hash }}
+          RUNTIME_VERSION: ${{ needs.build_android.outputs.runtime_version }}
         run: |
           script=scripts/publish-github-release.mjs
           [ -f "$script" ] || script=apps/mobile/$script

@@ -6,8 +6,8 @@ name: Release
 # Actions → Release → Run workflow (main only). The same EAS workflow can be started from a
 # terminal: cd apps/mobile && bunx eas-cli workflow:run .eas/workflows/release.yml
 #
-# Needs the repository secret EXPO_TOKEN: an access token of the Expo organization `mnemonics`
-# (expo.dev → mnemonics → Settings → Access tokens).
+# Needs the repository secret EXPO_TOKEN: an access token of the Expo organization `mnemonics-hq`
+# (expo.dev → mnemonics-hq → Settings → Access tokens).
 
 on:
   push:

@@ -4,3 +4,6 @@
 
 expo-env.d.ts
 # @end expo-cli
+# Locally built app files (eas build --local)
+*.apk
+*.aab

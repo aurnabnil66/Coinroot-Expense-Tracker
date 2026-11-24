@@ -15,7 +15,9 @@
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "db:check": "turbo run db:check",
-    "check": "turbo run lint typecheck test db:check build"
+    "check": "turbo run lint typecheck test db:check build",
+    "release": "bun run --cwd apps/mobile release",
+    "ota": "bun run --cwd apps/mobile ota"
   },
   "devDependencies": {
     "turbo": "^2.11.13"
