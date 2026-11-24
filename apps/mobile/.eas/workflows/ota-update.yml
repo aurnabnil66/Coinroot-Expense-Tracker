@@ -11,7 +11,7 @@
 # Start it from apps/mobile (uploads the local folder: commit and push first):
 #   bunx eas-cli workflow:run .eas/workflows/ota-update.yml -F message="Fix the summary totals"
 # or from GitHub: Actions → OTA update → Run workflow (on main)
-#   (.github/workflows/trigger-eas-update.yml at the repo root starts this workflow)
+#   (.github/workflows/trigger-ota-update.yml at the repo root starts this workflow)
 #
 # Installed apps download the update the next time they start and run it from the start after.
 
