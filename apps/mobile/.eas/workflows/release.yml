@@ -7,7 +7,7 @@
 # Start it from apps/mobile (uploads the local folder: commit and push first):
 #   bunx eas-cli workflow:run .eas/workflows/release.yml
 # or from GitHub: push a tag vX.Y.Z, or Actions → Release → Run workflow (on main)
-#   (.github/workflows/release.yml at the repo root starts this workflow)
+#   (.github/workflows/trigger-eas-workflow.yml at the repo root starts this workflow)
 #
 # A version that's already released is refused before building. To replace its APK (e.g. a
 # broken build), add -F replace=true, or tick "replace" when running it from GitHub.
