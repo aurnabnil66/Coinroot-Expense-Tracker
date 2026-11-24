@@ -1,6 +1,6 @@
 # Coinroot website (`apps/landing-page`)
 
-The landing page for the Coinroot app: what it does, why, privacy, and where to download the Android APK (from the GitHub Releases the release workflow publishes). Part of the Coinroot monorepo (see the root `CLAUDE.md`). Product facts come from `apps/mobile/CLAUDE.md`; don't promise features the app doesn't have.
+The landing page for the Coinroot app: what it does, why, privacy, and where to download the Android APK (from the GitHub Releases that `bun run release` publishes). Part of the Coinroot monorepo (see the root `CLAUDE.md`). Product facts come from `apps/mobile/CLAUDE.md`; don't promise features the app doesn't have.
 
 ## Stack
 

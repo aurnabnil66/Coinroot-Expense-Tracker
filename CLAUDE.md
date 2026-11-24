@@ -8,7 +8,7 @@ Coinroot is a personal money tracker for one user in Bangladesh (BDT / taka), lo
 | `apps/landing-page/` | The landing page (Astro, fully static, plain CSS). Read `apps/landing-page/CLAUDE.md` before working there. |
 | `packages/` | Shared packages (none yet). Add one only when a second app actually needs the code. |
 | `supabase/` | The optional cloud backend (Supabase CLI config + SQL migrations), shared by every app. Run the Supabase CLI from the repo root. |
-| `.github/workflows/` | CI (`ci.yml`: `turbo run lint typecheck test db:check build`), the Claude PR review, and `trigger-eas-workflow.yml` (on a `v*` tag or by hand: runs the EAS release workflow, which builds the APK and publishes it as a GitHub Release) and `trigger-ota-update.yml` (by hand: runs the EAS OTA update workflow); see **Releases** and **OTA updates** in `apps/mobile/CLAUDE.md`. |
+| `.github/workflows/` | CI (`ci.yml`: `turbo run lint typecheck test db:check build`), the Claude PR review, and `trigger-eas-workflow.yml` (optional cloud release: on a `v*` tag or by hand, runs the EAS release workflow). Releases and OTA updates normally run locally: `bun run release`, `bun run ota "…"`; see **Releases** and **OTA updates** in `apps/mobile/CLAUDE.md`. |
 
 ## Tooling
 
@@ -26,6 +26,8 @@ bun install          # install everything
 bun run dev:mobile   # Metro for the mobile app (or `bun start` in apps/mobile)
 bun run dev:landing  # the landing page at http://localhost:4321
 bun run check        # lint + typecheck + test + db:check + build in every workspace (Turborepo)
+bun run release      # build the production APK locally and publish it as a GitHub Release (main only)
+bun run ota "…"      # publish an OTA update to installed APKs (main only)
 bun run lint | typecheck | test | db:check | build
 ```
 

@@ -1,5 +1,5 @@
-// The Android APK is published as a GitHub Release by the EAS release workflow
-// (apps/mobile/.eas/workflows/release.yml), always as `coinroot.apk`, so the "latest" link below
+// The Android APK is published as a GitHub Release by `bun run release`
+// (apps/mobile/scripts/release.mjs), always as `coinroot.apk`, so the "latest" link below
 // always serves the newest version without the site changing.
 //
 // The version, date and size are read once at build time, so the page itself makes no request to
