@@ -2,7 +2,7 @@
   "expo": {
     "name": "Coinroot",
     "slug": "coinroot",
-    "owner": "mnemonics",
+    "owner": "mnemonics-hq",
     "version": "1.0.0",
     "runtimeVersion": {
       "policy": "fingerprint"
