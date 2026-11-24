@@ -1,0 +1,12 @@
+{
+  "name": "@coinroot/supabase",
+  "version": "1.0.0",
+  "private": true,
+  "license": "GPL-3.0-or-later",
+  "description": "Coinroot's optional cloud backend: Supabase CLI config and SQL migrations",
+  "scripts": {
+    "supabase": "bunx supabase --workdir ..",
+    "db:new": "bunx supabase --workdir .. migration new",
+    "db:push": "bunx supabase --workdir .. db push --remote"
+  }
+}

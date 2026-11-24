@@ -13,7 +13,7 @@
     "test": "jest",
     "db:generate": "drizzle-kit generate",
     "db:check": "drizzle-kit check",
-    "db:types": "bunx supabase --workdir ../.. gen types typescript --remote --schema public > src/lib/supabase/database.supabase.ts",
+    "db:types": "bunx supabase --workdir ../../packages gen types typescript --remote --schema public > src/lib/supabase/database.supabase.ts",
     "typecheck": "tsc --noEmit",
     "release": "node scripts/release.mjs",
     "ota": "node scripts/ota-update.mjs"

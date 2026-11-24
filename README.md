@@ -45,7 +45,7 @@ Sign-in and sync are optional. To use them, copy `apps/mobile/.env.example` to `
 |---|---|
 | `apps/mobile` | The Expo / React Native app |
 | `apps/landing-page` | The website (Astro, static) |
-| `supabase` | Optional cloud backend: SQL migrations and config |
+| `packages/supabase` | Optional cloud backend: SQL migrations and config |
 
 ## License
 
