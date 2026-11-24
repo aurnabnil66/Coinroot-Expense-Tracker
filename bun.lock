@@ -92,6 +92,10 @@
         "typescript": "~6.0.3",
       },
     },
+    "packages/supabase": {
+      "name": "@coinroot/supabase",
+      "version": "1.0.0",
+    },
   },
   "packages": {
     "2g": ["2g@1.0.1", "", { "peerDependencies": { "typescript": ">=5.8.0" }, "optionalPeers": ["typescript"], "bin": { "2g": "bin/cli.js" } }, "sha512-+uViadKOS/wwR4pFu5g8TPn3QHpKqoX19JHCnp8k/3cLpImdcXozwvZA6Q/5PeW3AcU8neL8faaMidBcv7o8CA=="],
@@ -353,6 +357,8 @@
     "@coinroot/landing-page": ["@coinroot/landing-page@workspace:apps/landing-page"],
 
     "@coinroot/mobile": ["@coinroot/mobile@workspace:apps/mobile"],
+
+    "@coinroot/supabase": ["@coinroot/supabase@workspace:packages/supabase"],
 
     "@csstools/color-helpers": ["@csstools/color-helpers@5.1.0", "", {}, "sha512-S11EXWJyy0Mz5SYvRmY8nJYTFFd1LCNV+7cXyAgQtOOuzb4EsgfqDufL+9esx72/eLhsRdGZwaldu/h+E4t4BA=="],
 

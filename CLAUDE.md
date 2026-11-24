@@ -6,8 +6,8 @@ Coinroot is a personal money tracker for one user in Bangladesh (BDT / taka), lo
 |---|---|
 | `apps/mobile/` | The Expo / React Native app. **Read `apps/mobile/CLAUDE.md` (and its `AGENTS.md`) before working there**: domain rules, data model, conventions. |
 | `apps/landing-page/` | The landing page (Astro, fully static, plain CSS). Read `apps/landing-page/CLAUDE.md` before working there. |
-| `packages/` | Shared packages (none yet). Add one only when a second app actually needs the code. |
-| `supabase/` | The optional cloud backend (Supabase CLI config + SQL migrations), shared by every app. Run the Supabase CLI from the repo root. |
+| `packages/` | Everything shared between apps (current or future: mobile, web, desktop), one folder each, as a workspace package `@coinroot/<name>`. See **Shared packages**. |
+| `packages/supabase/` | `@coinroot/supabase`: the optional cloud backend (Supabase CLI config + SQL migrations), shared by every app. The CLI runs with `--workdir packages` (it looks for `<workdir>/supabase/`); use the package's scripts. |
 | `.github/workflows/` | CI (`ci.yml`: `turbo run lint typecheck test db:check build`), the Claude PR review, and `trigger-eas-workflow.yml` (optional cloud release: on a `v*` tag or by hand, runs the EAS release workflow). Releases and OTA updates normally run locally: `bun run release`, `bun run ota "…"`; see **Releases** and **OTA updates** in `apps/mobile/CLAUDE.md`. |
 
 ## Tooling
@@ -18,6 +18,13 @@ Coinroot is a personal money tracker for one user in Bangladesh (BDT / taka), lo
 - **One React and one React Native version in the whole repo.** Any web app must use the same `react` version as the mobile app (check with `bun pm why react` / `bun pm why react-native`); pin with root `resolutions` if needed.
 - Add an app dependency from its folder: `cd apps/mobile && bunx expo install <pkg>`. Repo tools (e.g. `turbo`) go in the root `package.json` as dev dependencies.
 - Workspace package names are scoped `@coinroot/<name>` (`@coinroot/mobile`). Internal dependencies use `"workspace:*"`.
+
+## Shared packages
+
+- Anything not owned by a single app (backends, configs, shared code, types, assets, tooling meant for several apps) lives in `packages/<name>/`, never at the repo root or inside an app. New shared folders and dependencies go there too, so every shared thing has the same location.
+- Each folder is a workspace package: a `package.json` named `@coinroot/<name>`, `"private": true`, `"license": "GPL-3.0-or-later"`, with its scripts. Apps depend on it with `"@coinroot/<name>": "workspace:*"`; reference its files by package name, not by relative paths into `packages/`.
+- If the package has `lint` / `typecheck` / `test` / `build`, Turborepo runs them in `bun run check`; add any new task name to `turbo.json`.
+- `packages/supabase`: from that folder, `bun run db:new <name>` (new migration), `bun run db:push --dry-run` then `bun run db:push` (apply to the linked project), `bun run supabase <args>` for anything else. After pushing, run `bun run db:types` in `apps/mobile`. The link state (`.temp/`) is gitignored and lives in `packages/supabase/.temp`.
 
 ## Commands (repo root)
 

@@ -1,6 +1,6 @@
 /**
  * Two-way sync of the ledger with the cloud tables (Supabase `accounts`, `categories`,
- * `transactions`, see `supabase/migrations`). SQLite stays the source of truth; this only
+ * `transactions`, see `packages/supabase/migrations`). SQLite stays the source of truth; this only
  * copies changes both ways. It takes the database and a `SyncRemote` as parameters, so the
  * tests run it on an in-memory database against a fake server.
  *
