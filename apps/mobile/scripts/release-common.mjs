@@ -121,9 +121,17 @@ export function readApk(apkPath) {
   if (!tool) return { versionCode: null, runtimeVersion: null };
   const badging = output(tool, ['dump', 'badging', apkPath]);
   const resources = output(tool, ['dump', 'resources', apkPath], { maxBuffer: 64 * 1024 * 1024 });
-  const runtime = resources.match(/string\/expo_runtime_version[\s\S]*?"([^"]+)"/);
+  let runtime = resources.match(/string\/expo_runtime_version[\s\S]*?"([^"]+)"/)?.[1] ?? null;
+  // With the fingerprint policy the resource points at a file in the APK: "file:fingerprint".
+  if (runtime?.startsWith('file:')) {
+    try {
+      runtime = output('unzip', ['-p', apkPath, `assets/${runtime.slice('file:'.length)}`]) || null;
+    } catch {
+      runtime = null;
+    }
+  }
   return {
     versionCode: badging.match(/versionCode='(\d+)'/)?.[1] ?? null,
-    runtimeVersion: runtime?.[1] ?? null,
+    runtimeVersion: runtime,
   };
 }
