@@ -2,7 +2,7 @@
 
 This is `apps/mobile` in the Coinroot monorepo (see the root `CLAUDE.md`). Paths below are relative to `apps/mobile` unless they say "repo root".
 
-Personal money tracker for one user in Bangladesh (currency: BDT / taka). It tracks where every taka comes from and where it goes across bank accounts, cash, mobile wallets and savings (DPS). Built for personal use first; may be open-sourced later, so keep the code clean and avoid hard-coding personal data.
+Personal money tracker for one user in Bangladesh (currency: BDT / taka). It tracks where every taka comes from and where it goes across bank accounts, cash, mobile wallets and savings. Built for personal use first; may be open-sourced later, so keep the code clean and avoid hard-coding personal data.
 
 Expo / React Native rules (versioned docs, `bunx expo install`, routing, EAS) are in AGENTS.md:
 
@@ -23,20 +23,20 @@ Salary → Office bank account → Primary bank account → ATM withdrawal (→ 
 1. **Three transaction types only:**
    - `income`: money enters from outside (from an income source → to an account)
    - `expense`: money leaves (from an account → to a category)
-   - `transfer`: money moves between the user's own accounts (from account → to account). **A transfer is never spending**, and is never counted in income/expense totals. ATM withdrawals, salary moved between banks, top-ups to a mobile wallet and DPS installments are all transfers.
+   - `transfer`: money moves between the user's own accounts (from account → to account). **A transfer is never spending**, and is never counted in income/expense totals. ATM withdrawals, salary moved between banks, top-ups to a mobile wallet and savings installments are all transfers.
 2. **Money is stored as integer poisha** (1 taka = 100 poisha). Never use floats for amounts. Convert only at the UI edge (input parsing, display formatting).
 3. **Balances are derived, never stored as editable numbers.** Account balance = opening balance + money in − money out, counting only transactions on/after the account's opening date.
 4. **Opening balances live on the account** (`opening_balance` + `opening_date`), not as income transactions. Entering them as income would inflate that month's income.
 5. **Parent links (the tree):** a transaction may have `parent_id` pointing to the transaction its money came from (e.g. CNG fare → ATM withdrawal). "Remaining" of a parent = parent amount − sum of its children. Links are optional.
-6. **Savings / DPS are accounts** of type `savings`. Installments are transfers into them, profit/interest is income into them, and maturity is a transfer out. Reports should show "moved to savings this month" separately from expenses.
+6. **Savings are accounts** of type `savings` (savings schemes, fixed deposits, savings accounts). In anything people read (UI, sample data, website, README, release notes) say "savings", never "DPS"; only the spreadsheet import still recognises "DPS" in a user's own file (`guessAccountType`). Installments are transfers into them, profit/interest is income into them, and maturity is a transfer out. Reports should show "moved to savings this month" separately from expenses.
 7. Bank charges / fees / excise duty are expenses (category: Bank Charges).
 
 ## Typical money flow (use it for defaults, seed data and test cases)
 
 - **Office bank account**: salary, bonus and other office payments arrive here. Part of it is often left here as an emergency fund.
-- **Primary bank account**: where most money is kept. DPS accounts are opened from here.
+- **Primary bank account**: where most money is kept. Savings accounts are opened from here.
 - **Cash** and **mobile wallets**: everyday spending.
-- Typical month: salary → office account, most of it transferred → primary account, ATM withdrawals → Cash, transfers → mobile wallets, DPS installment primary account → DPS.
+- Typical month: salary → office account, most of it transferred → primary account, ATM withdrawals → Cash, transfers → mobile wallets, savings installment primary account → Savings.
 
 Never hard-code real bank, wallet or institution names or real amounts. Account names are whatever the user enters.
 
@@ -58,7 +58,7 @@ transactions   id, date, type (income | expense | transfer), from_id, to_id, amo
 - transfer: from = account, to = account (must differ)
 
 Default seed data:
-- Accounts: generic, editable placeholders, one per type: e.g. "Bank Account", "Cash", "Mobile Wallet", "Savings (DPS)". The user renames or adds their own.
+- Accounts: generic, editable placeholders, one per type: e.g. "Bank Account", "Cash", "Mobile Wallet", "Savings". The user renames or adds their own.
 - Expense categories (`DEFAULT_CATEGORIES` in `ledger.constants.ts`, with colours): Food, Groceries, Transport, Rent, Bills, Mobile & Internet, Shopping, Fitness, Bank Charges, Health, Education, Family, Entertainment, Gifts, Other
 - Income sources: Salary, Bonus, Office Payment, Client Payment, Interest/Profit, Freelance, Gift Received, Other Income
 - "Balance adjustment" (expense and income source) and "Bank Charges" are looked up by name (`findCategoryByName`) and created if missing; users may rename their own.
@@ -78,7 +78,7 @@ Everything below works offline; cloud sync is optional. Details are in the secti
 - **Transactions** (Transactions tab): add / edit / delete income, expenses and transfers; list grouped by day with Load more; calendar date picker with Today / Yesterday; note; "Received from" on income with suggestions; optional Charge on a transfer (saved as its own Bank Charges expense); "Linked to" an earlier entry, with "Left from this" on the entry the money came from; greeting header with the month.
 - **Money tree**: from any linked entry, the whole chain from where the money started (e.g. the salary) down to every expense paid from it, with what's left at each step and Spent / Still in accounts totals [**Money tree**].
 - **Simple mode** (Settings → Preferences): Quick add with your 4 most used entries, fewer fields in the form [**Simple mode**].
-- **Accounts** (Accounts tab): bank, cash, mobile wallet and savings / DPS accounts; add / edit (name, type, opening balance and date) / archive; derived balances; total, available and in savings; each account's history (50 at a time, Load more); Count cash / Check balance saves the difference as a Balance adjustment [**Count cash / Check balance**]. Savings details (installment, maturity, rate) are stored but have no form yet.
+- **Accounts** (Accounts tab): bank, cash, mobile wallet and savings accounts; add / edit (name, type, opening balance and date) / archive; derived balances; total, available and in savings; each account's history (50 at a time, Load more); Count cash / Check balance saves the difference as a Balance adjustment [**Count cash / Check balance**]. Savings details (installment, maturity, rate) are stored but have no form yet.
 - **Summary** (Summary tab): the month's income, expenses and moved to savings; spending over time (daily / 6 months); spending by category; income by client.
 - **Categories and income sources** (Settings → Categories): add, rename, recolour, archive; created inline from any picker.
 - **First-time setup**: Welcome (create account, log in, continue without an account, explore with sample data, restore a backup) → profile → which kinds of accounts → name them with today's balance [**First-time setup**].
@@ -286,7 +286,7 @@ Later:
 1. ~~CSV import from the spreadsheet~~ (done: Settings → Backup & data → Import from spreadsheet; any layout, CSV or pasted table, plus CSV export)
 2. ~~Backup / restore (JSON)~~ (done: Settings → Backup & data and Welcome → "Restore a backup")
 3. ~~Money-tree view~~ (done: `money-tree/[id]`, see **Money tree** under Conventions)
-4. More charts, per-category budgets, recurring transactions, DPS details and reminders
+4. More charts, per-category budgets, recurring transactions, savings details and reminders
 5. App lock (fingerprint / PIN), hide amounts
 6. Bengali language and digits
 7. ~~App icon and splash in the brand design~~ (done), then open source
@@ -319,7 +319,7 @@ Known small design items (deferred): content scrolls under the status bar on lon
 - **Supabase project:** settings come from `apps/mobile/.env.local` (copy `.env.example`; gitignored). `packages/supabase/` (the `@coinroot/supabase` workspace package, shared by every app; use its scripts, which run the CLI with `--workdir ..`) holds the CLI config (`config.toml`: auth settings mirrored from the dashboard: confirmations on, passwords 8+ with letters and digits, redirect URLs) and `packages/supabase/migrations/` (SQL, created with `bun run db:new <name>` in `packages/supabase`, applied with `bun run db:push` there (the CLI is linked to the project; `--dry-run` first), then `bun run db:types` in `apps/mobile` (it passes `--workdir ../../packages`); never edit one that's been pushed, add a new one). Free projects pause after about a week without activity.
 - **Cloud tables** (`packages/supabase/migrations/*_cloud_tables.sql`): `accounts`, `categories`, `transactions` with the SQLite columns plus `user_id` (default `auth.uid()`, cascade on account deletion) and `server_updated_at`. Primary key `(user_id, id)`; ids stay the phone's text UUIDs. Money `bigint` poisha, dates `date`, timestamps `timestamptz`, same checks as SQLite (types / kinds, `amount > 0`, `from_id <> to_id`), no foreign keys between ledger rows. The `sync_row_write` trigger sets `server_updated_at` on every write, pulls an `updated_at` more than 1 minute in the server's future back to the server's clock (a phone with its clock ahead can't win every conflict), and skips an update whose `updated_at` is older than the stored row (last write wins). Trade-off of device clocks: a phone whose clock runs slow still loses ties. RLS: signed-in users select / insert / update only their own rows; no delete (soft deletes); `anon` has no access. Grants are explicit because the project doesn't expose new tables automatically, so any new table needs its own `grant` and policies. Pulls should start a little before the last `server_updated_at` seen, since writes can commit out of order.
 - **Profile validation** (`profile.schema.ts`, `auth.schema.ts`): nickname is required, one word, 2–15 characters, starting with a letter (any script); email is optional in the profile and required for an account; phone is optional, an 11-digit Bangladeshi mobile number (013–019), stored as `+8801XXXXXXXXX`; a new password needs 8+ characters with a letter and a number (log in only checks it's filled in). With an account the profile email is the sign-in email and read-only.
-- **First-time setup** (`setup` route): Welcome (Create account / Log in / Continue without an account / Explore with sample data) → step 1: `SignUpForm`, `LogInForm` (then the profile if it has no nickname) or `ProfileForm` → "What do you use for money?" (Cash / Mobile wallet / Bank account / Savings / DPS, no bank required) → "Name your accounts" with today's balance → app. "Explore with sample data" skips it; Settings → "Set up accounts again" resets.
+- **First-time setup** (`setup` route): Welcome (Create account / Log in / Continue without an account / Explore with sample data) → step 1: `SignUpForm`, `LogInForm` (then the profile if it has no nickname) or `ProfileForm` → "What do you use for money?" (Cash / Mobile wallet / Bank account / Savings, no bank required) → "Name your accounts" with today's balance → app. "Explore with sample data" skips it; Settings → "Set up accounts again" resets.
 - **Backup file** (`backup.schema.ts`): `{ app: 'coinroot', format: 2, exportedAt, accounts, categories, transactions }` with the database rows (camelCase fields, no `deletedAt`). `checkBackup(text)` checks everything before a restore: valid JSON, a Coinroot file, a format this app knows (a newer `format` asks to update the app), every row's fields, unique ids, and from / to / "Linked to" pointing at a row of the right kind; errors name the row ("Transaction 14: amount is invalid"), at most 8 plus a count. Bump `BACKUP_FORMAT` when the shape changes and keep reading older formats: `upgradeBackup` brings an older file to the current shape before the checks (format 1 → 2 renames `party` to `receivedFrom`). Profile and settings aren't in the file (device-only).
 - **Backup / restore UI** (`useBackupActions` in `src/lib/components`): Settings → Backup & data "Back up to a file" writes `coinroot-backup-YYYY-MM-DD.json` in the cache and opens the share sheet (`src/lib/storage/backup-file.storage.ts`; the row shows the last backup date from `lastBackupSetting`), "Restore from a backup" picks a file, checks it, confirms with the file's counts and what will be replaced, then restores. Welcome has "Restore a backup" for a new phone.
 - **Count cash / Check balance** (`balance-check` modal, from account detail): the user enters what they actually have. The difference is saved as a `Balance adjustment` expense (missing) or income (extra), so the derived balance matches reality.

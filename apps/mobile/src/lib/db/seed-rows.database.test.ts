@@ -18,8 +18,8 @@ const cash: Account = {
   id: 'acc-cash', name: 'Cash', type: 'cash', openingBalance: 150000, openingDate: '2026-11-01',
   archived: false, sortOrder: 0, savings: null,
 };
-const dps: Account = {
-  id: 'acc-dps', name: 'Savings (DPS)', type: 'savings', openingBalance: 0, openingDate: '2026-11-01',
+const savingsAcc: Account = {
+  id: 'acc-savings', name: 'Savings', type: 'savings', openingBalance: 0, openingDate: '2026-11-01',
   archived: false, sortOrder: 1,
   savings: { installmentAmount: 500000, startDate: '2026-11-01', maturityDate: null, interestRate: 8.5 },
 };
@@ -41,10 +41,10 @@ describe('defaultCategoryRows', () => {
 });
 
 describe('sampleRows', () => {
-  const atm = tx({ id: 'tx-atm', type: 'transfer', fromId: 'acc-dps', toId: 'acc-cash', amount: 100000 });
+  const atm = tx({ id: 'tx-atm', type: 'transfer', fromId: 'acc-savings', toId: 'acc-cash', amount: 100000 });
   const lunch = tx({ id: 'tx-lunch', fromId: 'acc-cash', toId: 'cat-food', parentId: 'tx-atm' });
   const vet = tx({ id: 'tx-vet', fromId: 'acc-cash', toId: 'cat-pets' });
-  const sample = { accounts: [cash, dps], categories: [food, pets], transactions: [lunch, atm, vet] };
+  const sample = { accounts: [cash, savingsAcc], categories: [food, pets], transactions: [lunch, atm, vet] };
 
   it('reuses existing categories by name and adds only the missing ones', () => {
     const rows = sampleRows(sample, [{ id: 'db-food', name: 'food', kind: 'expense' }], counter());
@@ -61,7 +61,7 @@ describe('sampleRows', () => {
 
     expect(rows.accounts.every((a) => !a.id.startsWith('acc-'))).toBe(true);
     expect(lunchRow.parentId).toBe(txIds.get('tx-atm')); // a parent listed after its child still maps
-    expect(atmRow).toMatchObject({ fromId: accountIds.get('acc-dps'), toId: accountIds.get('acc-cash'), amount: 100000 });
+    expect(atmRow).toMatchObject({ fromId: accountIds.get('acc-savings'), toId: accountIds.get('acc-cash'), amount: 100000 });
   });
 
   it('refuses links to ids that are not in the sample', () => {
@@ -72,9 +72,9 @@ describe('sampleRows', () => {
 
 describe('row mappers', () => {
   it('flattens savings details into columns and back', () => {
-    const row = { ...accountToRow(dps), ...sync } as AccountRow;
+    const row = { ...accountToRow(savingsAcc), ...sync } as AccountRow;
     expect(row).toMatchObject({ installmentAmount: 500000, interestRate: 8.5, maturityDate: null });
-    expect(rowToAccount(row)).toEqual(dps);
+    expect(rowToAccount(row)).toEqual(savingsAcc);
   });
 
   it('keeps savings null for everyday accounts', () => {

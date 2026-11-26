@@ -17,7 +17,7 @@ export const ACCOUNT_TYPE_LABELS: Record<AccountType, string> = {
   bank: 'Bank',
   cash: 'Cash',
   mobile_wallet: 'Mobile wallet',
-  savings: 'Savings / DPS',
+  savings: 'Savings',
 };
 
 /** Badge colour per account type (keys of `CATEGORY_COLORS`). */
@@ -35,9 +35,9 @@ export const SETUP_ACCOUNT_OPTIONS: { type: AccountType; title: string; descript
   { type: 'bank', title: 'Bank account', description: 'An account you pay from or get paid into', defaultName: 'Bank Account' },
   {
     type: 'savings',
-    title: 'Savings / DPS',
-    description: "Money you put aside and don't spend: DPS, FDR, a savings account",
-    defaultName: 'Savings (DPS)',
+    title: 'Savings',
+    description: "Money you put aside and don't spend: savings schemes, fixed deposits, a savings account",
+    defaultName: 'Savings',
   },
 ];
 

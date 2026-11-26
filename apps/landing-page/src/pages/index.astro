@@ -15,12 +15,12 @@ const features = [
   {
     icon: 'wallet',
     title: 'Every account, one place',
-    text: 'Bank accounts, cash, mobile wallets and DPS. Balances are worked out from your entries, never typed in.',
+    text: 'Bank accounts, cash, mobile wallets and savings. Balances are worked out from your entries, never typed in.',
   },
   {
     icon: 'arrows',
     title: 'Transfers are not spending',
-    text: 'ATM withdrawals, wallet top-ups and DPS installments move money. They never inflate your expenses.',
+    text: 'ATM withdrawals, wallet top-ups and savings installments move money. They never inflate your expenses.',
   },
   {
     icon: 'chart',
@@ -53,7 +53,7 @@ const steps = [
   {
     n: '01',
     title: 'Name your accounts',
-    text: 'Bank, cash, mobile wallet, DPS: whatever you use, with today’s balance. No bank account required.',
+    text: 'Bank, cash, mobile wallet, savings: whatever you use, with today’s balance. No bank account required.',
   },
   {
     n: '02',
@@ -111,7 +111,7 @@ const releaseDate =
 
 <Base
   title="Coinroot: Every Taka has a Root"
-  description="Coinroot is a free, offline money tracker for Bangladesh. Track every taka across bank accounts, cash, mobile wallets and DPS, and trace any expense back to where it came from."
+  description="Coinroot is a free, offline money tracker for Bangladesh. Track every taka across bank accounts, cash, mobile wallets and savings, and trace any expense back to where it came from."
 >
   <!-- HERO -->
   <header class="hero">
@@ -136,7 +136,7 @@ const releaseDate =
         <h1>Every taka <br />has a <em>root.</em></h1>
         <p class="hero-lead">
           Coinroot tracks where your money comes from and where it goes, across bank accounts,
-          cash, mobile wallets and DPS. Trace any expense back to the salary it came from.
+          cash, mobile wallets and savings. Trace any expense back to the salary it came from.
         </p>
         <div class="hero-actions">
           <a class="btn btn-primary" href="#download"><Icon name="android" size={20} />Get it for Android</a>
@@ -173,7 +173,7 @@ const releaseDate =
             <p class="ledger-head">A typical expense app</p>
             <ul>
               <li><span>ATM withdrawal</span><span>−৳10,000</span></li>
-              <li><span>DPS installment</span><span>−৳5,000</span></li>
+              <li><span>Savings installment</span><span>−৳5,000</span></li>
               <li><span>Wallet top-up</span><span>−৳3,000</span></li>
               <li><span>Transport</span><span>−৳1,200</span></li>
             </ul>
@@ -185,7 +185,7 @@ const releaseDate =
             <p class="ledger-head"><img src="/logo.png" alt="" width="20" height="20" />Coinroot</p>
             <ul>
               <li><span>ATM withdrawal</span><span class="tag tag-transfer">→ Cash</span></li>
-              <li><span>DPS installment</span><span class="tag tag-savings">→ Savings</span></li>
+              <li><span>Savings installment</span><span class="tag tag-savings">→ Savings</span></li>
               <li><span>Wallet top-up</span><span class="tag tag-transfer">→ Wallet</span></li>
               <li><span>Transport</span><span class="out">−৳1,200</span></li>
             </ul>
@@ -247,19 +247,22 @@ const releaseDate =
           <span class="eyebrow">Made for Bangladesh</span>
           <h2 class="section-title">Speaks taka, lakh and crore.</h2>
           <p class="section-lead">
-            Amounts read the way you say them: ৳2,45,300, not ৳245,300. Savings and DPS are
-            accounts of their own, bank charges and excise duty have a home, and payers like
+            Amounts read the way you say them: ৳2,45,300, not ৳245,300. Savings are accounts
+            of their own, bank charges and excise duty have a home, and payers like
             clients are kept with each payment.
           </p>
           <ul class="checks">
-            <li>Bank, cash, mobile wallet and DPS accounts</li>
+            <li>Bank, cash, mobile wallet and savings accounts</li>
             <li>Salary moved between banks counts once</li>
             <li>Cash-out fees saved as their own charge</li>
             <li>Light and dark themes</li>
           </ul>
         </div>
         <div class="taka-visual" data-reveal style="--delay:.15s">
-          <PhoneMock />
+          <div class="phone-pair">
+            <div class="phone-back"><PhoneMock theme="dark" /></div>
+            <div class="phone-front"><PhoneMock /></div>
+          </div>
         </div>
       </div>
     </section>
@@ -772,9 +775,29 @@ const releaseDate =
     font-weight: 700;
     line-height: 1;
   }
-  .taka-visual :global(.phone) {
+  /* The light phone in front, the same screen in dark mode behind it, to the right. */
+  .phone-pair {
     position: relative;
     z-index: 1;
+    display: grid;
+    width: min(470px, 100%);
+    justify-items: start;
+  }
+  .phone-pair > div {
+    grid-area: 1 / 1;
+    width: min(290px, 64%);
+  }
+  .phone-pair :global(.phone) {
+    width: 100%;
+  }
+  .phone-back {
+    justify-self: end;
+    /* Tilted around its centre and pulled left, so its corners stay inside the column. */
+    transform: translate(-7%, -6%) rotate(5deg) scale(0.92);
+  }
+  .phone-front {
+    position: relative;
+    transform: translateY(4%);
   }
   .checks {
     display: grid;

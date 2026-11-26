@@ -271,7 +271,7 @@ function Welcome({ onStart }: { onStart: (step: FirstStep) => void }) {
         <VStack className="gap-4">
           <Feature text="Works with cash and mobile wallets, no bank account needed" />
           <Feature text="Transfers between your own accounts never count as spending" />
-          <Feature text="Savings and DPS kept apart from everyday money" />
+          <Feature text="Savings kept apart from everyday money" />
         </VStack>
       </VStack>
       <VStack className="gap-3">

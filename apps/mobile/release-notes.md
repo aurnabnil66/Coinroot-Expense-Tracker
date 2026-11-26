@@ -1,7 +1,7 @@
 <!--
 What's new in the next release, for people using the app (not a list of pull requests).
 Name each feature in bold, then hint at what it makes possible rather than how it works.
-Don't name specific savings products (say "savings", not DPS) or banks.
+Don't name specific savings products or banks: say "savings".
 `bun run release` publishes the text under "## <version>" as the GitHub Release's "What's new",
 and stops before building if there's no heading for the version in app.json.
 Before a release: change the heading to the new version, replace the text, commit, then release.

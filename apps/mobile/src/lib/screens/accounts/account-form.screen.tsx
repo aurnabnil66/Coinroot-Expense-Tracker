@@ -94,7 +94,7 @@ function AccountForm() {
             control={control}
             name="type"
             render={({ field }) => (
-              <FieldShell label="Type" hint={field.value === 'savings' ? 'DPS and other savings. Deposits show as “moved to savings”, not spending.' : undefined}>
+              <FieldShell label="Type" hint={field.value === 'savings' ? 'Savings schemes, fixed deposits and savings accounts. Deposits show as “moved to savings”, not spending.' : undefined}>
                 <SegmentedControl options={TYPE_OPTIONS} value={field.value} onChange={field.onChange} />
               </FieldShell>
             )}

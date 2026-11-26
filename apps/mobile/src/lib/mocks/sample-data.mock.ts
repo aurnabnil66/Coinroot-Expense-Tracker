@@ -23,8 +23,8 @@ export const sampleAccounts: Account[] = [
   { id: 'acc-cash', name: 'Cash', type: 'cash', openingBalance: 150000, openingDate: monthStart, archived: false, sortOrder: 2, savings: null },
   { id: 'acc-wallet', name: 'Mobile Wallet', type: 'mobile_wallet', openingBalance: 30000, openingDate: monthStart, archived: false, sortOrder: 3, savings: null },
   {
-    id: 'acc-dps',
-    name: 'Savings (DPS)',
+    id: 'acc-savings',
+    name: 'Savings',
     type: 'savings',
     openingBalance: 0,
     openingDate: monthStart,
@@ -58,7 +58,7 @@ const entry = (
 
 const salary = entry(4, { type: 'income', fromId: 'src-salary', toId: 'acc-salary', amount: 5000000, note: 'Monthly salary' });
 const toMain = entry(4, { type: 'transfer', fromId: 'acc-salary', toId: 'acc-main', amount: 4000000, note: 'Salary transfer' });
-const dps = entry(3, { type: 'transfer', fromId: 'acc-main', toId: 'acc-dps', amount: 500000, note: 'DPS installment' });
+const savingsInstallment = entry(3, { type: 'transfer', fromId: 'acc-main', toId: 'acc-savings', amount: 500000, note: 'Savings installment' });
 const fee = entry(3, { type: 'expense', fromId: 'acc-main', toId: 'cat-bank-charges', amount: 2300, note: 'SMS charge' });
 const atm = entry(1, { type: 'transfer', fromId: 'acc-main', toId: 'acc-cash', amount: 100000, note: 'ATM withdrawal' });
 const ride = entry(1, { type: 'expense', fromId: 'acc-cash', toId: 'cat-transport', amount: 35000, note: 'CNG to office', parentId: atm.id });
@@ -73,7 +73,7 @@ const clientB = entry(1, { type: 'income', fromId: 'src-client-payment', toId: '
 
 const HISTORY_MONTHS = 5;
 
-/** A typical month: salary in, moved to the main bank, DPS, cash, wallet and everyday spending. */
+/** A typical month: salary in, moved to the main bank, savings, cash, wallet and everyday spending. */
 const historyMonth = (monthsAgo: number): Transaction[] => {
   const month = addMonths(toMonthKey(today), -monthsAgo);
   const lastDay = daysInMonth(month);
@@ -105,7 +105,7 @@ const historyMonth = (monthsAgo: number): Transaction[] => {
     on(1, { type: 'income', fromId: 'src-salary', toId: 'acc-salary', amount: 5000000, note: 'Monthly salary' }),
     on(10, { type: 'income', fromId: 'src-client-payment', toId: 'acc-wallet', amount: vary(1200000, 7), receivedFrom: monthsAgo % 2 ? 'Client A' : 'Client C' }),
     on(1, { type: 'transfer', fromId: 'acc-salary', toId: 'acc-main', amount: 4000000, note: 'Salary transfer' }),
-    on(3, { type: 'transfer', fromId: 'acc-main', toId: 'acc-dps', amount: 500000, note: 'DPS installment' }),
+    on(3, { type: 'transfer', fromId: 'acc-main', toId: 'acc-savings', amount: 500000, note: 'Savings installment' }),
     atm,
     ...spends.map(([day, toId, amount, note], i) =>
       on(day, {
@@ -126,7 +126,7 @@ export const sampleTransactions: Transaction[] = [
   ...history,
   salary,
   toMain,
-  dps,
+  savingsInstallment,
   fee,
   atm,
   ride,

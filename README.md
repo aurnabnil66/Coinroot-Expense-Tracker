@@ -10,9 +10,34 @@ Salary → Office bank account → Primary bank account → ATM withdrawal (→ 
                                                         └─ still in cash
 ```
 
+## Screenshots
+
+<table>
+  <tr>
+    <th>Transactions</th>
+    <th>Accounts</th>
+    <th>Money tree</th>
+    <th>Summary</th>
+  </tr>
+  <tr>
+    <td><img src=".github/screenshots/light-transactions.png" alt="Transactions (light mode)" width="200"></td>
+    <td><img src=".github/screenshots/light-accounts.png" alt="Accounts (light mode)" width="200"></td>
+    <td><img src=".github/screenshots/light-money-tree.png" alt="Money tree (light mode)" width="200"></td>
+    <td><img src=".github/screenshots/light-summary.png" alt="Summary (light mode)" width="200"></td>
+  </tr>
+  <tr>
+    <td><img src=".github/screenshots/dark-transactions.png" alt="Transactions (dark mode)" width="200"></td>
+    <td><img src=".github/screenshots/dark-accounts.png" alt="Accounts (dark mode)" width="200"></td>
+    <td><img src=".github/screenshots/dark-money-tree.png" alt="Money tree (dark mode)" width="200"></td>
+    <td><img src=".github/screenshots/dark-summary.png" alt="Summary (dark mode)" width="200"></td>
+  </tr>
+</table>
+
+Light and dark mode, with the app's invented sample data.
+
 ## Features
 
-- Income, expenses and transfers across bank accounts, cash, mobile wallets and savings / DPS
+- Income, expenses and transfers across bank accounts, cash, mobile wallets and savings
 - Balances worked out from your entries, with "Count cash" / "Check balance" to match reality
 - Money tree: link an expense to the entry its money came from and follow the whole chain
 - Monthly summary: income, spending by category, spending over time, moved to savings
@@ -22,7 +47,7 @@ Salary → Office bank account → Primary bank account → ATM withdrawal (→ 
 
 ## Privacy
 
-Coinroot is local-first. Everything is stored in a database on your phone and the app works fully offline. Nothing leaves the phone unless you create an account and turn on cloud sync. There are no ads and no trackers.
+Coinroot is local-first. Everything is stored in a database on your phone and the app works fully offline. Your records never leave the phone unless you create an account and turn on cloud sync. The only other request is a daily check for a new version, which you can turn off in Settings. There are no ads and no trackers.
 
 ## Install
 

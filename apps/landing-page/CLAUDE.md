@@ -18,7 +18,7 @@ The landing page for the Coinroot app: what it does, why, privacy, and where to 
 | `src/utils/latest-release.util.ts` | The download: `APK_URL` (`…/releases/latest/download/coinroot.apk`), `getLatestRelease()` (version, date and size of the latest GitHub Release, read at build time) and `apkQrSvg()` (the QR code, drawn at build time with `qrcode`) |
 | `src/layouts/base.layout.astro` | `<head>` (meta, social preview, fonts) and the reveal-on-scroll script |
 | `src/components/money-tree.component.astro` | The hero's animated SVG money tree (salary → accounts → spending) |
-| `src/components/phone-mock.component.astro` | The app's Accounts tab drawn in HTML |
+| `src/components/phone-mock.component.astro` | The app's Accounts tab drawn in HTML; `theme="light" / "dark"` uses the app's light or dark colours. The Made for Bangladesh section shows both: light in front, dark tilted behind it (`.phone-pair`), kept inside the column so narrow screens don't scroll sideways |
 | `src/components/icon.component.astro` | Inline icon set |
 
 File names are kebab-case with a suffix (`*.component.astro`, `*.layout.astro`), like the app.
@@ -26,7 +26,7 @@ File names are kebab-case with a suffix (`*.component.astro`, `*.layout.astro`),
 ## Rules
 
 - Same brand as the app: navy `#1E2A5E` → purple `#6C4CF1` gradient, sky `#38BDF8` accent, money colours only for meaning (green income, rose expense, blue transfer). Colours are CSS variables in `global.css`, redefined for dark mode under `prefers-color-scheme: dark`.
-- No real bank, wallet or institution names and no real amounts; use the app's generic account names ("Bank Account", "Cash", "Mobile Wallet", "Savings (DPS)").
+- No real bank, wallet or institution names and no real amounts; use the app's generic account names ("Bank Account", "Cash", "Mobile Wallet", "Savings"). Say "savings", never "DPS", in any text people read.
 - Amounts use the taka sign and lakh grouping (`৳2,45,300`).
 - Motion respects `prefers-reduced-motion`; content stays visible without JavaScript (`[data-reveal]` only hides when the `js` class is set).
 - Works from 320 px wide with no horizontal scroll.

@@ -23,7 +23,7 @@ const nodes: TreeNode[] = [
   { id: 'salary', x: 260, y: 44, label: 'Salary', amount: '+৳85,000', kind: 'income', level: 0 },
   { id: 'office', x: 260, y: 148, label: 'Office account', amount: '৳15,000 left', kind: 'account', level: 1 },
   { id: 'primary', x: 260, y: 252, label: 'Primary account', amount: '৳52,000 left', kind: 'account', level: 2 },
-  { id: 'dps', x: 88, y: 364, label: 'Savings (DPS)', amount: '৳5,000', kind: 'savings', level: 3 },
+  { id: 'savings', x: 88, y: 364, label: 'Savings', amount: '৳5,000', kind: 'savings', level: 3 },
   { id: 'cash', x: 260, y: 364, label: 'Cash · ATM', amount: '৳10,000', kind: 'account', level: 3 },
   { id: 'wallet', x: 432, y: 364, label: 'Mobile wallet', amount: '৳3,000', kind: 'account', level: 3 },
   { id: 'transport', x: 165, y: 476, label: 'Transport', amount: '−৳1,200', kind: 'expense', level: 4 },
@@ -33,7 +33,7 @@ const nodes: TreeNode[] = [
 const edges: [string, string][] = [
   ['salary', 'office'],
   ['office', 'primary'],
-  ['primary', 'dps'],
+  ['primary', 'savings'],
   ['primary', 'cash'],
   ['primary', 'wallet'],
   ['cash', 'transport'],
@@ -79,7 +79,7 @@ const cash = byId.get('cash')!;
     <title id="tree-title">A month's salary, traced to what it paid for</title>
     <desc id="tree-desc">
       Salary of 85,000 taka arrives in the office account. 70,000 moves to the primary account,
-      which sends 5,000 to a DPS, 10,000 to cash by ATM and 3,000 to a mobile wallet. From the
+      which sends 5,000 to savings, 10,000 to cash by ATM and 3,000 to a mobile wallet. From the
       cash, 1,200 went on transport and 3,400 on groceries, and 5,400 is still in cash.
     </desc>
     <defs>

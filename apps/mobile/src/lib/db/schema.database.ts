@@ -49,7 +49,7 @@ export const accounts = sqliteTable(
     openingDate: text('opening_date').notNull(),
     archived: integer('archived', { mode: 'boolean' }).notNull().default(false),
     sortOrder: integer('sort_order').notNull().default(0),
-    // Savings / DPS details (all null for other accounts).
+    // Savings details (all null for other accounts).
     /** Poisha per installment. */
     installmentAmount: integer('installment_amount'),
     startDate: text('start_date'),
