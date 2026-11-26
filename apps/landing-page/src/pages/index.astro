@@ -95,10 +95,6 @@ const faqs = [
     q: 'What if I lose or change my phone?',
     a: 'Back up to a file and restore it on the new phone, or sign in and your records sync back from the cloud.',
   },
-  {
-    q: 'Is there an iPhone version?',
-    a: 'Not yet. Coinroot is Android-first; iPhone may come later.',
-  },
 ];
 
 const year = new Date().getFullYear();
@@ -342,7 +338,6 @@ const releaseDate =
                   </p>
                   <div class="download-actions">
                     <span class="btn btn-primary is-disabled" aria-disabled="true"><Icon name="download" size={20} />Download APK · soon</span>
-                    <span class="soon">iPhone: not yet</span>
                   </div>
                 </>
               )
@@ -861,10 +856,6 @@ const releaseDate =
   }
   .is-disabled:hover {
     transform: none;
-  }
-  .soon {
-    color: rgb(255 255 255 / 0.65);
-    font-size: 14px;
   }
   .qr {
     display: grid;

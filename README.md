@@ -26,7 +26,7 @@ Coinroot is local-first. Everything is stored in a database on your phone and th
 
 ## Install
 
-Android APKs will be published on the [Releases](../../releases) page. iOS isn't released yet.
+Download the Android app (APK) from the [Releases](../../releases) page.
 
 ## Build from source
 
