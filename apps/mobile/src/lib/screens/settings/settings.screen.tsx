@@ -1,4 +1,3 @@
-import Constants from "expo-constants";
 import { router } from "expo-router";
 import { ActivityIndicator } from "react-native";
 
@@ -8,6 +7,7 @@ import { Box } from "@/lib/gluestack-ui/box";
 import { useGluestackColors } from "@/lib/gluestack-ui/gluestack-ui-provider";
 import { HStack } from "@/lib/gluestack-ui/hstack";
 import {
+  BellIcon,
   DownloadIcon,
   EditIcon,
   LogOutIcon,
@@ -20,6 +20,7 @@ import {
   setSimpleMode,
   setThemePreference,
   type ThemePreference,
+  useAppUpdate,
   useAuth,
   useLastBackupAt,
   useLedger,
@@ -31,11 +32,20 @@ import {
 import { ledgerStore, type SyncSkip } from "@/lib/db";
 import { authStore, type SyncSnapshot, syncStore } from "@/lib/supabase";
 import {
+  appVersion,
+  isUpdateCheckSupported,
+  runningUpdate,
+  UpdateCheckError,
+  type UpdateSnapshot,
+  updateStore,
+} from "@/lib/updates";
+import {
   formatBdPhone,
   formatFullDate,
   formatSyncedAt,
   formatTaka,
   isDateKey,
+  toDateKey,
 } from "@/lib/utils";
 import {
   Avatar,
@@ -113,6 +123,24 @@ function syncSubtitle(sync: SyncSnapshot): string {
   }
 }
 
+/** The App updates row's second line. */
+function updateSubtitle(update: UpdateSnapshot): string {
+  if (update.status === "checking") return "Checking…";
+  if (update.available) return `Version ${update.available.version} is out. Tap to download`;
+  if (update.status === "error") return `Couldn't check. ${update.error ?? ""}`.trim();
+  if (update.lastCheckedAt) return `Up to date · checked ${formatSyncedAt(update.lastCheckedAt)}`;
+  return "Tap to check now";
+}
+
+/** The footer: the APK's version, plus the OTA update it runs (if any), e.g. "update of 26 Nov 2026 (1a2b3c4d)". */
+function versionLabel(): string {
+  const update = runningUpdate();
+  const ota = update
+    ? ` · update of ${formatFullDate(toDateKey(update.createdAt))} (${update.id.slice(0, 8)})`
+    : "";
+  return `Coinroot · Version ${appVersion || "–"}${ota}`;
+}
+
 export function SettingsScreen() {
   const { status, categories } = useLedger();
   const themePreference = useThemePreference();
@@ -120,6 +148,7 @@ export function SettingsScreen() {
   const profile = useProfile();
   const session = useAuth();
   const sync = useSyncStatus();
+  const update = useAppUpdate();
   const backup = useBackupActions();
   const lastBackupAt = useLastBackupAt();
   const colors = useGluestackColors();
@@ -182,6 +211,50 @@ export function SettingsScreen() {
         .then((choice) => (choice === "sync" ? syncStore.syncNow() : undefined));
     }
     return syncStore.syncNow();
+  };
+
+  const offerUpdate = (version: string) => {
+    const release = updateStore.getSnapshot().available;
+    if (!release || release.version !== version) return;
+    return dialog
+      .show({
+        title: `Coinroot ${release.version} is available`,
+        message:
+          "Download it and open the file to install it over this version. Your accounts and entries stay. The first time, Android asks you to allow installs from your browser.",
+        tone: "info",
+        icon: DownloadIcon,
+        actions: [
+          { label: "What's new", value: "notes", variant: "secondary" },
+          { label: "Download", value: "download", variant: "primary" },
+        ],
+      })
+      .then((choice) => {
+        if (choice === "download") return updateStore.download(release);
+        if (choice === "notes") return updateStore.openNotes(release);
+      });
+  };
+
+  const updatePressed = async () => {
+    if (update.status === "checking") return;
+    if (update.available) return offerUpdate(update.available.version);
+    try {
+      const newer = await updateStore.checkNow();
+      if (newer) return offerUpdate(newer.version);
+      return dialog.alert({
+        title: "You're up to date",
+        message: `Version ${appVersion} is the newest. Small fixes arrive by themselves when you open the app.`,
+        tone: "success",
+      });
+    } catch (cause) {
+      return dialog.alert({
+        title: "Couldn't check for updates",
+        message:
+          cause instanceof UpdateCheckError
+            ? cause.message
+            : "Something went wrong. Try again later.",
+        tone: "warning",
+      });
+    }
   };
 
   const startOver = () =>
@@ -365,6 +438,34 @@ export function SettingsScreen() {
         somewhere safe, like Drive or email.
       </Text>
 
+      {isUpdateCheckSupported ? (
+        <>
+          <SectionHeader title="App updates" />
+          <Card>
+            <ListRow
+              leading={<IconBadge icon={DownloadIcon} tone="sky" />}
+              title="Check for updates"
+              subtitle={updateSubtitle(update)}
+              trailing={
+                update.status === "checking" ? (
+                  <ActivityIndicator color={colors.primary} />
+                ) : undefined
+              }
+              onPress={() => void updatePressed()}
+            />
+            <SwitchRow
+              inCard
+              divider
+              leading={<IconBadge icon={BellIcon} tone="primary" />}
+              label="Check automatically"
+              description="Once a day, asks GitHub whether a new version is out. No data from the app is sent."
+              value={update.autoCheck}
+              onValueChange={updateStore.setAutoCheck}
+            />
+          </Card>
+        </>
+      ) : null}
+
       <Card className="mt-6">
         <ListRow
           tone="danger"
@@ -386,7 +487,7 @@ export function SettingsScreen() {
       </Card>
 
       <Text className="pt-6 text-center text-xs text-muted-foreground">
-        Coinroot · Version {Constants.expoConfig?.version ?? "–"}
+        {versionLabel()}
       </Text>
     </ScreenContainer>
   );

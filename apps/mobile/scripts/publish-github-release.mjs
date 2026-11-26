@@ -12,13 +12,15 @@
 //   GH_REPO           owner/name, e.g. aurnabnil66/Coinroot-Expense-Tracker
 //   APK_PATH          the downloaded APK (not needed with --check)
 //   APP_VERSION       app.json version, e.g. 1.0.0 (the release is tagged v1.0.0); default: app.json
-//   VERSION_CODE      Android versionCode of the build (optional, shown in the notes)
 //   COMMIT            full commit SHA the build came from (optional; a new tag points at it,
 //                     otherwise at the default branch)
 //   RUNTIME_VERSION   the APK's runtime version (fingerprint); written in the notes, where
 //                     `bun run ota` checks an update matches the latest release
 //   REPLACE           "true" to replace the APK of a release that's already published
 //   GH_API_URL        API base, default https://api.github.com (for testing)
+//
+// A new release's description comes from release-notes.md ("What's new" under `## <version>`,
+// see release-notes.mjs); --check stops when it's missing.
 //
 // The APK is published as `coinroot.apk`, so `releases/latest/download/coinroot.apk` always serves
 // the newest one, and the download never disappears while a release is being made:
@@ -29,15 +31,10 @@
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 
+import { readReleaseNotes, releaseBody, withRuntime } from './release-notes.mjs';
+
 const ASSET_NAME = 'coinroot.apk';
 const UPLOAD_PREFIX = 'coinroot-upload-';
-const CHECKSUM_LINE = /^SHA-256 of coinroot\.apk: .*$/m;
-const RUNTIME_LINE = /^Runtime version: .*$/m;
-
-/** Replaces the line `pattern` matches, or adds `line` at the end. */
-function withLine(body, pattern, line) {
-  return pattern.test(body) ? body.replace(pattern, line) : `${body}\n\n${line}`;
-}
 
 function env(name, { optional = false } = {}) {
   let value = process.env[name]?.trim();
@@ -112,6 +109,9 @@ if (existing && !existing.draft && !replace) {
   );
 }
 
+// A new release needs this version's notes (a draft already has its description).
+const notes = existing ? null : await readReleaseNotes(version);
+
 if (checkOnly) {
   console.log(
     existing?.draft
@@ -124,12 +124,10 @@ if (checkOnly) {
 }
 
 const apkPath = env('APK_PATH');
-const versionCode = env('VERSION_CODE', { optional: true });
 const commit = env('COMMIT', { optional: true });
 
 const apk = await readFile(apkPath);
 const checksum = createHash('sha256').update(apk).digest('hex');
-const checksumLine = `SHA-256 of coinroot.apk: \`${checksum}\``;
 const runtime = env('RUNTIME_VERSION', { optional: true });
 const runtimeLine = runtime ? `Runtime version: \`${runtime}\`` : null;
 
@@ -138,21 +136,13 @@ if (release) {
   console.log(`${release.draft ? 'Finishing draft' : 'Replacing the APK of'} release ${tag}.`);
 } else {
   console.log(`Creating draft release ${tag}.`);
-  const build = versionCode ? ` (build ${versionCode})` : '';
   release = await github('/releases', {
     method: 'POST',
     body: JSON.stringify({
       tag_name: tag,
       ...(commit ? { target_commitish: commit } : {}),
       name: `Coinroot ${version}`,
-      body: [
-        `Android app${build}. Download **${ASSET_NAME}** below and open it on your phone to install or update.`,
-        'Installing over an earlier version keeps your data.',
-        '',
-        checksumLine,
-        ...(runtimeLine ? [runtimeLine] : []),
-      ].join('\n'),
-      generate_release_notes: true,
+      body: releaseBody({ notes, runtimeLine }),
       draft: true,
     }),
   });
@@ -177,13 +167,12 @@ await github(`/releases/assets/${uploaded.id}`, {
   body: JSON.stringify({ name: ASSET_NAME }),
 });
 
-// 3. Publish (a draft) and mark as latest, with the new checksum and runtime version in the notes.
-let body = withLine(release.body ?? '', CHECKSUM_LINE, checksumLine);
-if (runtimeLine) body = withLine(body, RUNTIME_LINE, runtimeLine);
+// 3. Publish (a draft) and mark as latest, with this APK's runtime version (hidden) in the notes.
+const body = withRuntime(release.body ?? '', runtimeLine);
 release = await github(`/releases/${release.id}`, {
   method: 'PATCH',
   body: JSON.stringify({ body, draft: false, make_latest: 'true' }),
 });
 
-console.log(`Published ${ASSET_NAME} (${(apk.length / 1024 / 1024).toFixed(1)} MB) on ${release.html_url}`);
+console.log(`Published ${ASSET_NAME} (${(apk.length / 1024 / 1024).toFixed(1)} MB, SHA-256 ${checksum}) on ${release.html_url}`);
 console.log(`Latest download: https://github.com/${repo}/releases/latest/download/${ASSET_NAME}`);

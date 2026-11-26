@@ -73,7 +73,6 @@ jobs:
         env:
           APK_PATH: ${{ steps.download.outputs.artifact_path }}
           APP_VERSION: ${{ needs.build_android.outputs.app_version }}
-          VERSION_CODE: ${{ needs.build_android.outputs.app_build_version }}
           COMMIT: ${{ needs.build_android.outputs.git_commit_hash }}
           RUNTIME_VERSION: ${{ needs.build_android.outputs.runtime_version }}
         run: |

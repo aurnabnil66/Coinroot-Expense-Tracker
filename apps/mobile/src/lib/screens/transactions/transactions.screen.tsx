@@ -3,7 +3,7 @@ import { useMemo, useState, useTransition } from 'react';
 import { SectionList } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { GreetingHeader, LedgerPending, QuickAdd, TransactionRow } from '@/lib/components';
+import { GreetingHeader, LedgerPending, QuickAdd, TransactionRow, UpdateBanner } from '@/lib/components';
 import { BottomTabInset, MaxContentWidth } from '@/lib/constants';
 import { Box } from '@/lib/gluestack-ui/box';
 import { HStack } from '@/lib/gluestack-ui/hstack';
@@ -102,7 +102,10 @@ export function TransactionsScreen() {
         sections={sections}
         keyExtractor={(tx) => tx.id}
         ListHeaderComponent={
-          simpleMode ? <QuickAdd accounts={accounts} categories={categories} transactions={recent ?? []} /> : undefined
+          <>
+            <UpdateBanner />
+            {simpleMode ? <QuickAdd accounts={accounts} categories={categories} transactions={recent ?? []} /> : null}
+          </>
         }
         stickySectionHeadersEnabled={false}
         contentContainerStyle={{

@@ -81,7 +81,7 @@ const faqs = [
   },
   {
     q: 'Is installing an APK safe?',
-    a: 'Download Coinroot only from this site or its GitHub Releases page. Android will ask you to allow installs from your browser the first time; you can turn that off again afterwards. To update, install the new version over the old one: your data stays.',
+    a: 'Download Coinroot only from this site or its GitHub Releases page. Android will ask you to allow installs from your browser the first time; you can turn that off again afterwards. Small fixes arrive inside the app by themselves; when a new version is out, the app shows a Download button. Install it over the old one: your data stays.',
   },
   {
     q: 'Does it work with my bank or mobile wallet?',
@@ -89,7 +89,7 @@ const faqs = [
   },
   {
     q: 'Do I need the internet?',
-    a: 'No. Everything works offline. The internet is only used if you choose to sign in and sync.',
+    a: 'No. Everything works offline. The internet is only used to get app updates (you can turn off the daily check in Settings) and, if you choose to, to sign in and sync.',
   },
   {
     q: 'What if I lose or change my phone?',
@@ -300,9 +300,25 @@ const releaseDate =
                 <>
                   <h2>Get Coinroot for Android.</h2>
                   <p>
-                    Free, as a direct download (APK). Tap the button on your phone (on a computer, scan
-                    the code with it), then open the file to install. New versions install over the old
-                    one and keep your data.
+                    Free, as a direct download (APK). Installing takes a minute:
+                  </p>
+                  <ol class="install-steps">
+                    <li>
+                      <strong>Download.</strong> Tap the button on your phone, or scan the code with its
+                      camera.
+                    </li>
+                    <li>
+                      <strong>Allow it once.</strong> Open the file. The first time, Android asks to allow
+                      installs from your browser: tap Settings, turn it on, then go back.
+                    </li>
+                    <li>
+                      <strong>Install.</strong> Tap Install, then Open. You can turn the browser
+                      permission off again afterwards.
+                    </li>
+                  </ol>
+                  <p class="update-note">
+                    Updates: small fixes arrive by themselves. When a new version is out, the app tells
+                    you; install it over the old one and your data stays.
                   </p>
                   <div class="download-actions">
                     <a class="btn btn-primary" href={APK_URL} download>
@@ -896,6 +912,27 @@ const releaseDate =
   }
   .release-link:hover {
     color: #bae6fd;
+  }
+  .install-steps {
+    display: grid;
+    gap: 10px;
+    max-width: 52ch;
+    margin: 14px 0 0;
+    padding-left: 1.3em;
+    color: rgb(255 255 255 / 0.8);
+  }
+  .install-steps li::marker {
+    color: #bae6fd;
+    font-weight: 600;
+  }
+  .install-steps strong {
+    color: #fff;
+    font-weight: 600;
+  }
+  .download p.update-note {
+    margin-top: 14px;
+    font-size: 15px;
+    color: rgb(255 255 255 / 0.7);
   }
   .download .release-meta {
     margin-top: 18px;

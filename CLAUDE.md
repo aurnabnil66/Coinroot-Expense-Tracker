@@ -33,7 +33,7 @@ bun install          # install everything
 bun run dev:mobile   # Metro for the mobile app (or `bun start` in apps/mobile)
 bun run dev:landing  # the landing page at http://localhost:4321
 bun run check        # lint + typecheck + test + db:check + build in every workspace (Turborepo)
-bun run release      # build the production APK locally and publish it as a GitHub Release (main only)
+bun run release      # build the production APK locally and publish it as a GitHub Release (main only; needs apps/mobile/release-notes.md)
 bun run ota "…"      # publish an OTA update to installed APKs (main only)
 bun run lint | typecheck | test | db:check | build
 ```
