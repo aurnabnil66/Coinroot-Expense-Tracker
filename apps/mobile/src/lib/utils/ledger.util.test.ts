@@ -52,8 +52,8 @@ const tx = (overrides: Partial<Transaction> & Pick<Transaction, 'type' | 'fromId
 const salaryAcc = account('salary-acc', { openingBalance: 500000 });
 const mainBank = account('main-bank', { openingBalance: 1000000 });
 const cash = account('cash', { type: 'cash' });
-const dps = account('dps', { type: 'savings' });
-const accounts = [salaryAcc, mainBank, cash, dps];
+const savingsAcc = account('savings-acc', { type: 'savings' });
+const accounts = [salaryAcc, mainBank, cash, savingsAcc];
 
 const salary = tx({ type: 'income', fromId: 'src-salary', toId: 'salary-acc', amount: 5000000 });
 const moveToMain = tx({ type: 'transfer', fromId: 'salary-acc', toId: 'main-bank', amount: 4500000 });
@@ -61,7 +61,7 @@ const atm = tx({ type: 'transfer', fromId: 'main-bank', toId: 'cash', amount: 50
 const cng = tx({ type: 'expense', fromId: 'cash', toId: 'cat-transport', amount: 40000, parentId: atm.id });
 const rickshaw = tx({ type: 'expense', fromId: 'cash', toId: 'cat-transport', amount: 5000, parentId: atm.id });
 const groceries = tx({ type: 'expense', fromId: 'main-bank', toId: 'cat-groceries', amount: 57000 });
-const installment = tx({ type: 'transfer', fromId: 'main-bank', toId: 'dps', amount: 500000 });
+const installment = tx({ type: 'transfer', fromId: 'main-bank', toId: 'savings-acc', amount: 500000 });
 const oldExpense = tx({ type: 'expense', fromId: 'main-bank', toId: 'cat-food', amount: 99900, date: '2026-10-31' });
 const all = [salary, moveToMain, atm, cng, rickshaw, groceries, installment, oldExpense];
 
@@ -70,7 +70,7 @@ describe('accountBalance', () => {
     expect(accountBalance(salaryAcc, all)).toBe(500000 + 5000000 - 4500000);
     expect(accountBalance(mainBank, all)).toBe(1000000 + 4500000 - 50000 - 57000 - 500000);
     expect(accountBalance(cash, all)).toBe(50000 - 40000 - 5000);
-    expect(accountBalance(dps, all)).toBe(500000);
+    expect(accountBalance(savingsAcc, all)).toBe(500000);
   });
 
   it('ignores transactions before the opening date', () => {
@@ -210,15 +210,15 @@ describe('balanceAdjustment', () => {
 });
 
 describe('moneyTree', () => {
-  // Salary → office → primary → ATM → cash spending, plus a DPS installment and an unlinked expense.
+  // Salary → office → primary → ATM → cash spending, plus a savings installment and an unlinked expense.
   const salary = tx({ id: 'salary', type: 'income', fromId: 'src-salary', toId: 'office', amount: 8_500_000, date: '2026-11-01' });
   const toPrimary = tx({ id: 'to-primary', type: 'transfer', fromId: 'office', toId: 'primary', amount: 7_000_000, date: '2026-11-02', parentId: 'salary' });
   const atm = tx({ id: 'atm', type: 'transfer', fromId: 'primary', toId: 'cash', amount: 1_000_000, date: '2026-11-03', parentId: 'to-primary' });
-  const dps = tx({ id: 'dps', type: 'transfer', fromId: 'primary', toId: 'dps-acc', amount: 500_000, date: '2026-11-10', parentId: 'to-primary' });
+  const installment2 = tx({ id: 'installment', type: 'transfer', fromId: 'primary', toId: 'savings-acc', amount: 500_000, date: '2026-11-10', parentId: 'to-primary' });
   const lunch = tx({ id: 'lunch', type: 'expense', fromId: 'cash', toId: 'food', amount: 120_050, date: '2026-11-04', parentId: 'atm' });
   const cng = tx({ id: 'cng', type: 'expense', fromId: 'cash', toId: 'transport', amount: 35_000, date: '2026-11-03', parentId: 'atm' });
   const unlinked = tx({ id: 'unlinked', type: 'expense', fromId: 'cash', toId: 'food', amount: 999 });
-  const all = [salary, toPrimary, atm, dps, lunch, cng, unlinked];
+  const all = [salary, toPrimary, atm, installment2, lunch, cng, unlinked];
 
   it('walks up to the root and down through everything paid from it, oldest first', () => {
     const tree = moneyTree('lunch', all)!;
@@ -229,7 +229,7 @@ describe('moneyTree', () => {
       '    atm',
       '      cng',
       '      lunch',
-      '    dps',
+      '    installment',
     ]);
     expect(tree.size).toBe(6);
     expect(tree.truncated).toBe(false);
@@ -239,9 +239,9 @@ describe('moneyTree', () => {
     const tree = moneyTree('salary', all)!;
     const leftOf = new Map(flattenMoneyTree(tree.root).map((n) => [n.tx.id, n.left]));
     expect(leftOf.get('salary')).toBe(1_500_000); // still in the office account
-    expect(leftOf.get('to-primary')).toBe(5_500_000); // after the ATM and the DPS installment
+    expect(leftOf.get('to-primary')).toBe(5_500_000); // after the ATM and the savings installment
     expect(leftOf.get('atm')).toBe(844_950); // cash left after CNG and lunch
-    expect(leftOf.get('dps')).toBe(500_000);
+    expect(leftOf.get('installment')).toBe(500_000);
     expect(leftOf.get('lunch')).toBe(0);
     expect(tree.spent).toBe(155_050);
     expect(tree.spent + tree.left).toBe(salary.amount);

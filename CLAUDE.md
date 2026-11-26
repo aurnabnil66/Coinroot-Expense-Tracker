@@ -8,7 +8,8 @@ Coinroot is a personal money tracker for one user in Bangladesh (BDT / taka), lo
 | `apps/landing-page/` | The landing page (Astro, fully static, plain CSS). Read `apps/landing-page/CLAUDE.md` before working there. |
 | `packages/` | Everything shared between apps (current or future: mobile, web, desktop), one folder each, as a workspace package `@coinroot/<name>`. See **Shared packages**. |
 | `packages/supabase/` | `@coinroot/supabase`: the optional cloud backend (Supabase CLI config + SQL migrations), shared by every app. The CLI runs with `--workdir packages` (it looks for `<workdir>/supabase/`); use the package's scripts. |
-| `.github/workflows/` | CI (`ci.yml`: `turbo run lint typecheck test db:check build`), the Claude PR review, and `trigger-eas-workflow.yml` (optional cloud release: on a `v*` tag or by hand, runs the EAS release workflow). Releases and OTA updates normally run locally: `bun run release`, `bun run ota "…"`; see **Releases** and **OTA updates** in `apps/mobile/CLAUDE.md`. |
+| `.github/screenshots/` | App screenshots for the README (light and dark, 540 × 1170 PNG), taken on the Android emulator with "Explore with sample data" and the demo status bar; never real data. |
+| `.github/workflows/` | CI (`ci.yml`: `turbo run lint typecheck test db:check build`) and `trigger-eas-workflow.yml` (optional cloud release: on a `v*` tag or by hand, runs the EAS release workflow). Releases and OTA updates normally run locally: `bun run release`, `bun run ota "…"`; see **Releases** and **OTA updates** in `apps/mobile/CLAUDE.md`. |
 
 ## Tooling
 
@@ -33,7 +34,7 @@ bun install          # install everything
 bun run dev:mobile   # Metro for the mobile app (or `bun start` in apps/mobile)
 bun run dev:landing  # the landing page at http://localhost:4321
 bun run check        # lint + typecheck + test + db:check + build in every workspace (Turborepo)
-bun run release      # build the production APK locally and publish it as a GitHub Release (main only)
+bun run release      # build the production APK locally and publish it as a GitHub Release (main only; needs apps/mobile/release-notes.md)
 bun run ota "…"      # publish an OTA update to installed APKs (main only)
 bun run lint | typecheck | test | db:check | build
 ```

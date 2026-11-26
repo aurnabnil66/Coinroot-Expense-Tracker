@@ -104,7 +104,7 @@ export function SummaryScreen() {
             </Box>
             <VStack className="flex-1">
               <Text className="text-sm font-medium text-muted-foreground">Moved to savings</Text>
-              <Text className="text-xs text-muted-foreground">DPS and savings deposits</Text>
+              <Text className="text-xs text-muted-foreground">Deposits into savings accounts</Text>
             </VStack>
             <AmountText amount={summary.movedToSavings} className="text-lg" />
           </Card>

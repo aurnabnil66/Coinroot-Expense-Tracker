@@ -77,7 +77,6 @@ try {
   run('node', ['scripts/publish-github-release.mjs'], {
     ...publishEnv,
     APK_PATH: apkPath,
-    VERSION_CODE: apk.versionCode ?? '',
     COMMIT: commit,
     RUNTIME_VERSION: runtime,
   });

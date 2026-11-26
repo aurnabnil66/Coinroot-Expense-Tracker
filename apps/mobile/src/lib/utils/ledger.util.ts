@@ -68,7 +68,7 @@ export type MonthlySummary = {
   expenses: number;
   /** income − expenses (transfers are never counted). */
   saved: number;
-  /** Transfers into savings accounts (e.g. DPS installments). */
+  /** Transfers into savings accounts (e.g. monthly savings installments). */
   movedToSavings: number;
   byCategory: CategoryTotal[];
 };
