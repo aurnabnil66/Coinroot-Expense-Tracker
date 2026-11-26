@@ -10,8 +10,15 @@ on:
   issue_comment:
     types: [created]
 
+# One review per PR at a time: a new review request cancels a running one. Every other comment
+# (bots like Vercel, or the review's own comment) gets a group of its own, so it can't cancel a
+# review in progress; its job is skipped by `if` below.
 concurrency:
-  group: claude-review-${{ github.event.pull_request.number || github.event.issue.number }}
+  group: >-
+    ${{ (github.event_name == 'pull_request' ||
+      (contains(github.event.comment.body, '@claude review') && github.event.comment.user.type != 'Bot'))
+      && format('claude-review-{0}', github.event.pull_request.number || github.event.issue.number)
+      || format('claude-review-ignored-{0}', github.run_id) }}
   cancel-in-progress: true
 
 jobs:
@@ -33,7 +40,7 @@ jobs:
     steps:
       # A comment event checks out main by default; review the PR's own commit instead.
       # Safe: the review only reads files and runs `gh pr` commands, never the PR's code.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
           ref: ${{ github.event_name == 'issue_comment' && format('refs/pull/{0}/head', github.event.issue.number) || '' }}
